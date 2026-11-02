@@ -1,0 +1,80 @@
+# =============================================================================
+# Dockerfile.v2 – Ambiente ROS 2 unificato
+#
+# Dipendenze aggregate automaticamente dai Dockerfile delle repo in src/.
+# Esegui prima:  ./scripts/extract_deps.sh
+# Poi builda:    docker build -f Dockerfile.v2 -t ambiente_robotica_v2 .
+# =============================================================================
+
+# ─── ARG globali ─────────────────────────────────────────────────────────────
+ARG ROS_BASE_IMAGE=osrf/ros:humble-desktop-full
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+
+# =============================================================================
+# STAGE 1: Dipendenze di sistema (APT)
+# Cache-friendly: questo layer cambia solo se apt-packages.txt cambia
+# =============================================================================
+FROM ${ROS_BASE_IMAGE} AS system-deps
+
+SHELL ["/bin/bash", "-c"]
+
+# Copia la lista APT generata dallo script extract_deps.sh
+COPY .docker/apt-packages.txt /tmp/apt-packages.txt
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       python3-pip \
+       git \
+       $(cat /tmp/apt-packages.txt | grep -v '^\s*#' | grep -v '^\s*$' | tr '\n' ' ') \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# STAGE 2: Dipendenze Python (pip)
+# Separato da APT per cache indipendente – PyTorch è pesante!
+# =============================================================================
+FROM system-deps AS python-deps
+
+ARG TORCH_INDEX_URL
+
+# Prima i pacchetti pesanti (torch CPU-only) – layer dedicato per cache
+RUN pip3 install --no-cache-dir \
+    torch torchvision \
+    --index-url "${TORCH_INDEX_URL}"
+
+# Poi i requirements dalle repo (cambiano più spesso)
+COPY .docker/requirements.txt /tmp/requirements.txt
+RUN pip3 install --no-cache-dir -r /tmp/requirements.txt 2>/dev/null || true
+
+# Infine eventuali pacchetti pip inline estratti dai Dockerfile
+COPY .docker/pip-packages.txt /tmp/pip-packages.txt
+RUN if [ -s /tmp/pip-packages.txt ]; then \
+        pip3 install --no-cache-dir \
+        $(cat /tmp/pip-packages.txt | grep -v '^\s*#' | grep -v '^\s*$' | tr '\n' ' ') \
+        2>/dev/null || true; \
+    fi
+
+# Pacchetti aggiuntivi dal Dockerfile originale non coperti dai repo
+RUN pip3 install --no-cache-dir scipy
+
+# =============================================================================
+# STAGE 3: Workspace setup + rosdep
+# =============================================================================
+FROM python-deps AS workspace
+
+# rosdep per risolvere dipendenze dichiarate nei package.xml
+# (come fa lbr_fri_ros2_stack)
+RUN rosdep update --rosdistro=${ROS_DISTRO} 2>/dev/null || true
+
+# Setup bashrc per sourcing automatico
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc \
+    && echo '[ -f /workspace/install/local_setup.bash ] && source /workspace/install/local_setup.bash' >> ~/.bashrc \
+    && echo '[ -f /workspace/ROS2_workspace/install/local_setup.bash ] && source /workspace/ROS2_workspace/install/local_setup.bash' >> ~/.bashrc
+
+WORKDIR /workspace
+
+# Entrypoint che sourca ROS e poi esegue il comando
+COPY scripts/entrypoint.v2.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/bin/bash"]

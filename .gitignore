@@ -1,0 +1,109 @@
+# =============================================================================
+# .gitignore per Progetto ROS - Pipeline di Simulazione Chirurgica
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 1. Dati in Input (Mesh pesanti 3D STL/OBJ/FBX, dataset, immagini grezze)
+# -----------------------------------------------------------------------------
+data/inputs/*
+!data/inputs/.gitkeep
+!data/inputs/README.md
+
+# File 3D e immagini pesanti ovunque nel progetto
+*.obj
+*.stl
+*.ply
+*.fbx
+*.dae
+*.blend
+*.jpg
+*.jpeg
+*.png
+*.mp4
+*.avi
+*.npy
+*.npz
+
+# -----------------------------------------------------------------------------
+# 2. Dati in Output (Log, maschere, point clouds, render generati dalla pipeline)
+# -----------------------------------------------------------------------------
+data/outputs/*
+!data/outputs/.gitkeep
+!data/outputs/README.md
+/outputs/
+/output/
+/artifacts/
+
+# -----------------------------------------------------------------------------
+# 3. Sub-repository e Workspace Esterni
+# -----------------------------------------------------------------------------
+robot-visual-simulation-platform/
+ROS2_workspace/
+archive/
+
+# -----------------------------------------------------------------------------
+# 4. Cartelle di Build e Artefatti Compilati (ROS / Colcon / CMake / C++)
+# -----------------------------------------------------------------------------
+build/
+install/
+log/
+**/build/
+**/install/
+**/log/
+.colcon/
+COLCON_IGNORE
+
+# -----------------------------------------------------------------------------
+# 5. Modelli e Pesi Neurali (Checkpoint, cache Hugging Face, Ollama)
+# -----------------------------------------------------------------------------
+models/
+.agent_harnesses.json
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+*.weights
+.cache/
+data/inputs/.cache/
+
+# -----------------------------------------------------------------------------
+# 6. Python Cache & Virtual Environments
+# -----------------------------------------------------------------------------
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# -----------------------------------------------------------------------------
+# 7. IDE, Editor e OS
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
