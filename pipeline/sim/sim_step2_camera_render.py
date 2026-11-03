@@ -59,7 +59,7 @@ def get_or_create_all_instruments_obj(base_dir):
 
 def run_sim_camera_render(plan_path=None, config_path=None, output_path=None, mode="all", seed=42):
     print("\n" + "="*70)
-    print(f"📷 [PIPELINE SIM - STAGE 2] RENDER TELECAMERA RGB-D SU SCENA 3D (MODE: {mode.upper()})")
+    print(f"[PIPELINE SIM - STAGE 2] RENDER TELECAMERA RGB-D SU SCENA 3D (MODE: {mode.upper()})")
     print("   (Zero fotografie 2D usate / Rendering puro da geometria 3D)")
     print("="*70)
 
@@ -121,7 +121,7 @@ def run_sim_camera_render(plan_path=None, config_path=None, output_path=None, mo
     if mode == "all":
         # Scena 3D completa All_Instruments posizionata all'interno del Vassoio 2 (Origine)
         mesh_3d_file = get_or_create_all_instruments_obj(base_dir)
-        print(f"📦 Caricamento Scena 3D Completa: {os.path.basename(mesh_3d_file)} all'interno di {source_tray_key}")
+        print(f"Caricamento Scena 3D Completa: {os.path.basename(mesh_3d_file)} all'interno di {source_tray_key}")
         scale_vec = [0.01, 0.01, 0.01] # cm -> metri
 
         # Rotazione per adagiare gli strumenti sul piano orizzontale (Z up)
@@ -152,7 +152,7 @@ def run_sim_camera_render(plan_path=None, config_path=None, output_path=None, mo
         bounds = inspect_stl_bounds(stl_path)
         scale_vec = bounds["recommended_scale"]
         q_rot = bounds["flat_orientation"]
-        print(f"📦 Caricamento Strumento STL nel Vassoio: {os.path.basename(stl_path)}")
+        print(f"Caricamento Strumento STL nel Vassoio: {os.path.basename(stl_path)}")
         print(f"   -> Dimensioni: {[round(d*100, 1) for d in bounds['scaled_dimensions_m']]} cm | Unità: {bounds['detected_unit']}")
 
         # Ottimizzazione rendering per PyBullet TinyRenderer se la mesh supera 50.000 triangoli
@@ -167,13 +167,13 @@ def run_sim_camera_render(plan_path=None, config_path=None, output_path=None, mo
                 os.makedirs(cache_dir, exist_ok=True)
                 opt_obj = os.path.join(cache_dir, f"{os.path.splitext(os.path.basename(stl_path))[0]}_opt.obj")
                 if not os.path.exists(opt_obj):
-                    print(f"⚙️ Ottimizzazione poligonale per TinyRenderer: {len(m_test.faces)} facce -> Convex Hull...")
+                    print(f"Ottimizzazione poligonale per TinyRenderer: {len(m_test.faces)} facce -> Convex Hull...")
                     hull = m_test.convex_hull
                     hull.export(opt_obj)
                 mesh_3d_file = opt_obj
-                print(f"✅ Mesh ottimizzata pronta per il rendering: {os.path.basename(mesh_3d_file)}")
+                print(f"Mesh ottimizzata pronta per il rendering: {os.path.basename(mesh_3d_file)}")
         except Exception as e:
-            print(f"ℹ️ Uso mesh originale ({e})")
+            print(f"Uso mesh originale ({e})")
 
         tray_top_z = tray_pos[2] + tray_dims[2] / 2.0
         spawn_pos = [tray_pos[0], tray_pos[1], tray_top_z + 0.008]
@@ -259,7 +259,7 @@ def run_sim_camera_render(plan_path=None, config_path=None, output_path=None, mo
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
-    print(f"✅ Vista telecamera RGB-D simulata salvata:")
+    print(f"Vista telecamera RGB-D simulata salvata:")
     print(f"   - Immagine RGB telecamera: {out_rgb_path}")
     print(f"   - Mappa di profondità    : {out_depth_path}")
     print(f"   - Report JSON            : {output_path}")

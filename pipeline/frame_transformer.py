@@ -249,7 +249,7 @@ class FrameTransformer:
         t2.transform.rotation.w = 1.0
 
         broadcaster.sendTransform([t1, t2])
-        node.get_logger().info("✅ TF statici pubblicati: lbr_link_0 -> camera_link -> camera_optical_frame")
+        node.get_logger().info("TF statici pubblicati: lbr_link_0 -> camera_link -> camera_optical_frame")
 
 
 def export_pointcloud_ply(filepath, points_xyz, colors_rgb=None):

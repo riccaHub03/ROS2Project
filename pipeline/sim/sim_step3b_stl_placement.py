@@ -64,7 +64,7 @@ def compute_mesh_pca(vertices):
 
 def run_sim_stl_placement(plan_path=None, config_path=None, output_path=None, tool_override=None, seed=42):
     print("\n" + "="*70)
-    print("📐 [PIPELINE SIM - STAGE 3B] POSIZIONAMENTO STL NEL VASSOIO & REPORT VISIVO PNG")
+    print("[PIPELINE SIM - STAGE 3B] POSIZIONAMENTO STL NEL VASSOIO & REPORT VISIVO PNG")
     print("="*70)
 
     if seed is not None:
@@ -104,7 +104,7 @@ def run_sim_stl_placement(plan_path=None, config_path=None, output_path=None, to
     if not stl_path or not os.path.exists(stl_path):
         raise FileNotFoundError(f"Nessuna mesh STL trovata per '{target_keyword}'!")
 
-    print(f"📦 Mesh STL target identificata: {os.path.basename(stl_path)}")
+    print(f"Mesh STL target identificata: {os.path.basename(stl_path)}")
     mesh = trimesh.load(stl_path)
     if hasattr(mesh, "geometry"):
         mesh = list(mesh.geometry.values())[0]
@@ -240,7 +240,7 @@ def run_sim_stl_placement(plan_path=None, config_path=None, output_path=None, to
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
-    print(f"✅ Strumento STL posizionato con successo dentro {source_tray_key}:")
+    print(f"Strumento STL posizionato con successo dentro {source_tray_key}:")
     print(f"   - Baricentro (Base Frame): {tool_world_pos} m")
     print(f"   - Orientamento Yaw       : {yaw_deg:.1f}° (Piatto sul fondo vassoio)")
     print(f"   - Margine minimo pareti  : {min(dist_wall_neg_x, dist_wall_pos_x, dist_wall_neg_y, dist_wall_pos_y)*1000:.0f} mm")

@@ -31,7 +31,7 @@ def render_offline_video(trajectory_log=None, p_tool_initial=None, p_tray_final=
                 p_tray_final = data.get("tray_final_xyz", p_tray_final)
 
     if not trajectory_log:
-        print("ℹ️ Nessuna traiettoria registrata trovata per il rendering offline.")
+        print("Nessuna traiettoria registrata trovata per il rendering offline.")
         return None
 
     if output_path is None:
@@ -40,7 +40,7 @@ def render_offline_video(trajectory_log=None, p_tool_initial=None, p_tray_final=
         output_path = os.path.join(out_dir, "medical_pick_and_place.mp4")
 
     print("\n" + "=" * 65)
-    print("🎬 AVVIO RENDERING VIDEO OFFLINE POST-CINEMATICA (ALTA DEFINIZIONE)")
+    print("AVVIO RENDERING VIDEO OFFLINE POST-CINEMATICA (ALTA DEFINIZIONE)")
     print("=" * 65)
     print(f"   -> Traiettoria da riprodurre: {len(trajectory_log)} campioni temporali")
     print(f"   -> Risoluzione: 1280x720 (HD widescreen) a {fps} FPS")
@@ -121,7 +121,7 @@ def render_offline_video(trajectory_log=None, p_tool_initial=None, p_tray_final=
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
-    print(f"⏳ Rendering in corso ({num_frames} frames a {fps} FPS)...")
+    print(f"Rendering in corso ({num_frames} frames a {fps} FPS)...")
     last_idx = 0
     flange_index = 6 # End effector link 7
 
@@ -166,7 +166,7 @@ def render_offline_video(trajectory_log=None, p_tool_initial=None, p_tray_final=
     writer.release()
     p.disconnect(physicsClientId=client)
 
-    print(f"✅ VIDEO HD COMPLETATO CON SUCCESSO:")
+    print(f"VIDEO HD COMPLETATO CON SUCCESSO:")
     print(f"   -> File salvato: {output_path}")
     print(f"   -> Risoluzione: {width}x{height} (720p HD Widescreen), {num_frames} frames, {total_duration:.1f}s")
     print(f"   -> Qualità nitida, senza scatti e senza ritardi di rete!")

@@ -92,12 +92,12 @@ class MedicalRobotExecutor(Node):
             pass
 
     def wait_for_simulator_ready(self, timeout=25.0):
-        print("⏳ Connessione alla piattaforma robotica ROS 2 in corso (/lbr_tutorial/status)...")
+        print("Connessione alla piattaforma robotica ROS 2 in corso (/lbr_tutorial/status)...")
         start = time.monotonic()
         while rclpy.ok() and time.monotonic() - start < timeout:
             rclpy.spin_once(self, timeout_sec=0.1)
             if self.ready and self.path_pub.get_subscription_count() > 0:
-                print("✅ Simulatore KUKA LBR iiwa collegato e pronto!")
+                print("Simulatore KUKA LBR iiwa collegato e pronto!")
                 return True
         return False
 
@@ -120,13 +120,13 @@ class MedicalRobotExecutor(Node):
                     req_id = ev.get('request_id')
                     break
                 elif ev.get('event') == 'rejected':
-                    print(f"   ❌ Rifiutato dal controllore: {ev.get('reason')}")
+                    print(f"   Rifiutato dal controllore: {ev.get('reason')}")
                     return False
             if req_id is not None:
                 break
 
         if req_id is None:
-            print("   ❌ Timeout in attesa di accettazione della traiettoria")
+            print("   Timeout in attesa di accettazione della traiettoria")
             return False
 
         start = time.monotonic()
@@ -139,15 +139,15 @@ class MedicalRobotExecutor(Node):
                         print(f"   -> {step_name}: Completato con moto fluido! [Arrivo: ({target_xyz[0]:.2f}, {target_xyz[1]:.2f}, {target_xyz[2]:.2f})m]")
                         return True
                     elif ev.get('event') in ('failed', 'rejected'):
-                        print(f"   ❌ Errore esecuzione: {ev.get('reason')}")
+                        print(f"   Errore esecuzione: {ev.get('reason')}")
                         return False
 
-        print(f"   ❌ Timeout esecuzione per {step_name}")
+        print(f"   Timeout esecuzione per {step_name}")
         return False
 
     def execute_pick_and_place(self, p_centroid, destination_tray="tray_1", grasp_quat=None):
         print("\n" + "="*65)
-        print("🤖 [FASE 4/4] ESECUZIONE FLUIDA PICK & PLACE (CONTINUOUS BLENDING)")
+        print("[FASE 4/4] ESECUZIONE FLUIDA PICK & PLACE (CONTINUOUS BLENDING)")
         print("="*65)
 
         # Coordinate dei vassoi dalla configurazione centralizzata
@@ -194,7 +194,7 @@ class MedicalRobotExecutor(Node):
         self.tool_grasped = False
 
         # MACRO-SEQUENZA 1: Discesa Fluida Continua verso lo Strumento
-        print("\n▶ Avvio Macro-Fase 1/3: Discesa Continua e Presa 6-DoF sullo Strumento...")
+        print("\nAvvio Macro-Fase 1/3: Discesa Continua e Presa 6-DoF sullo Strumento...")
         traj_grasp = [
             (p_stage, down_quat),
             (p_approach, tool_orient),
@@ -203,7 +203,7 @@ class MedicalRobotExecutor(Node):
         if not self.send_cartesian_trajectory(traj_grasp, "Discesa e Presa"):
             return False
 
-        print("   🤏 Presa fisica dello strumento attivata (comando pinza)...")
+        print("   Presa fisica dello strumento attivata (comando pinza)...")
         self.gripper_pub.publish(String(data="grasp"))
         self.tool_grasped = True
         t_pause = time.monotonic()
@@ -211,7 +211,7 @@ class MedicalRobotExecutor(Node):
             rclpy.spin_once(self, timeout_sec=0.05)
 
         # MACRO-SEQUENZA 2: Sollevamento, Trasferimento in Quota e Rilascio nel Vassoio
-        print(f"\n▶ Avvio Macro-Fase 2/3: Trasferimento in Quota e Rilascio nel Vassoio ({tray_key})...")
+        print(f"\nAvvio Macro-Fase 2/3: Trasferimento in Quota e Rilascio nel Vassoio ({tray_key})...")
         traj_place = [
             (p_lift, tool_orient),
             (p_tray_above, down_quat),
@@ -220,7 +220,7 @@ class MedicalRobotExecutor(Node):
         if not self.send_cartesian_trajectory(traj_place, f"Trasferimento verso {tray_key}"):
             return False
 
-        print("   👐 Rilascio fisico: apertura pinza e deposito per gravità...")
+        print("   Rilascio fisico: apertura pinza e deposito per gravità...")
         self.gripper_pub.publish(String(data="release"))
         self.tool_grasped = False
         t_pause = time.monotonic()
@@ -228,7 +228,7 @@ class MedicalRobotExecutor(Node):
             rclpy.spin_once(self, timeout_sec=0.05)
 
         # MACRO-SEQUENZA 3: Risalita e Rientro Morbido in Standby
-        print("\n▶ Avvio Macro-Fase 3/3: Risalita e Rientro in Standby...")
+        print("\nAvvio Macro-Fase 3/3: Risalita e Rientro in Standby...")
         traj_home = [
             (p_tray_above, down_quat),
             (p_home, down_quat)
@@ -239,7 +239,7 @@ class MedicalRobotExecutor(Node):
         self.recording_active = False
 
         print("\n" + "=" * 65)
-        print("🎉 MISSIONE CHIRURGICA COMPLETATA CON SUCCESSO (FLUIDITÀ CONTINUA)!")
+        print("MISSIONE CHIRURGICA COMPLETATA CON SUCCESSO (FLUIDITÀ CONTINUA)!")
         print("=" * 65)
 
         self.save_trajectory_and_render_video(p_grasp, p_tray_deposit)
@@ -259,7 +259,7 @@ class MedicalRobotExecutor(Node):
         }
         with open(log_path, "w") as f:
             json.dump(log_data, f, indent=2)
-        print(f"📝 Traiettoria giunti registrata con successo: {log_path} ({len(self.recorded_trajectory)} punti)")
+        print(f"Traiettoria giunti registrata con successo: {log_path} ({len(self.recorded_trajectory)} punti)")
 
         # 2. Rendering offline video HD
         render_offline_video(

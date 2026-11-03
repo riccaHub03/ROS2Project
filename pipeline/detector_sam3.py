@@ -13,7 +13,7 @@ from transformers import Sam3Model, Sam3Processor
 
 def detect_instrument_mask(image_path=None, target_prompt="surgical scissors", config=None):
     print("\n" + "="*65)
-    print("👁️  [FASE 2/4] SEGMENTAZIONE VISIVA SAM 3 (INSTANCE SELECTION)")
+    print(" [FASE 2/4] SEGMENTAZIONE VISIVA SAM 3 (INSTANCE SELECTION)")
     print(f"   Target Prompt: '{target_prompt}'")
     print("="*65)
 
@@ -32,10 +32,10 @@ def detect_instrument_mask(image_path=None, target_prompt="surgical scissors", c
         if image_path is None:
             raise FileNotFoundError("Nessuna immagine chirurgica trovata in data/inputs/ o /workspace/")
 
-    print(f"📷 Immagine di input: {image_path}")
+    print(f"Immagine di input: {image_path}")
 
     # Caricamento del modello SAM 3 (pesi locali HuggingFace su CPU)
-    print("⏳ Caricamento pesi facebook/sam3...")
+    print("Caricamento pesi facebook/sam3...")
     model_id = "facebook/sam3"
     processor = Sam3Processor.from_pretrained(model_id, local_files_only=True)
     model = Sam3Model.from_pretrained(model_id, local_files_only=True).to("cpu")
@@ -69,13 +69,13 @@ def detect_instrument_mask(image_path=None, target_prompt="surgical scissors", c
         best_score = float(scores[best_idx])
         print(f" -> Istanze totali identificate: {len(scores)}")
         for idx, sc in enumerate(scores):
-            status_tag = "⭐ [SELEZIONATA PER LA PRESA]" if idx == best_idx else "  [Candidata alternativa]"
+            status_tag = "[SELEZIONATA PER LA PRESA]" if idx == best_idx else "  [Candidata alternativa]"
             print(f"    - Istanza {idx}: Confidenza {sc * 100:.1f}% {status_tag}")
 
         # Estrae SOLO la singola istanza con massima confidenza (Instance Selection)
         selected_mask = (masks[best_idx] > 0).astype(np.uint8) * 255
     else:
-        print("⚠️ Nessuna istanza trovata per il prompt specificato.")
+        print("Nessuna istanza trovata per il prompt specificato.")
         selected_mask = np.zeros((new_h, new_w), dtype=np.uint8)
 
     mask_img = Image.fromarray(selected_mask).resize((orig_w, orig_h), Image.Resampling.NEAREST)
@@ -104,6 +104,6 @@ def detect_instrument_mask(image_path=None, target_prompt="surgical scissors", c
     out_overlay_path = os.path.join(out_dir, "surgical_overlay.png")
     Image.fromarray(overlay_np).save(out_overlay_path)
 
-    print(f"✅ Maschera binaria salvata: {out_mask_path}")
-    print(f"✅ Overlay a colori salvato : {out_overlay_path}")
+    print(f"Maschera binaria salvata: {out_mask_path}")
+    print(f"Overlay a colori salvato : {out_overlay_path}")
     return out_mask_path

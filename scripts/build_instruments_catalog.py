@@ -38,7 +38,7 @@ def build_catalog(base_dir=None, output_json_path=None):
     }
 
     if not os.path.exists(ds_root):
-        print(f"⚠️ Cartella dataset non trovata: {ds_root}")
+        print(f"Cartella dataset non trovata: {ds_root}")
         return catalog
 
     categories = sorted([d for d in os.listdir(ds_root) if os.path.isdir(os.path.join(ds_root, d))])
@@ -118,11 +118,11 @@ def build_catalog(base_dir=None, output_json_path=None):
         json.dump(catalog, f, indent=2)
 
     print("\n" + "="*70)
-    print("📚 CATALOGO STRUMENTI CHIRURGICI 3D GENERATO CON SUCCESSO")
+    print("CATALOGO STRUMENTI CHIRURGICI 3D GENERATO CON SUCCESSO")
     print("="*70)
-    print(f"📁 Percorso JSON       : {output_json_path}")
-    print(f"📊 Totale Categorie   : {catalog['total_categories']}")
-    print(f"📦 Totale Modelli STL : {catalog['total_stl_files']}")
+    print(f"Percorso JSON       : {output_json_path}")
+    print(f"Totale Categorie   : {catalog['total_categories']}")
+    print(f"Totale Modelli STL : {catalog['total_stl_files']}")
     print("-" * 70)
     print(f"{'CATEGORIA':<28} | {'FILE STL':<10} | {'MODELLO DI ESEMPIO'}")
     print("-" * 70)

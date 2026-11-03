@@ -28,20 +28,20 @@ REQ_TMP=$(mktemp)
 trap 'rm -f "$APT_TMP" "$PIP_TMP" "$REQ_TMP" /tmp/_processed_reqs' EXIT
 : > /tmp/_processed_reqs
 
-echo "🔍 Scansione Dockerfile in: $SRC_DIR"
+echo "Scansione Dockerfile in: $SRC_DIR"
 echo "──────────────────────────────────────────"
 
 # Cerca tutti i Dockerfile nelle sotto-directory di src/
 DOCKERFILES=$(find "$SRC_DIR" -name 'Dockerfile' -not -path '*/build/*' -not -path '*/install/*' -not -path '*/log/*' 2>/dev/null)
 
 if [ -z "$DOCKERFILES" ]; then
-    echo "⚠️  Nessun Dockerfile trovato in $SRC_DIR"
+    echo " Nessun Dockerfile trovato in $SRC_DIR"
     exit 1
 fi
 
 for df in $DOCKERFILES; do
     REPO_NAME=$(echo "$df" | sed "s|$SRC_DIR/||" | cut -d'/' -f1)
-    echo "  📦 $REPO_NAME → $df"
+    echo "  $REPO_NAME → $df"
 
     # ── Estrai pacchetti APT ──
     # Cerca pattern: apt-get install ... (con eventuali backslash-newline)
@@ -87,7 +87,7 @@ for df in $DOCKERFILES; do
             REQ_PATH=$(find "$REPO_DIR/.." -name "$(basename "$req_ref")" -maxdepth 2 2>/dev/null | head -1)
         fi
         if [ -f "$REQ_PATH" ]; then
-            echo "    📄 Trovato requirements: $REQ_PATH"
+            echo "    Trovato requirements: $REQ_PATH"
             echo "# ── from: $REPO_NAME ──" >> "$REQ_TMP"
             grep -v '^\s*#' "$REQ_PATH" | grep -v '^\s*$' >> "$REQ_TMP" 2>/dev/null || true
             echo "" >> "$REQ_TMP"
@@ -101,7 +101,7 @@ for df in $DOCKERFILES; do
             # Evita duplicati controllando se il path è già stato processato
             if ! grep -qF "$REAL_REQ" /tmp/_processed_reqs 2>/dev/null; then
                 echo "$REAL_REQ" >> /tmp/_processed_reqs
-                echo "    📄 Trovato requirements (auto): $req_file"
+                echo "    Trovato requirements (auto): $req_file"
                 echo "# ── from: $REPO_NAME (auto-detected) ──" >> "$REQ_TMP"
                 grep -v '^\s*#' "$req_file" | grep -v '^\s*$' >> "$REQ_TMP" 2>/dev/null || true
                 echo "" >> "$REQ_TMP"
@@ -112,21 +112,21 @@ done
 
 echo ""
 echo "──────────────────────────────────────────"
-echo "📝 Generazione file dipendenze..."
+echo "Generazione file dipendenze..."
 
 # ── Deduplicazione e ordinamento APT ──
 sort -u "$APT_TMP" | grep -v '^#' | grep -v '^\s*$' | sort > "$OUT_DIR/apt-packages.txt"
 APT_COUNT=$(wc -l < "$OUT_DIR/apt-packages.txt" 2>/dev/null || echo 0)
-echo "  ✅ .docker/apt-packages.txt ($APT_COUNT pacchetti)"
+echo "  .docker/apt-packages.txt ($APT_COUNT pacchetti)"
 
 # ── Requirements aggregati ──
 if [ -s "$REQ_TMP" ]; then
     cp "$REQ_TMP" "$OUT_DIR/requirements.txt"
     REQ_COUNT=$(grep -cvE '^\s*$|^\s*#' "$OUT_DIR/requirements.txt" 2>/dev/null || echo 0)
-    echo "  ✅ .docker/requirements.txt ($REQ_COUNT dipendenze)"
+    echo "  .docker/requirements.txt ($REQ_COUNT dipendenze)"
 else
     echo "# Nessun requirements.txt trovato nelle repo" > "$OUT_DIR/requirements.txt"
-    echo "  ℹ️  .docker/requirements.txt (vuoto)"
+    echo "   .docker/requirements.txt (vuoto)"
 fi
 
 # ── Deduplicazione pip ──
@@ -136,8 +136,8 @@ else
     : > "$OUT_DIR/pip-packages.txt"
 fi
 PIP_COUNT=$(wc -l < "$OUT_DIR/pip-packages.txt" 2>/dev/null || echo 0)
-echo "  ✅ .docker/pip-packages.txt ($PIP_COUNT pacchetti)"
+echo "  .docker/pip-packages.txt ($PIP_COUNT pacchetti)"
 
 echo ""
-echo "🎯 Fatto! I file sono in: $OUT_DIR/"
+echo "Fatto! I file sono in: $OUT_DIR/"
 echo "   Puoi ora buildare con: docker build -f Dockerfile.v2 -t ambiente_robotica_v2 ."

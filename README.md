@@ -2,6 +2,11 @@
 
 Pipeline modulare per la simulazione 3D della percezione e pianificazione di presa (grasping) di strumenti chirurgici mediante **PyBullet**, **Segment Anything 3 (SAM 3)**, **LLM Task Planning (Ollama)** e de-proiezione di nuvole di punti 3D.
 
+Avvio grafico nativo sul Mac: `bash run_graphical.sh`, oppure doppio clic su
+`Avvia_simulazione.command`. L'avvio usa SAM3 e mostra la geometria e il KUKA;
+`bash run_graphical.sh --vision ground-truth` esegue il test senza AI. Dettagli,
+controlli e limiti del movimento dimostrativo sono in [GRAFICA.md](GRAFICA.md).
+
 ---
 
 ## 📋 Architettura della Pipeline (`run_pipeline_sim.py`)

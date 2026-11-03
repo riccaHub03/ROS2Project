@@ -73,12 +73,12 @@ def normalize_action(val):
     return "pick_and_place"
 
 
-def run_llm_planner(instruction_text=DEFAULT_INSTRUCTION, target_tool_hint=None, ollama_url=None, model="qwen2.5:3b", output_path=None):
+def run_llm_planner(instruction_text=DEFAULT_INSTRUCTION, target_tool_hint=None, ollama_url=None, model="qwen2.5:3b", output_path=None, offline=False):
     print("\n" + "="*70)
-    print("🧠 [CATENA DI MONTAGGIO - STAGE 1] LLM TASK PLANNER")
+    print("[CATENA DI MONTAGGIO - STAGE 1] LLM TASK PLANNER")
     print(f"   Istruzione ricevuta: \"{instruction_text}\"")
     if target_tool_hint:
-        print(f"   🎯 Tool Hint Richiesto: {target_tool_hint}")
+        print(f"   Tool Hint Richiesto: {target_tool_hint}")
     print("="*70)
 
     if output_path is None:
@@ -132,7 +132,8 @@ def run_llm_planner(instruction_text=DEFAULT_INSTRUCTION, target_tool_hint=None,
     parsed_json = None
     connected_url = None
 
-    for url in candidate_urls:
+    urls = [] if offline else ([ollama_url] if ollama_url else list(dict.fromkeys(candidate_urls)))
+    for url in urls:
         try:
             req = urllib.request.Request(
                 url,
@@ -155,7 +156,8 @@ def run_llm_planner(instruction_text=DEFAULT_INSTRUCTION, target_tool_hint=None,
             continue
 
     if parsed_json is None:
-        print("⚠️ Avviso: Server Ollama non direttamente raggiungibile, applicazione del parser clinico deterministico.")
+        print("Parser deterministico richiesto." if offline else
+              "Avviso: Server Ollama non direttamente raggiungibile, applicazione del parser clinico deterministico.")
         instr_lower = instruction_text.lower()
         if "bisturi" in instr_lower or "scalpel" in instr_lower:
             tool = "scalpel"
@@ -178,7 +180,7 @@ def run_llm_planner(instruction_text=DEFAULT_INSTRUCTION, target_tool_hint=None,
             "destination_tray": dst
         }
     else:
-        print(f"🤖 Risposta LLM ricevuta da: {connected_url}")
+        print(f"Risposta LLM ricevuta da: {connected_url}")
 
     # Costruzione del report strutturato per la catena
     raw_tool = target_tool_hint or parsed_json.get("target_instrument") or "vascular scissors"
@@ -199,15 +201,16 @@ def run_llm_planner(instruction_text=DEFAULT_INSTRUCTION, target_tool_hint=None,
         "target_keyword": raw_kw,
         "source_tray": normalize_tray(parsed_json.get("source_tray"), default="tray_2", config=config),
         "destination_tray": normalize_tray(parsed_json.get("destination_tray"), default="tray_1", config=config),
+        "planner_backend": "ollama" if connected_url else "deterministic_parser",
         "status": "COMPLETED"
     }
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
-    print("\n✅ [STAGE 1] REPORT JSON GENERATO:")
+    print("\n[STAGE 1] REPORT JSON GENERATO:")
     print(json.dumps(report, indent=2))
-    print(f"📁 Salvato in: {output_path}")
+    print(f"Salvato in: {output_path}")
 
     return report
 

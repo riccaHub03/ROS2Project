@@ -11,7 +11,7 @@ import shutil
 
 def plan_surgical_task(instruction_text, ollama_url="http://172.19.128.1:11434/v1/chat/completions", model="qwen2.5:3b"):
     print("\n" + "="*65)
-    print("🧠 [FASE 1/4] LLM TASK PLANNER (Qwen 2.5 su Ollama)")
+    print("[FASE 1/4] LLM TASK PLANNER (Qwen 2.5 su Ollama)")
     print(f"   Istruzione ricevuta: \"{instruction_text}\"")
     print("="*65)
 
@@ -58,7 +58,7 @@ def plan_surgical_task(instruction_text, ollama_url="http://172.19.128.1:11434/v
             cleaned = re.sub(r"\s*```$", "", cleaned)
         task_data = json.loads(cleaned)
     except Exception as e:
-        print(f"⚠️ Avviso: Errore connessione Ollama ({e}), utilizzo piano clinico standard.")
+        print(f"Avviso: Errore connessione Ollama ({e}), utilizzo piano clinico standard.")
         dest = "tray_2" if "2" in instruction_text else "tray_1"
         tool = "scalpel" if "bisturi" in instruction_text.lower() else "surgical scissors"
         task_data = {
@@ -67,7 +67,7 @@ def plan_surgical_task(instruction_text, ollama_url="http://172.19.128.1:11434/v
             "destination": dest
         }
 
-    print("\n✅ Task Plan JSON Generato:")
+    print("\nTask Plan JSON Generato:")
     print(json.dumps(task_data, indent=2))
 
     # Salvataggio organizzato in data/outputs/
@@ -77,5 +77,5 @@ def plan_surgical_task(instruction_text, ollama_url="http://172.19.128.1:11434/v
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(task_data, f, indent=2)
 
-    print(f"📁 File generato salvato in: {out_path}")
+    print(f"File generato salvato in: {out_path}")
     return task_data

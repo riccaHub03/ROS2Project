@@ -22,12 +22,12 @@ import datetime
 import numpy as np
 from PIL import Image
 import torch
-from transformers import Sam3Model, Sam3Processor
+from pipeline.sam3_loader import load_sam3
 
 
 def run_sim_sam3_segmentation(cam_report_path=None, plan_path=None, output_path=None):
     print("\n" + "="*70)
-    print("👁️  [PIPELINE SIM - STAGE 3] SAM 3 SEGMENTAZIONE SULLA VISTA TELECAMERA")
+    print(" [PIPELINE SIM - STAGE 3] SAM 3 SEGMENTAZIONE SULLA VISTA TELECAMERA")
     print("="*70)
 
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -46,15 +46,13 @@ def run_sim_sam3_segmentation(cam_report_path=None, plan_path=None, output_path=
     target_kw = plan_data.get("target_keyword", "scissors")
     camera_rgb_path = cam_data["files"]["camera_rgb_image"]
 
-    print(f"📷 Immagine da analizzare: Vista Telecamera Overhead ({os.path.basename(camera_rgb_path)})")
-    print(f"🎯 Target Prompt SAM 3   : '{target_tool}' (keyword: '{target_kw}')")
+    print(f"Immagine da analizzare: Vista Telecamera Overhead ({os.path.basename(camera_rgb_path)})")
+    print(f"Target Prompt SAM 3   : '{target_tool}' (keyword: '{target_kw}')")
 
     # Caricamento SAM 3
-    print("⏳ Inferenza SAM 3 sul frame ottico della telecamera...")
+    print("Inferenza SAM 3 sul frame ottico della telecamera...")
     model_id = "facebook/sam3"
-    processor = Sam3Processor.from_pretrained(model_id, local_files_only=True)
-    model = Sam3Model.from_pretrained(model_id, local_files_only=True).to("cpu")
-    model.eval()
+    processor, model = load_sam3(model_id)
 
     image = Image.open(camera_rgb_path).convert("RGB")
     orig_w, orig_h = image.size
@@ -77,13 +75,13 @@ def run_sim_sam3_segmentation(cam_report_path=None, plan_path=None, output_path=
         best_score = float(scores[best_idx])
         mask_np = (masks[best_idx] > 0).astype(np.uint8) * 255
         if best_score < 0.15:
-            print(f"⚠️ ATTENZIONE: Confidenza di rilevamento molto bassa ({best_score:.3f} < 0.15).")
+            print(f"ATTENZIONE: Confidenza di rilevamento molto bassa ({best_score:.3f} < 0.15).")
             print(f"   Lo strumento '{target_tool}' NON sembra presente nella scena inquadrata dalla telecamera!")
         else:
-            print(f"✅ Rilevata istanza bersaglio con confidenza: {best_score:.3f}")
+            print(f"Rilevata istanza bersaglio con confidenza: {best_score:.3f}")
     else:
         # Fallback ottico su sogliatura se SAM 3 non trova istanze
-        print("⚠️ Nessun match diretto, applicazione fallback ottico.")
+        print("Nessun match diretto, applicazione fallback ottico.")
         mask_np = np.zeros((orig_h, orig_w), dtype=np.uint8)
         best_score = 0.0
 
@@ -133,7 +131,7 @@ def run_sim_sam3_segmentation(cam_report_path=None, plan_path=None, output_path=
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
-    print(f"✅ Segmentazione SAM 3 della vista telecamera completata:")
+    print(f"Segmentazione SAM 3 della vista telecamera completata:")
     print(f"   - Pixel attivi strumento: {active_px} px")
     print(f"   - Maschera telecamera   : {out_mask_path}")
     print(f"   - Report JSON           : {output_path}")

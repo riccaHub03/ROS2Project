@@ -27,7 +27,7 @@ from transformers import Sam3Model, Sam3Processor
 
 def run_real_sam3_segmentation(scene_report_path=None, plan_path=None, output_path=None):
     print("\n" + "="*70)
-    print("👁️  [PIPELINE REALE - STAGE 3] SAM 3 INSTANCE SELECTION NEL VASSOIO REALE")
+    print(" [PIPELINE REALE - STAGE 3] SAM 3 INSTANCE SELECTION NEL VASSOIO REALE")
     print("="*70)
 
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -46,10 +46,10 @@ def run_real_sam3_segmentation(scene_report_path=None, plan_path=None, output_pa
     target_kw = plan_data.get("target_keyword", "scissors")
     scene_image_path = scene_data["files"]["scene_rgb_image"]
 
-    print(f"📷 Scena multi-strumento: {scene_image_path}")
-    print(f"🎯 Strumento da isolare tra tutti i ferri: '{target_prompt}' (keyword: '{target_kw}')")
+    print(f"Scena multi-strumento: {scene_image_path}")
+    print(f"Strumento da isolare tra tutti i ferri: '{target_prompt}' (keyword: '{target_kw}')")
 
-    print("⏳ Caricamento pesi SAM 3 per segmentazione multi-istanza...")
+    print("Caricamento pesi SAM 3 per segmentazione multi-istanza...")
     model_id = "facebook/sam3"
     processor = Sam3Processor.from_pretrained(model_id, local_files_only=True)
     model = Sam3Model.from_pretrained(model_id, local_files_only=True).to("cpu")
@@ -72,7 +72,7 @@ def run_real_sam3_segmentation(scene_report_path=None, plan_path=None, output_pa
     scores = results["scores"].cpu().numpy()
 
     if len(scores) == 0:
-        print(f"⚠️ Riprovo con keyword semplificata: '{target_kw}'...")
+        print(f"Riprovo con keyword semplificata: '{target_kw}'...")
         inputs = processor(images=image, text=target_kw, return_tensors="pt").to("cpu")
         with torch.inference_mode():
             outputs = model(**inputs)
@@ -88,7 +88,7 @@ def run_real_sam3_segmentation(scene_report_path=None, plan_path=None, output_pa
         best_score = float(scores[best_idx])
         print(f" -> Istanze totali rilevate nel set reale: {len(scores)}")
         for idx, sc in enumerate(scores):
-            star = "⭐ [SELEZIONATA PER LA PRESA]" if idx == best_idx else ""
+            star = "[SELEZIONATA PER LA PRESA]" if idx == best_idx else ""
             print(f"    - Istanza {idx}: Confidenza {sc*100:.1f}% {star}")
         selected_mask = (masks[best_idx] > 0).astype(np.uint8) * 255
     else:
@@ -144,7 +144,7 @@ def run_real_sam3_segmentation(scene_report_path=None, plan_path=None, output_pa
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
-    print(f"✅ Strumento isolato con successo dal vassoio multi-ferro:")
+    print(f"Strumento isolato con successo dal vassoio multi-ferro:")
     print(f"   - Confidenza SAM 3: {best_score*100:.1f}%")
     print(f"   - Overlay salvato : {out_overlay_path}")
     print(f"   - Report JSON     : {output_path}")

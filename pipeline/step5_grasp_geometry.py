@@ -84,7 +84,7 @@ def run_grasp_geometry(source_type="sim", transforms_report_path=None, task_plan
     Esegue l'analisi geometrica dello strumento chirurgico per la presa robotica.
     """
     print("\n" + "="*75)
-    print(f"🔬 [PIPELINE - STAGE 5] DEFINIZIONE GEOMETRIA DEL PEZZO DEDITA ALLA PRESA")
+    print(f"[PIPELINE - STAGE 5] DEFINIZIONE GEOMETRIA DEL PEZZO DEDITA ALLA PRESA")
     print(f"   (Sorgente: {source_type.upper()})")
     print("="*75)
 
@@ -141,7 +141,7 @@ def run_grasp_geometry(source_type="sim", transforms_report_path=None, task_plan
     if len(tool_pts) < 10:
         tool_pts = raw_pts
 
-    print(f"📊 Punti 3D analizzati: {len(tool_pts)} (grezzi: {len(raw_pts)})")
+    print(f"Punti 3D analizzati: {len(tool_pts)} (grezzi: {len(raw_pts)})")
 
     # 3. Analisi delle Componenti Principali (PCA)
     centroid = np.mean(tool_pts, axis=0)
@@ -360,7 +360,7 @@ def run_grasp_geometry(source_type="sim", transforms_report_path=None, task_plan
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
-    print("\n✅ RISULTATI CARATTERIZZAZIONE GEOMETRICA:")
+    print("\nRISULTATI CARATTERIZZAZIONE GEOMETRICA:")
     print(f"   - Strumento Identificato         : {tool_name}")
     print(f"   - Lunghezza Totale (v1)          : {tool_length*1000:.1f} mm")
     print(f"   - Larghezza Massima (v2)         : {tool_width*1000:.1f} mm")

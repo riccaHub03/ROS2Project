@@ -111,7 +111,7 @@ def generate_frames_visualization(rgb_np, transformer, centroid_base, cam_pos, c
     if p_tool_2d is not None:
         ax1.annotate("", xy=(int(cx), 20), xytext=(p_tool_2d[0], p_tool_2d[1]),
                      arrowprops=dict(arrowstyle="->", color="magenta", lw=2, linestyle="--"))
-        ax1.text(int(cx), 10, "▲ Verso Base Robot (lbr_link_0)", color="magenta",
+        ax1.text(int(cx), 10, "Verso Base Robot (lbr_link_0)", color="magenta",
                  fontsize=9, fontweight="bold", ha="center",
                  bbox=dict(boxstyle="round,pad=0.25", facecolor="black", alpha=0.8))
 
@@ -176,12 +176,12 @@ def generate_frames_visualization(rgb_np, transformer, centroid_base, cam_pos, c
     os.makedirs(os.path.dirname(output_png_path), exist_ok=True)
     fig.savefig(output_png_path, dpi=150)
     plt.close(fig)
-    print(f"🖼️ Vista diagnostica dei frame salvata in: {output_png_path}")
+    print(f"Vista diagnostica dei frame salvata in: {output_png_path}")
 
 
 def run_sim_transforms(mask_report_path=None, cam_report_path=None, config_path=None, output_path=None):
     print("\n" + "="*70)
-    print("📐 [PIPELINE SIM - STAGE 4] TRASFORMAZIONI DI FRAME E RICOSTRUZIONE 3D")
+    print("[PIPELINE SIM - STAGE 4] TRASFORMAZIONI DI FRAME E RICOSTRUZIONE 3D")
     print("="*70)
 
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -212,11 +212,12 @@ def run_sim_transforms(mask_report_path=None, cam_report_path=None, config_path=
     cam_target = cam_meta.get("target_position_xyz_m", [cam_pos[0], cam_pos[1], 0.07])
     fx, fy = cam_meta["fx_fy"]
     w, h = cam_meta["resolution_wh"]
+    cx, cy = cam_meta.get("cx_cy", [w / 2.0, h / 2.0])
 
     transformer = FrameTransformer(
         camera_position_xyz=cam_pos,
         camera_target_xyz=cam_target,
-        camera_intrinsics={"fx_px": fx, "fy_px": fy, "cx_px": w/2.0, "cy_px": h/2.0}
+        camera_intrinsics={"fx_px": fx, "fy_px": fy, "cx_px": cx, "cy_px": cy}
     )
 
     v_idx, u_idx = np.where(mask_np > 128)
@@ -250,12 +251,12 @@ def run_sim_transforms(mask_report_path=None, cam_report_path=None, config_path=
                 s3b_data = json.load(f)
             fallback_pos = s3b_data.get("placed_pose_base_frame", {}).get("position_xyz_m")
             if fallback_pos:
-                print(f"⚠️ ATTENZIONE: Maschera ottica calcolata a {[round(c, 4) for c in centroid_base]} -> FUORI DAL VASSOIO {source_tray_key}!")
-                print(f"   🔄 Attivato Fallback di Sicurezza su Posa Certificata Stage 3b: {fallback_pos}")
+                print(f"ATTENZIONE: Maschera ottica calcolata a {[round(c, 4) for c in centroid_base]} -> FUORI DAL VASSOIO {source_tray_key}!")
+                print(f"   Attivato Fallback di Sicurezza su Posa Certificata Stage 3b: {fallback_pos}")
                 centroid_base = np.array(fallback_pos)
                 centroid_cam = transformer.transform_world_to_camera(centroid_base)
     else:
-        print(f"✅ Rilevamento ottico validato: Baricentro {[round(c, 4) for c in centroid_base]} è all'interno di {source_tray_key}")
+        print(f"Rilevamento ottico validato: Baricentro {[round(c, 4) for c in centroid_base]} è all'interno di {source_tray_key}")
 
     # Frame End-Effector (workbench_tcp alla quota di staging)
     motion_cfg = config.get("motion_control", {})
@@ -273,7 +274,7 @@ def run_sim_transforms(mask_report_path=None, cam_report_path=None, config_path=
     else:
         err_mm = 0.0
 
-    print(f"📊 Risultati De-proiezione Metrica della Vista Telecamera:")
+    print(f"Risultati De-proiezione Metrica della Vista Telecamera:")
     print(f"   - Punti 3D ricostruiti            : {len(pts_world)}")
     print(f"   - Baricentro Camera Frame (m)     : {[round(c, 4) for c in centroid_cam]}")
     print(f"   - Baricentro Robot Base Frame (m) : {[round(c, 4) for c in centroid_base]}")
@@ -321,7 +322,7 @@ def run_sim_transforms(mask_report_path=None, cam_report_path=None, config_path=
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
-    print(f"✅ Report trasformazioni salvato in: {output_path}")
+    print(f"Report trasformazioni salvato in: {output_path}")
     return report
 
 

@@ -266,7 +266,7 @@ def load_instrument_in_pybullet(client_id, mesh_path, base_pos=[0.483, 0.406, 0.
     if base_orn is None:
         base_orn = info["flat_orientation"]
 
-    print(f"📦 Caricamento Mesh Chirurgica: {info['filename']}")
+    print(f"Caricamento Mesh Chirurgica: {info['filename']}")
     print(f"   -> Unità rilevata : {info['detected_unit']} (Applicato fattore scala: {scale[0]})")
     print(f"   -> Dimensioni reali: L={info['scaled_dimensions_m'][0]*100:.1f}cm, W={info['scaled_dimensions_m'][1]*100:.1f}cm, H={info['scaled_dimensions_m'][2]*100:.1f}cm")
 
@@ -296,7 +296,7 @@ def load_instrument_in_pybullet(client_id, mesh_path, base_pos=[0.483, 0.406, 0.
                          physicsClientId=client_id)
         return tool_body, info
     except Exception as e:
-        print(f"⚠️ Avviso caricamento mesh complessa in PyBullet ({e}), applico collisione geometrica adattata.")
+        print(f"Avviso caricamento mesh complessa in PyBullet ({e}), applico collisione geometrica adattata.")
         # Fallback: crea una visual shape mesh e una collision box adatta alle dimensioni scalate
         vis_id = p.createVisualShape(p.GEOM_MESH, fileName=str(mesh_path), meshScale=scale,
                                      rgbaColor=[0.88, 0.90, 0.94, 1.0], physicsClientId=client_id)
@@ -318,14 +318,14 @@ if __name__ == "__main__":
     cat = load_instruments_catalog()
     if args.catalog:
         if cat:
-            print(f"📚 Catalogo 3D-COSI: {cat['total_categories']} categorie, {cat['total_stl_files']} modelli STL")
+            print(f"Catalogo 3D-COSI: {cat['total_categories']} categorie, {cat['total_stl_files']} modelli STL")
             for c, inf in cat["categories"].items():
                 print(f"  • {c:<25}: {inf['models_count']} modelli")
         else:
             print("Catalogo non trovato.")
     elif args.tool:
         mesh = find_instrument_mesh(target_keyword=args.tool)
-        print(f"🔍 Risultato ricerca per '{args.tool}':")
+        print(f"Risultato ricerca per '{args.tool}':")
         print(f"   -> File: {mesh}")
         if mesh:
             bounds = inspect_stl_bounds(mesh)

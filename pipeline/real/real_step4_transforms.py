@@ -30,7 +30,7 @@ from pipeline.frame_transformer import FrameTransformer, export_pointcloud_ply
 
 def run_real_transforms(mask_report_path=None, scene_report_path=None, config_path=None, output_path=None):
     print("\n" + "="*70)
-    print("📐 [PIPELINE REALE - STAGE 4] TRASFORMAZIONI DI FRAME E RICOSTRUZIONE 3D")
+    print("[PIPELINE REALE - STAGE 4] TRASFORMAZIONI DI FRAME E RICOSTRUZIONE 3D")
     print("="*70)
 
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -86,7 +86,7 @@ def run_real_transforms(mask_report_path=None, scene_report_path=None, config_pa
     pts_ee = np.array([transformer.transform_world_to_ee(p, ref_ee, down_quat) for p in pts_world])
     centroid_ee = np.mean(pts_ee, axis=0)
 
-    print(f"📊 Coordinate Spaziali Ricostruite dello Strumento Reale:")
+    print(f"Coordinate Spaziali Ricostruite dello Strumento Reale:")
     print(f"   - Punti 3D isolati               : {len(pts_world)}")
     print(f"   - Baricentro Camera Frame (m)    : {[round(c, 4) for c in centroid_cam]}")
     print(f"   - Baricentro Robot Base Frame (m): {[round(c, 4) for c in centroid_base]}")
@@ -116,7 +116,7 @@ def run_real_transforms(mask_report_path=None, scene_report_path=None, config_pa
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
-    print(f"✅ Report trasformazioni reali salvato in: {output_path}")
+    print(f"Report trasformazioni reali salvato in: {output_path}")
     return report
 
 

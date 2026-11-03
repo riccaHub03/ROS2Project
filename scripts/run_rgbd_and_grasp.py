@@ -27,7 +27,7 @@ def main(args=None):
     config = load_environment_config()
 
     print("\n" + "="*70)
-    print("🚀 AVVIO STACK ROS 2: TELECAMERA RGB-D SIMULATA & GRASPING 6-DoF")
+    print("AVVIO STACK ROS 2: TELECAMERA RGB-D SIMULATA & GRASPING 6-DoF")
     print("="*70)
 
     cam_node = SimulatedRGBDCameraNode(config=config)

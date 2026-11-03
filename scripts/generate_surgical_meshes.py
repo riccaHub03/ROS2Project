@@ -47,7 +47,7 @@ def write_binary_stl(filename, triangles):
                                pts[2, 0], pts[2, 1], pts[2, 2],
                                0)
             f.write(data)
-    print(f"✅ Mesh STL salvata: {filename} ({n_triangles:,} triangoli)")
+    print(f"Mesh STL salvata: {filename} ({n_triangles:,} triangoli)")
 
 def create_box_triangles(center, size):
     """Genera 12 triangoli per un parallelepipedo centrato in center con dimensioni size [dx, dy, dz]."""

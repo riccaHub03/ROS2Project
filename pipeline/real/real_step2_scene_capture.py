@@ -29,7 +29,7 @@ from pipeline.config_loader import load_environment_config
 
 def run_real_scene_capture(image_file=None, config_path=None, output_path=None):
     print("\n" + "="*70)
-    print("📷 [PIPELINE REALE - STAGE 2] ACQUISIZIONE VASSOIO REALE MULTI-STRUMENTO")
+    print("[PIPELINE REALE - STAGE 2] ACQUISIZIONE VASSOIO REALE MULTI-STRUMENTO")
     print("   (Zero file STL necessari nel Docker / Risparmio 5GB di trasferimento)")
     print("="*70)
 
@@ -57,7 +57,7 @@ def run_real_scene_capture(image_file=None, config_path=None, output_path=None):
         if image_file is None:
             raise FileNotFoundError("Nessuna immagine del vassoio chirurgico trovata in data/inputs/")
 
-    print(f"📷 Immagine del vassoio reale caricata: {image_file}")
+    print(f"Immagine del vassoio reale caricata: {image_file}")
     img = Image.open(image_file).convert("RGB")
     w, h = img.size
     img.save(out_rgb_path)
@@ -107,7 +107,7 @@ def run_real_scene_capture(image_file=None, config_path=None, output_path=None):
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
-    print(f"✅ Vassoio reale multi-ferro acquisito:")
+    print(f"Vassoio reale multi-ferro acquisito:")
     print(f"   - Risoluzione: {w}x{h} px")
     print(f"   - Report JSON: {output_path}")
     return report

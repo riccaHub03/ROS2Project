@@ -107,3 +107,12 @@ wheels/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# -----------------------------------------------------------------------------
+# 8. Configurazione locale e log di esecuzione
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.template
+*.log

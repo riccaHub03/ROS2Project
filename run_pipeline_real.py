@@ -36,7 +36,7 @@ def main():
 
     t_start = time.time()
     print("\n" + "="*75)
-    print("🏥 AVVIO PIPELINE REALE (VASSOIO COMPLETO MULTI-STRUMENTO)")
+    print("AVVIO PIPELINE REALE (VASSOIO COMPLETO MULTI-STRUMENTO)")
     print("   (Zero STL trasferiti nel Docker / 100% percezione ottica reale)")
     print("="*75)
 
@@ -57,9 +57,9 @@ def main():
 
     duration = time.time() - t_start
     print("\n" + "="*75)
-    print(f"🎉 PIPELINE REALE COMPLETATA CON SUCCESSO in {duration:.2f} secondi!")
+    print(f"PIPELINE REALE COMPLETATA CON SUCCESSO in {duration:.2f} secondi!")
     print("="*75)
-    print("📁 REPORT E ARTEFATTI PRODOTTI:")
+    print("REPORT E ARTEFATTI PRODOTTI:")
     print("   1. [Stage 1] data/outputs/stage1_task_plan.json")
     print("   2. [Stage 2] data/outputs/real_stage2_scene.json (+ real_scene_rgb.png)")
     print("   3. [Stage 3] data/outputs/real_stage3_vision_mask.json (+ real_tool_mask.png, real_tool_overlay.png)")

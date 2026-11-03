@@ -19,7 +19,7 @@ from pipeline.grasp_planner import SurgicalGraspPlanner
 
 def test_frame_transformer():
     print("="*65)
-    print("🧪 TEST 1: Frame Transformer & De-proiezione Spaziale")
+    print("TEST 1: Frame Transformer & De-proiezione Spaziale")
     print("="*65)
     
     cam_pos = [0.55, 0.0, 0.85]
@@ -51,12 +51,12 @@ def test_frame_transformer():
     assert np.isclose(p_ee[0], 0.0, atol=1e-3), "X ee non centrata"
     assert np.isclose(p_ee[1], 0.0, atol=1e-3), "Y ee non centrata"
     
-    print("✅ TEST 1 SUPERATO: Tutte le trasformazioni di frame sono geometricamente corrette!\n")
+    print("TEST 1 SUPERATO: Tutte le trasformazioni di frame sono geometricamente corrette!\n")
 
 
 def test_grasp_planner():
     print("="*65)
-    print("🧪 TEST 2: Surgical Grasp Planner 6-DoF & PCA")
+    print("TEST 2: Surgical Grasp Planner 6-DoF & PCA")
     print("="*65)
     
     # Simula una nuvola di punti di una forbice chirurgica orientata a 30 gradi sul tavolo (Z = 0.085m)
@@ -102,10 +102,10 @@ def test_grasp_planner():
     assert "pre_grasp" in waypoints and "grasp" in waypoints and "lift" in waypoints
     print(" -> Waypoints generati con successo (pre_grasp, grasp, lift, place_approach, place_deposit)")
     
-    print("✅ TEST 2 SUPERATO: Grasp 6-DoF, assi PCA e orientamento ganasce conformi!\n")
+    print("TEST 2 SUPERATO: Grasp 6-DoF, assi PCA e orientamento ganasce conformi!\n")
 
 
 if __name__ == "__main__":
     test_frame_transformer()
     test_grasp_planner()
-    print("🎉 TUTTI I TEST DEI NUOVI COMPONENTI COMPLETATI CON SUCCESSO!")
+    print("TUTTI I TEST DEI NUOVI COMPONENTI COMPLETATI CON SUCCESSO!")
