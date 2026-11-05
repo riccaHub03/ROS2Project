@@ -1,0 +1,225 @@
+"""Stage ``grasp``: PCA of the instrument cloud -> functional zones, grasp pose, gripper feasibility.
+
+The tool is split along its main axis into Zone A (finger rings, 0-35%), Zone B (shank/hinge,
+35-65%, the grasp zone) and Zone C (blades, 65-100%, forbidden). A parallel-jaw gripper pose is
+derived from Zone B and checked against the maximum stroke.
+
+Input : ``*_deprojection.json`` (sim or real) + ``plan.json`` (optional, for the tool name)
+Output: ``grasp.json`` -> data: source_pipeline, target_instrument, input_pointcloud,
+        instrument_bounding_dimensions_m, principal_axes_base_frame, functional_zones_segmentation,
+        designated_grasp_geometry, readiness
+        artifacts: zones_ply, overview_png
+
+Run alone:  python -m pipeline.grasp --deprojection data/outputs/real_deprojection.json
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+
+from pipeline.common import paths
+from pipeline.common.cli import run_cli, stage_parser
+from pipeline.common.ply import read_ply, write_ply
+from pipeline.common.report import StageError, StageReport, stage_run
+from pipeline.common.scene import round_list
+from pipeline.frame_transformer import quaternion_from_matrix
+
+STAGE = "grasp"
+log = logging.getLogger(STAGE)
+
+MIN_CLOUD_POINTS = 15
+BASE_PLANE_FRACTION = 0.10         # lowest 10% of the height span is tray/table contamination
+MIN_HEIGHT_SPAN_M = 0.015
+ZONE_BOUNDS = (0.35, 0.65)
+MAX_GRIPPER_STROKE_M = 0.080
+CLEARANCE_M = 0.020
+ZONE_COLORS = {"A": (40, 120, 220), "B": (40, 220, 80), "C": (220, 50, 50)}
+
+
+def isolate_tool(points: np.ndarray) -> np.ndarray:
+    """Drop the lowest slice of the cloud (support plane) when the cloud is tall enough."""
+    span = points[:, 2].max() - points[:, 2].min()
+    if span > MIN_HEIGHT_SPAN_M:
+        tool = points[points[:, 2] >= points[:, 2].min() + BASE_PLANE_FRACTION * span]
+        if len(tool) >= 10:
+            return tool
+    return points
+
+
+def principal_axes(points: np.ndarray):
+    """Centroid and right-handed (v1 longitudinal, v2 lateral, v3 up-normal) axes."""
+    centroid = points.mean(axis=0)
+    evals, evecs = np.linalg.eigh(np.cov(points - centroid, rowvar=False))
+    evecs = evecs[:, np.argsort(evals)[::-1]]
+    v1, v3 = evecs[:, 0], evecs[:, 2]
+    if v3[2] < 0:
+        v3 = -v3
+    if v1[0] + v1[1] < 0:
+        v1 = -v1
+    v2 = np.cross(v3, v1)
+    return centroid, v1, v2 / np.linalg.norm(v2), v3
+
+
+def gripper_frame(v2: np.ndarray, v3: np.ndarray):
+    """z_ee approaches down along -v3, y_ee (jaw closing) along v2, x_ee completes the triad."""
+    z_ee, y_ee = -v3 / np.linalg.norm(v3), v2 / np.linalg.norm(v2)
+    x_ee = np.cross(y_ee, z_ee)
+    x_ee /= np.linalg.norm(x_ee)
+    return x_ee, y_ee, z_ee
+
+
+def analyze(tool_points: np.ndarray) -> Dict[str, Any]:
+    centroid, v1, v2, v3 = principal_axes(tool_points)
+    centered = tool_points - centroid
+    s = centered @ v1
+    length = float(s.max() - s.min())
+    width, thickness = float(np.ptp(centered @ v2)), float(np.ptp(centered @ v3))
+    rel_s = (s - s.min()) / length
+    low, high = ZONE_BOUNDS
+    masks = {"A": rel_s < low, "B": (rel_s >= low) & (rel_s <= high), "C": rel_s > high}
+    zone_b = tool_points[masks["B"]]
+    if len(zone_b) >= 3:
+        grasp_centroid, grasp_width, grasp_thickness = zone_b.mean(axis=0), float(np.ptp(zone_b @ v2)), float(np.ptp(zone_b @ v3))
+    else:  # sparse cloud: fall back to the whole tool
+        grasp_centroid, grasp_width, grasp_thickness = centroid, width * 0.4, thickness
+    x_ee, y_ee, z_ee = gripper_frame(v2, v3)
+    quat = quaternion_from_matrix(np.column_stack([x_ee, y_ee, z_ee]))
+    required = grasp_width + CLEARANCE_M
+    return {"centroid": centroid, "axes": (v1, v2, v3), "rel_s": rel_s, "masks": masks, "length": length,
+            "width": width, "thickness": thickness, "grasp_centroid": grasp_centroid,
+            "grasp_width": grasp_width, "grasp_thickness": grasp_thickness, "ee_axes": (x_ee, y_ee, z_ee),
+            "quat": quat, "required_stroke": required,
+            "graspable": bool(required <= MAX_GRIPPER_STROKE_M and grasp_width > 0.002)}
+
+
+def plot_overview(path: Path, tool_points: np.ndarray, a: Dict[str, Any], tool_name: str) -> None:
+    m, (v1, v2, _) = a["masks"], a["axes"]
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+    styles = {"A": ("royalblue", "Zone A: rings (handle)", 25, 0.8), "B": ("limegreen", "Zone B: shank/hinge (GRASP)", 35, 0.9),
+              "C": ("crimson", "Zone C: blades (forbidden)", 25, 0.8)}
+    for zone, (color, label, size, alpha) in styles.items():
+        pts = tool_points[m[zone]]
+        ax1.scatter(pts[:, 0], pts[:, 1], c=color, s=size, label=label, alpha=alpha)
+        ax2.hist(a["rel_s"][m[zone]] * 100, bins=15, color=color, alpha=0.7, label=label)
+    c = a["centroid"]
+    ax1.arrow(c[0], c[1], v1[0] * 0.05, v1[1] * 0.05, color="black", width=0.0015, head_width=0.005, label="Longitudinal axis v1")
+    ax1.arrow(c[0], c[1], v2[0] * 0.05, v2[1] * 0.05, color="darkorange", width=0.0015, head_width=0.005, label="Lateral axis v2 (jaw closing)")
+    ax1.scatter([a["grasp_centroid"][0]], [a["grasp_centroid"][1]], c="gold", s=180, marker="*", edgecolors="black",
+                linewidths=1.5, label="Grasp centroid (Zone B)", zorder=5)
+    ax1.set(xlabel="X (robot base frame) [m]", ylabel="Y (robot base frame) [m]",
+            title=f"Grasp zone segmentation ({tool_name.replace('_', ' ').title()})")
+    ax1.axis("equal")
+    ax1.grid(True, linestyle="--", alpha=0.5)
+    ax1.legend(loc="upper left", fontsize=8)
+    for edge, label in zip(ZONE_BOUNDS, ("A/B", "B/C")):
+        ax2.axvline(edge * 100, color="gray", linestyle="--", label=f"Zone {label} threshold ({edge * 100:.0f}%)")
+    ax2.set(xlabel="Relative longitudinal position [%]", ylabel="Surface point density",
+            title="Material distribution along the longitudinal axis")
+    ax2.grid(True, linestyle="--", alpha=0.5)
+    ax2.legend(loc="upper right", fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def _zone_report(a: Dict[str, Any]) -> Dict[str, Any]:
+    n = {z: int(a["masks"][z].sum()) for z in "ABC"}
+    return {
+        "zone_A_proximal_rings": {
+            "description": "Finger loops of the handle", "longitudinal_range_rel": [0.00, ZONE_BOUNDS[0]],
+            "points_count": n["A"], "grasp_classification": "EXCLUDED_HIGH_COMPLIANCE_HOLLOW_STRUCTURE",
+            "risk": "Torsional flex, rotation around the fingers and gripper slip"},
+        "zone_B_central_shank": {
+            "description": "Shank and pivot hinge", "longitudinal_range_rel": list(ZONE_BOUNDS),
+            "points_count": n["B"], "grasp_classification": "PRIMARY_OPTIMAL_GRASP_ZONE",
+            "advantage": "Maximum structural rigidity, minimal moment of inertia, planar surface for parallel jaws"},
+        "zone_C_distal_blades": {
+            "description": "Cutting blades and tips", "longitudinal_range_rel": [ZONE_BOUNDS[1], 1.00],
+            "points_count": n["C"], "grasp_classification": "FORBIDDEN_CUTTING_EDGE_EXCLUSION_ZONE",
+            "risk": "Damage to the cutting edge, collision and clinical hazard"},
+    }
+
+
+def run(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = None,
+        out_dir: Optional[str] = None, report_path: Optional[str] = None) -> StageReport:
+    out = paths.output_dir(out_dir)
+    deprojection_file = paths.resolve(deprojection_path, paths.SIM_DEPROJECTION, out)
+    plan_file = paths.resolve(plan_path, paths.PLAN, out)
+    with stage_run(STAGE, paths.output_report(report_path, paths.GRASP, out),
+                   inputs={"deprojection": deprojection_file, "plan": plan_file}, logger=log) as report:
+        deprojection = StageReport.load(deprojection_file)
+        if not deprojection.stage.endswith("_deprojection"):
+            raise StageError(STAGE, f"{deprojection_file} is a '{deprojection.stage}' report, not a deprojection")
+        source = deprojection.stage.split("_")[0]
+        if plan_file.exists():
+            tool_name = StageReport.load(plan_file, expect_stage="plan").require("target_instrument")
+        else:
+            tool_name = "surgical_instrument"
+            report.warn(log, f"plan report not found ({plan_file}); using generic tool name")
+
+        ply = deprojection.artifact("pointcloud_ply")
+        points, _ = read_ply(ply)
+        if len(points) < MIN_CLOUD_POINTS:
+            raise StageError(STAGE, f"too few 3D points ({len(points)}) for geometric analysis")
+        tool_points = isolate_tool(points)
+        log.info("analyzing %d points (raw: %d)", len(tool_points), len(points))
+
+        a = analyze(tool_points)
+        colors = np.zeros((len(tool_points), 3), dtype=np.uint8)
+        for zone, rgb in ZONE_COLORS.items():
+            colors[a["masks"][zone]] = rgb
+        zones_ply, overview = out / "grasp_zones.ply", out / "grasp_overview.png"
+        write_ply(zones_ply, tool_points, colors)
+        plot_overview(overview, tool_points, a, tool_name)
+
+        v1, v2, v3 = a["axes"]
+        x_ee, y_ee, z_ee = a["ee_axes"]
+        report.artifacts = {"zones_ply": str(zones_ply), "overview_png": str(overview)}
+        report.data = {
+            "source_pipeline": source, "target_instrument": tool_name,
+            "input_pointcloud": {"source_ply": str(ply), "total_points": int(len(points)),
+                                 "filtered_points": int(len(tool_points))},
+            "instrument_bounding_dimensions_m": {"length_along_v1": round(a["length"], 4),
+                                                 "width_along_v2": round(a["width"], 4),
+                                                 "thickness_along_v3": round(a["thickness"], 4)},
+            "principal_axes_base_frame": {"v1_longitudinal": round_list(v1), "v2_lateral": round_list(v2),
+                                          "v3_normal": round_list(v3)},
+            "functional_zones_segmentation": _zone_report(a),
+            "designated_grasp_geometry": {
+                "selected_zone": "Zone B (Central Shank / Pivot Hinge)",
+                "grasp_centroid_base_frame_xyz_m": round_list(a["grasp_centroid"]),
+                "local_cross_section_m": {"width_along_v2": round(a["grasp_width"], 4),
+                                          "thickness_along_v3": round(a["grasp_thickness"], 4)},
+                "recommended_gripper_orientation": {
+                    "quaternion_xyzw": round_list(a["quat"], 5), "approach_vector_base": round_list(z_ee),
+                    "jaw_closing_vector_base": round_list(y_ee), "finger_alignment_vector_base": round_list(x_ee)},
+                "gripper_compatibility_check": {
+                    "parallel_jaw_suitable": a["graspable"], "required_opening_m": round(a["required_stroke"], 4),
+                    "max_allowed_stroke_m": MAX_GRIPPER_STROKE_M, "safety_clearance_m": CLEARANCE_M},
+            },
+            "readiness": "VALIDATED_GEOMETRY_READY_FOR_TRAJECTORY_PLAN",
+        }
+        log.info("%s | L=%.1f W=%.1f T=%.1f mm | grasp %s | opening %.1f/%.1f mm -> %s", tool_name,
+                 a["length"] * 1000, a["width"] * 1000, a["thickness"] * 1000, round_list(a["grasp_centroid"]),
+                 a["required_stroke"] * 1000, MAX_GRIPPER_STROKE_M * 1000, "OK" if a["graspable"] else "NOT COMPATIBLE")
+    return report
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = stage_parser(__doc__.splitlines()[0], config=False)
+    parser.add_argument("--deprojection", default=None,
+                        help="sim_deprojection.json or real_deprojection.json (default: sim)")
+    parser.add_argument("--plan", default=None)
+    return run_cli(parser, lambda a: run(deprojection_path=a.deprojection, plan_path=a.plan,
+                                         out_dir=a.out_dir, report_path=a.report), argv)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

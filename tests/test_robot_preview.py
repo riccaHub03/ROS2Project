@@ -11,6 +11,8 @@ from PIL import Image
 import pybullet as p
 import trimesh
 
+from pipeline.common import paths
+from pipeline.common.report import StageReport
 from pipeline.config_loader import load_environment_config
 from pipeline.sim import robot_scene
 from pipeline.sim.robot_motion_preview import MotionPreview
@@ -20,7 +22,7 @@ class RobotPreviewTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         root = Path(self.temp.name)
-        self.root_patch = patch.object(robot_scene, "ROOT", root)
+        self.root_patch = patch.dict("os.environ", {paths.ROOT_ENV: str(root)})
         self.root_patch.start()
         mesh = root / "instrument.stl"
         trimesh.creation.box([0.14, 0.012, 0.004]).export(mesh)
@@ -36,14 +38,14 @@ class RobotPreviewTests(unittest.TestCase):
 
     def test_camera_and_placement_use_same_pose(self):
         out = Path(self.temp.name) / "data/outputs"
-        camera = json.loads((out / "sim_stage2_camera.json").read_text())
-        placement = json.loads((out / "stage3_stl_placement.json").read_text())
-        self.assertEqual(camera["source_stl_file"], placement["source_stl_file"])
-        np.testing.assert_allclose(camera["settled_ground_truth_pose"]["position_xyz_m"],
-                                   placement["placed_pose_base_frame"]["position_xyz_m"])
-        mask = np.asarray(Image.open(camera["files"]["ground_truth_mask"]))
+        camera = StageReport.load(out / paths.SIM_CAPTURE, expect_stage="sim_capture")
+        placement = StageReport.load(out / paths.SIM_REFERENCE_POSE, expect_stage="sim_reference_pose")
+        self.assertEqual(camera.data["source_stl_file"], placement.data["source_stl_file"])
+        np.testing.assert_allclose(camera.data["ground_truth_pose"]["position_xyz_m"],
+                                   placement.data["pose"]["position_xyz_m"])
+        mask = np.asarray(Image.open(camera.artifact("truth_mask_png")))
         self.assertGreater(np.count_nonzero(mask), 15)
-        depth = np.load(camera["files"]["camera_depth_npy"])
+        depth = np.load(camera.artifact("depth_npy"))
         self.assertTrue(np.isfinite(depth[mask > 0]).all())
 
     def test_unreachable_ik_does_not_move_robot(self):

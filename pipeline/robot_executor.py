@@ -21,6 +21,8 @@ from nav_msgs.msg import Path
 from std_msgs.msg import String
 from sensor_msgs.msg import JointState
 
+from pipeline.common import paths
+from pipeline.common.report import StageReport
 from pipeline.video_recorder import render_offline_video
 
 def create_stamped_pose(xyz, quat=[0.0, 1.0, 0.0, 0.0]):
@@ -246,26 +248,12 @@ class MedicalRobotExecutor(Node):
         return True
 
     def save_trajectory_and_render_video(self, p_grasp, p_tray_deposit):
-        # 1. Salva log della traiettoria su file JSON
-        out_dir = "/workspace/data/outputs"
-        os.makedirs(out_dir, exist_ok=True)
-        log_path = os.path.join(out_dir, "robot_trajectory_log.json")
-
-        log_data = {
-            "trajectory": self.recorded_trajectory,
-            "tool_initial_xyz": p_grasp,
-            "tray_final_xyz": p_tray_deposit,
-            "total_points": len(self.recorded_trajectory),
-        }
-        with open(log_path, "w") as f:
-            json.dump(log_data, f, indent=2)
-        print(f"Traiettoria giunti registrata con successo: {log_path} ({len(self.recorded_trajectory)} punti)")
-
-        # 2. Rendering offline video HD
-        render_offline_video(
-            trajectory_log=self.recorded_trajectory,
-            p_tool_initial=p_grasp,
-            p_tray_final=p_tray_deposit,
-            config=self.config,
-            fps=30
-        )
+        """Persist the recorded joint trajectory (standard report) and render the offline video."""
+        report = StageReport(
+            stage="robot_trajectory",
+            data={"trajectory": self.recorded_trajectory, "tool_initial_xyz": p_grasp,
+                  "tray_final_xyz": p_tray_deposit, "total_points": len(self.recorded_trajectory)})
+        log_path = report.save(paths.report_path(paths.TRAJECTORY))
+        self.get_logger().info(f"Joint trajectory recorded: {log_path} ({len(self.recorded_trajectory)} points)")
+        render_offline_video(trajectory_log=self.recorded_trajectory, p_tool_initial=p_grasp,
+                             p_tray_final=p_tray_deposit, config=self.config, fps=30)

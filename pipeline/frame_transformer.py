@@ -80,10 +80,10 @@ class FrameTransformer:
     trasformazione in World Frame (lbr_link_0) e in End-Effector Frame (workbench_tcp).
     """
 
-    def __init__(self, camera_position_xyz=[0.60, -0.42, 1.15],
-                 camera_target_xyz=[0.60, -0.42, 0.07],
+    def __init__(self, camera_position_xyz=(0.60, -0.42, 1.15),
+                 camera_target_xyz=(0.60, -0.42, 0.07),
                  camera_intrinsics=None,
-                 camera_up_vector=[-1.0, 0.0, 0.0]):
+                 camera_up_vector=(-1.0, 0.0, 0.0)):
         self.cam_pos = np.array(camera_position_xyz, dtype=np.float64)
         self.cam_target = np.array(camera_target_xyz, dtype=np.float64)
 
@@ -139,16 +139,19 @@ class FrameTransformer:
         z_c = depth_m
         return np.array([x_c, y_c, z_c], dtype=np.float64)
 
-    def deproject_mask_to_pointcloud(self, mask_np, depth_img_np):
+    def deproject_mask_to_pointcloud(self, mask_np, depth_img_np, return_pixels=False):
         """
         De-proietta tutti i pixel attivi della maschera usando l'immagine di profondità RGB-D.
         Ritorna:
           - points_camera: (N, 3) punti 3D nel frame ottico
           - points_world: (N, 3) punti 3D nel frame base del robot (lbr_link_0)
+          - (solo se return_pixels) pixels: (N, 2) coordinate (v, u) dei pixel validi,
+            allineate riga per riga ai punti (per associare colori corretti).
         """
         v_indices, u_indices = np.where(mask_np > 128)
         if len(u_indices) == 0:
-            return np.empty((0, 3)), np.empty((0, 3))
+            empty = np.empty((0, 3))
+            return (empty, empty, np.empty((0, 2), dtype=int)) if return_pixels else (empty, empty)
 
         depths = depth_img_np[v_indices, u_indices].astype(np.float64)
         valid = (depths > 0.1) & (depths < 3.0) & np.isfinite(depths)
@@ -167,6 +170,8 @@ class FrameTransformer:
         pts_world_hom = (self.T_base_opt @ pts_hom.T).T
         pts_world = pts_world_hom[:, :3]
 
+        if return_pixels:
+            return pts_camera, pts_world, np.stack([v_valid, u_valid], axis=1)
         return pts_camera, pts_world
 
     def transform_camera_to_world(self, point_camera):
@@ -250,30 +255,3 @@ class FrameTransformer:
 
         broadcaster.sendTransform([t1, t2])
         node.get_logger().info("TF statici pubblicati: lbr_link_0 -> camera_link -> camera_optical_frame")
-
-
-def export_pointcloud_ply(filepath, points_xyz, colors_rgb=None):
-    """Esporta una nuvola di punti in formato standard ASCII Stanford PLY."""
-    import os
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    n_pts = len(points_xyz)
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write("ply\n")
-        f.write("format ascii 1.0\n")
-        f.write(f"element vertex {n_pts}\n")
-        f.write("property float x\n")
-        f.write("property float y\n")
-        f.write("property float z\n")
-        if colors_rgb is not None:
-            f.write("property uchar red\n")
-            f.write("property uchar green\n")
-            f.write("property uchar blue\n")
-        f.write("end_header\n")
-        for i in range(n_pts):
-            pt = points_xyz[i]
-            if colors_rgb is not None:
-                c = colors_rgb[i]
-                f.write(f"{pt[0]:.6f} {pt[1]:.6f} {pt[2]:.6f} {int(c[0])} {int(c[1])} {int(c[2])}\n")
-            else:
-                f.write(f"{pt[0]:.6f} {pt[1]:.6f} {pt[2]:.6f}\n")
-

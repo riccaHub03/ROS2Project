@@ -8,16 +8,19 @@ Funzionalità:
   4. Creazione robusta del corpo rigido PyBullet (Collision & Visual shape con fallback).
 """
 
+import json
 import os
 import struct
 import numpy as np
 from pathlib import Path
 import pybullet as p
 
+from pipeline.common import paths
+
 
 def get_default_mesh_search_dirs():
     """Ritorna i percorsi candidati in cui cercare le mesh chirurgiche."""
-    base_proj = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_proj = str(paths.project_root())
     dirs = [
         "/workspace/data/inputs",
         "/workspace/data",
@@ -33,7 +36,7 @@ def get_default_mesh_search_dirs():
 
 def load_instruments_catalog():
     """Carica il catalogo JSON indicizzato dei 232 strumenti STL (3D-COSI)."""
-    base_proj = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_proj = str(paths.project_root())
     candidates = [
         "/workspace/data/inputs/instruments_catalog.json",
         os.path.join(base_proj, "data", "inputs", "instruments_catalog.json"),
@@ -42,7 +45,6 @@ def load_instruments_catalog():
     for c in candidates:
         if os.path.exists(c):
             try:
-                import json
                 with open(c, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception:
@@ -107,7 +109,7 @@ def find_instrument_mesh(search_dir=None, target_keyword=None, category=None, co
             chosen = preferred[0] if preferred else matched[0]
 
             # Risolvi percorso effettivo
-            base_proj = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            base_proj = str(paths.project_root())
             cand_paths = [
                 chosen.get("workspace_path", ""),
                 os.path.join(base_proj, chosen.get("rel_path", "")),
