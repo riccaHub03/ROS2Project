@@ -39,6 +39,8 @@ def main():
                         help="'all' carica la scena 3D completa All_Instruments.obj; 'single' carica un solo STL")
     parser.add_argument("--seed", type=int, default=42,
                         help="Seed di posizionamento casuale nel vassoio")
+    parser.add_argument("--config", type=str, default=None,
+                        help="File YAML dell'ambiente, inclusa la posa della base nel mondo")
     display = parser.add_mutually_exclusive_group()
     display.add_argument("--gui", action="store_true", help="Finestra 3D nativa con KUKA e anteprima del trasferimento")
     display.add_argument("--headless", action="store_true", help="Stessa run con robot senza finestra; termina dopo il risultato")
@@ -47,6 +49,8 @@ def main():
     parser.add_argument("--no-motion", action="store_true", help="Visualizza la presa senza muovere il robot")
     parser.add_argument("--exit-after-run", action="store_true", help="Chiudi la finestra al termine della run")
     args = parser.parse_args()
+    if args.config and not os.path.isfile(args.config):
+        parser.error(f"Configurazione non trovata: {args.config}")
 
     if args.list_tools:
         cat = load_instruments_catalog()
@@ -97,23 +101,23 @@ def main():
     print("="*75)
 
     # 1. LLM Planner
-    run_llm_planner(instruction_text=instruction, target_tool_hint=args.tool)
+    run_llm_planner(instruction_text=instruction, target_tool_hint=args.tool, config_path=args.config)
 
     # 2. Spawn 3D & Render Camera (All_Instruments o Single STL)
-    run_sim_camera_render(mode=mode, seed=args.seed)
+    run_sim_camera_render(mode=mode, seed=args.seed, config_path=args.config)
 
     # 3. SAM 3 sulla Vista della Telecamera
     from pipeline.sim.sim_step3_sam3_camera import run_sim_sam3_segmentation
     run_sim_sam3_segmentation()
 
     # 3b. Posizionamento STL nel Vassoio con Report Visivo PNG
-    run_sim_stl_placement(tool_override=args.tool, seed=args.seed)
+    run_sim_stl_placement(tool_override=args.tool, seed=args.seed, config_path=args.config)
 
     # 4. De-proiezione e Frame Transformations
-    run_sim_transforms()
+    run_sim_transforms(config_path=args.config)
 
     # 5. Definizione Geometria del Grasping e Zone Funzionali
-    run_grasp_geometry(source_type="sim")
+    run_grasp_geometry(source_type="sim", config_path=args.config)
 
     duration = time.time() - t_start
     print("\n" + "="*75)

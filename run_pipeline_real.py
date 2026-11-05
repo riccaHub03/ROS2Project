@@ -32,7 +32,10 @@ def main():
                         help="Comando clinico per il task planner LLM")
     parser.add_argument("--image", type=str, default=None,
                         help="Immagine reale del vassoio contenente tutti gli strumenti")
+    parser.add_argument("--config", type=str, default=None, help="File YAML dell'ambiente")
     args = parser.parse_args()
+    if args.config and not os.path.isfile(args.config):
+        parser.error(f"Configurazione non trovata: {args.config}")
 
     t_start = time.time()
     print("\n" + "="*75)
@@ -41,19 +44,19 @@ def main():
     print("="*75)
 
     # 1. LLM Planner
-    run_llm_planner(instruction_text=args.instruction)
+    run_llm_planner(instruction_text=args.instruction, config_path=args.config)
 
     # 2. Acquisizione Scena Reale
-    run_real_scene_capture(image_file=args.image)
+    run_real_scene_capture(image_file=args.image, config_path=args.config)
 
     # 3. SAM 3 Instance Selection
     run_real_sam3_segmentation()
 
     # 4. De-proiezione e Frame Transformations
-    run_real_transforms()
+    run_real_transforms(config_path=args.config)
 
     # 5. Definizione Geometria del Grasping e Zone Funzionali
-    run_grasp_geometry(source_type="real")
+    run_grasp_geometry(source_type="real", config_path=args.config)
 
     duration = time.time() - t_start
     print("\n" + "="*75)

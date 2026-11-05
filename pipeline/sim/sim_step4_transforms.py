@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 from pipeline.config_loader import load_environment_config
-from pipeline.frame_transformer import FrameTransformer, export_pointcloud_ply
+from pipeline.frame_transformer import FrameTransformer, RobotBaseFrame, export_pointcloud_ply
 
 
 def generate_frames_visualization(rgb_np, transformer, centroid_base, cam_pos, config, output_png_path):
@@ -44,6 +44,8 @@ def generate_frames_visualization(rgb_np, transformer, centroid_base, cam_pos, c
     fy = transformer.fy
     cx = transformer.cx
     cy = transformer.cy
+    base_frame = transformer.base_frame
+    centroid_world = base_frame.base_to_world(centroid_base)
 
     def proj(pt_world):
         pt_cam = transformer.transform_world_to_camera(pt_world)
@@ -56,8 +58,7 @@ def generate_frames_visualization(rgb_np, transformer, centroid_base, cam_pos, c
     # Elementi dell'ambiente caricati dinamicamente da YAML
     env_cfg = config.get("environment", {})
     trays_cfg = env_cfg.get("trays", {})
-    kuka_cfg = env_cfg.get("kuka_base", {})
-    p_base = np.array(kuka_cfg.get("position_xyz_m", [0.0, 0.0, 0.0]))
+    p_base = base_frame.position
 
     fig = plt.figure(figsize=(16, 8))
 
@@ -90,7 +91,7 @@ def generate_frames_visualization(rgb_np, transformer, centroid_base, cam_pos, c
         draw_projected_frame(ax1, t_pos_vec, np.eye(3), f"{t_name} Frame", axis_len=0.10, origin_color="gold")
 
     # 2. Terna Strumento Target
-    draw_projected_frame(ax1, centroid_base, np.eye(3), "Target Instrument Frame", axis_len=0.09, origin_color="orange")
+    draw_projected_frame(ax1, centroid_world, np.eye(3), "Target (assi world)", axis_len=0.09, origin_color="orange")
 
     # 3. Widget Terna Camera Optical Frame (in alto a sinistra dello schermo)
     corner_x, corner_y = 65, 65
@@ -106,14 +107,9 @@ def generate_frames_visualization(rgb_np, transformer, centroid_base, cam_pos, c
     ax1.text(corner_x - 55, corner_y - 12, "Camera Optical\nFrame", color="white", fontsize=8, fontweight="bold",
              bbox=dict(boxstyle="round,pad=0.25", facecolor="navy", alpha=0.85))
 
-    # Indicatore direzione verso la base del KUKA
-    p_tool_2d = proj(centroid_base)
-    if p_tool_2d is not None:
-        ax1.annotate("", xy=(int(cx), 20), xytext=(p_tool_2d[0], p_tool_2d[1]),
-                     arrowprops=dict(arrowstyle="->", color="magenta", lw=2, linestyle="--"))
-        ax1.text(int(cx), 10, "Verso Base Robot (lbr_link_0)", color="magenta",
-                 fontsize=9, fontweight="bold", ha="center",
-                 bbox=dict(boxstyle="round,pad=0.25", facecolor="black", alpha=0.8))
+    draw_projected_frame(ax1, p_base, base_frame.rotation, "Base robot", origin_color="magenta")
+    ax1.set_xlim(0, w)
+    ax1.set_ylim(h, 0)
 
     ax1.set_title("VISTA OTTICA CAMERA CON RIFERIMENTI DEI FRAME", fontsize=11, fontweight="bold")
     ax1.axis("off")
@@ -130,10 +126,10 @@ def generate_frames_visualization(rgb_np, transformer, centroid_base, cam_pos, c
         ax.text(origin[0], origin[1], origin[2] + scale*0.25, label, fontsize=8, fontweight="bold")
 
     # 1. Base Robot KUKA da YAML
-    draw_3d_frame(ax2, p_base, np.eye(3), "Base Robot (lbr_link_0)", scale=0.18)
+    draw_3d_frame(ax2, p_base, base_frame.rotation, "Base Robot (lbr_link_0)", scale=0.18)
 
     # 2. Camera Frame
-    R_cam = transformer.R_base_opt
+    R_cam = transformer.R_world_opt
     draw_3d_frame(ax2, cam_pos, R_cam, "Camera Optical Frame", scale=0.16)
 
     # 3. Vassoi da YAML
@@ -148,12 +144,12 @@ def generate_frames_visualization(rgb_np, transformer, centroid_base, cam_pos, c
         ax2.plot(bx, by, bz, color="gray", lw=1.2, linestyle="--", label=f"Vassoio {t_k}")
 
     # 4. Strumento Target
-    draw_3d_frame(ax2, centroid_base, np.eye(3), "Instrument Frame", scale=0.10)
+    draw_3d_frame(ax2, centroid_world, np.eye(3), "Target (assi world)", scale=0.10)
 
     # Connessioni cinematiche (assi ottici e trasformazioni)
     ax2.plot([p_base[0], cam_pos[0]], [p_base[1], cam_pos[1]], [p_base[2], cam_pos[2]], "k--", alpha=0.4, label="T_base_cam")
-    ax2.plot([cam_pos[0], centroid_base[0]], [cam_pos[1], centroid_base[1]], [cam_pos[2], centroid_base[2]], "c-", lw=2, label="Asse Ottico Deproiezione")
-    ax2.plot([p_base[0], centroid_base[0]], [p_base[1], centroid_base[1]], [p_base[2], centroid_base[2]], "m-.", lw=1.5, label="T_base_tool")
+    ax2.plot([cam_pos[0], centroid_world[0]], [cam_pos[1], centroid_world[1]], [cam_pos[2], centroid_world[2]], "c-", lw=2, label="Asse Ottico Deproiezione")
+    ax2.plot([p_base[0], centroid_world[0]], [p_base[1], centroid_world[1]], [p_base[2], centroid_world[2]], "m-.", lw=1.5, label="Base-target")
 
     # Tavolo operatorio da YAML
     table_cfg = env_cfg.get("surgical_table", {})
@@ -165,9 +161,9 @@ def generate_frames_visualization(rgb_np, transformer, centroid_base, cam_pos, c
     z_c = [tab_z]*5
     ax2.plot(x_c, y_c, z_c, "b-", lw=1.8, alpha=0.6, label="Tavolo Operatorio")
 
-    ax2.set_xlabel("X (Base) [m]")
-    ax2.set_ylabel("Y (Base) [m]")
-    ax2.set_zlabel("Z (Base) [m]")
+    ax2.set_xlabel("X (World) [m]")
+    ax2.set_ylabel("Y (World) [m]")
+    ax2.set_zlabel("Z (World) [m]")
     ax2.set_title("DIAGRAMMA ISOMETRICO SPAZIALE 3D DEI FRAME", fontsize=11, fontweight="bold")
     ax2.legend(loc="upper right", fontsize=7)
     ax2.view_init(elev=28, azim=-55)
@@ -197,6 +193,9 @@ def run_sim_transforms(mask_report_path=None, cam_report_path=None, config_path=
         cam_data = json.load(f)
 
     config = load_environment_config(config_path)
+    base_frame = RobotBaseFrame.from_dict(
+        cam_data.get("robot_base_pose_world", config.get("environment", {}).get("kuka_base", {}))
+    )
 
     mask_file = mask_data["files"]["camera_mask_png"]
     depth_file = cam_data["files"]["camera_depth_npy"]
@@ -217,18 +216,21 @@ def run_sim_transforms(mask_report_path=None, cam_report_path=None, config_path=
     transformer = FrameTransformer(
         camera_position_xyz=cam_pos,
         camera_target_xyz=cam_target,
-        camera_intrinsics={"fx_px": fx, "fy_px": fy, "cx_px": cx, "cy_px": cy}
+        camera_intrinsics={"fx_px": fx, "fy_px": fy, "cx_px": cx, "cy_px": cy},
+        robot_base_frame=base_frame,
     )
 
     v_idx, u_idx = np.where(mask_np > 128)
     if len(u_idx) == 0:
         raise ValueError("Nessun pixel attivo trovato nella maschera della telecamera simulata!")
 
-    pts_cam, pts_world = transformer.deproject_mask_to_pointcloud(mask_np, depth_m)
+    pts_cam, pts_base = transformer.deproject_mask_to_pointcloud(mask_np, depth_m)
+    pts_world = base_frame.base_to_world(pts_base)
     colors = rgb_np[v_idx, u_idx]
 
     centroid_cam = np.mean(pts_cam, axis=0)
-    centroid_base = np.mean(pts_world, axis=0)
+    centroid_base = np.mean(pts_base, axis=0)
+    centroid_world = np.mean(pts_world, axis=0)
 
     # Validazione di sicurezza sui limiti fisici del vassoio da YAML
     source_tray_key = cam_data.get("source_tray", "tray_2")
@@ -240,8 +242,7 @@ def run_sim_transforms(mask_report_path=None, cam_report_path=None, config_path=
     x_min, x_max = t_pos[0] - t_dims[0]/2.0 - 0.05, t_pos[0] + t_dims[0]/2.0 + 0.05
     y_min, y_max = t_pos[1] - t_dims[1]/2.0 - 0.05, t_pos[1] + t_dims[1]/2.0 + 0.05
 
-    is_inside_tray = (x_min <= centroid_base[0] <= x_max) and (y_min <= centroid_base[1] <= y_max)
-    conf_score = mask_data.get("confidence_score", 1.0)
+    is_inside_tray = (x_min <= centroid_world[0] <= x_max) and (y_min <= centroid_world[1] <= y_max)
 
     # Fallback su Stage 3b se il centroide ottico cade fisicamente fuori dal vassoio
     stage3b_file = os.path.join(base_dir, "data", "outputs", "stage3_stl_placement.json")
@@ -249,14 +250,17 @@ def run_sim_transforms(mask_report_path=None, cam_report_path=None, config_path=
         if os.path.exists(stage3b_file):
             with open(stage3b_file, "r", encoding="utf-8") as f:
                 s3b_data = json.load(f)
-            fallback_pos = s3b_data.get("placed_pose_base_frame", {}).get("position_xyz_m")
+            # I report precedenti, privi di frame world, erano generati con base all'origine.
+            fallback_pose = s3b_data.get("placed_pose_world_frame", s3b_data.get("placed_pose_base_frame", {}))
+            fallback_pos = fallback_pose.get("position_xyz_m")
             if fallback_pos:
-                print(f"ATTENZIONE: Maschera ottica calcolata a {[round(c, 4) for c in centroid_base]} -> FUORI DAL VASSOIO {source_tray_key}!")
+                print(f"ATTENZIONE: Centroide world {[round(c, 4) for c in centroid_world]} -> FUORI DAL VASSOIO {source_tray_key}!")
                 print(f"   Attivato Fallback di Sicurezza su Posa Certificata Stage 3b: {fallback_pos}")
-                centroid_base = np.array(fallback_pos)
-                centroid_cam = transformer.transform_world_to_camera(centroid_base)
+                centroid_world = np.array(fallback_pos)
+                centroid_base = base_frame.world_to_base(centroid_world)
+                centroid_cam = transformer.transform_world_to_camera(centroid_world)
     else:
-        print(f"Rilevamento ottico validato: Baricentro {[round(c, 4) for c in centroid_base]} è all'interno di {source_tray_key}")
+        print(f"Rilevamento ottico validato: Centroide world {[round(c, 4) for c in centroid_world]} è all'interno di {source_tray_key}")
 
     # Frame End-Effector (workbench_tcp alla quota di staging)
     motion_cfg = config.get("motion_control", {})
@@ -270,7 +274,7 @@ def run_sim_transforms(mask_report_path=None, cam_report_path=None, config_path=
     # Validazione con Ground Truth PyBullet
     gt_pos = cam_data.get("settled_ground_truth_pose", {}).get("position_xyz_m")
     if gt_pos:
-        err_mm = float(np.linalg.norm(centroid_base - np.array(gt_pos))) * 1000.0
+        err_mm = float(np.linalg.norm(centroid_world - np.array(gt_pos))) * 1000.0
     else:
         err_mm = 0.0
 
@@ -281,10 +285,10 @@ def run_sim_transforms(mask_report_path=None, cam_report_path=None, config_path=
     print(f"   - Baricentro End-Effector Frame(m): {[round(c, 4) for c in centroid_ee]}")
     print(f"   - Scostamento vs Ground Truth     : {err_mm:.2f} mm")
 
-    out_dir = os.path.join(base_dir, "data", "outputs")
+    out_dir = os.path.dirname(os.path.abspath(output_path)) if output_path else os.path.join(base_dir, "data", "outputs")
     os.makedirs(out_dir, exist_ok=True)
     out_ply = os.path.join(out_dir, "sim_reconstructed_instrument.ply")
-    export_pointcloud_ply(out_ply, pts_world, colors)
+    export_pointcloud_ply(out_ply, pts_base, colors)
 
     # Generazione Vista Ottica con Riferimenti Frame
     out_frames_vis = os.path.join(out_dir, "sim_stage4_frames_visual.png")
@@ -305,15 +309,19 @@ def run_sim_transforms(mask_report_path=None, cam_report_path=None, config_path=
         "timestamp": datetime.datetime.now().isoformat(),
         "num_points": int(len(pts_world)),
         "pointcloud_file": out_ply,
+        "pointcloud_frame_id": base_frame.frame_id,
+        "robot_base_pose_world": base_frame.to_dict(),
         "frames_visual_png": out_frames_vis,
         "frames": {
             "camera_optical_frame": [round(c, 4) for c in centroid_cam.tolist()],
+            "world_frame": [round(c, 4) for c in centroid_world.tolist()],
             "robot_base_frame": [round(c, 4) for c in centroid_base.tolist()],
             "end_effector_frame": [round(c, 4) for c in centroid_ee.tolist()]
         },
         "ground_truth_validation": {
+            "frame_id": "world",
             "ground_truth_xyz_m": gt_pos,
-            "reconstructed_xyz_m": [round(c, 4) for c in centroid_base.tolist()],
+            "reconstructed_xyz_m": [round(c, 4) for c in centroid_world.tolist()],
             "error_mm": round(err_mm, 2)
         },
         "status": "COMPLETED"

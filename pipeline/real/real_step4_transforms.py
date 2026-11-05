@@ -25,7 +25,7 @@ import numpy as np
 from PIL import Image
 
 from pipeline.config_loader import load_environment_config
-from pipeline.frame_transformer import FrameTransformer, export_pointcloud_ply
+from pipeline.frame_transformer import FrameTransformer, RobotBaseFrame, export_pointcloud_ply
 
 
 def run_real_transforms(mask_report_path=None, scene_report_path=None, config_path=None, output_path=None):
@@ -46,6 +46,9 @@ def run_real_transforms(mask_report_path=None, scene_report_path=None, config_pa
         scene_data = json.load(f)
 
     config = load_environment_config(config_path)
+    base_frame = RobotBaseFrame.from_dict(
+        scene_data.get("robot_base_pose_world", config.get("environment", {}).get("kuka_base", {}))
+    )
 
     mask_file = mask_data["files"]["binary_mask"]
     depth_file = scene_data["files"]["scene_depth_npy"]
@@ -65,18 +68,21 @@ def run_real_transforms(mask_report_path=None, scene_report_path=None, config_pa
     transformer = FrameTransformer(
         camera_position_xyz=cam_pos,
         camera_target_xyz=cam_target,
-        camera_intrinsics={"fx_px": fx, "fy_px": fy, "cx_px": cx, "cy_px": cy}
+        camera_intrinsics={"fx_px": fx, "fy_px": fy, "cx_px": cx, "cy_px": cy},
+        robot_base_frame=base_frame,
     )
 
     v_idx, u_idx = np.where(mask_np > 128)
     if len(u_idx) == 0:
         raise ValueError("Nessun pixel attivo trovato nella maschera dello strumento reale!")
 
-    pts_cam, pts_world = transformer.deproject_mask_to_pointcloud(mask_np, depth_m)
+    pts_cam, pts_base = transformer.deproject_mask_to_pointcloud(mask_np, depth_m)
+    pts_world = base_frame.base_to_world(pts_base)
     colors = rgb_np[v_idx, u_idx]
 
     centroid_cam = np.mean(pts_cam, axis=0)
-    centroid_base = np.mean(pts_world, axis=0)
+    centroid_base = np.mean(pts_base, axis=0)
+    centroid_world = np.mean(pts_world, axis=0)
 
     motion_cfg = config.get("motion_control", {})
     staging_z = motion_cfg.get("heights_z_m", {}).get("staging_z", 0.45)
@@ -92,10 +98,10 @@ def run_real_transforms(mask_report_path=None, scene_report_path=None, config_pa
     print(f"   - Baricentro Robot Base Frame (m): {[round(c, 4) for c in centroid_base]}")
     print(f"   - Baricentro End-Effector (m)    : {[round(c, 4) for c in centroid_ee]}")
 
-    out_dir = os.path.join(base_dir, "data", "outputs")
+    out_dir = os.path.dirname(os.path.abspath(output_path)) if output_path else os.path.join(base_dir, "data", "outputs")
     os.makedirs(out_dir, exist_ok=True)
     out_ply = os.path.join(out_dir, "real_reconstructed_instrument.ply")
-    export_pointcloud_ply(out_ply, pts_world, colors)
+    export_pointcloud_ply(out_ply, pts_base, colors)
 
     if output_path is None:
         output_path = os.path.join(out_dir, "real_stage4_transforms.json")
@@ -105,8 +111,11 @@ def run_real_transforms(mask_report_path=None, scene_report_path=None, config_pa
         "timestamp": datetime.datetime.now().isoformat(),
         "num_points": int(len(pts_world)),
         "pointcloud_file": out_ply,
+        "pointcloud_frame_id": base_frame.frame_id,
+        "robot_base_pose_world": base_frame.to_dict(),
         "frames": {
             "camera_optical_frame": [round(c, 4) for c in centroid_cam.tolist()],
+            "world_frame": [round(c, 4) for c in centroid_world.tolist()],
             "robot_base_frame": [round(c, 4) for c in centroid_base.tolist()],
             "end_effector_frame": [round(c, 4) for c in centroid_ee.tolist()]
         },

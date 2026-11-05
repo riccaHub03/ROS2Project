@@ -27,7 +27,8 @@ def load_environment_config(config_path=None):
     return {
         "environment": {
             "kuka_base": {
-                "position_xyz_m": [0.0, 0.0, 0.0]
+                "position_xyz_m": [0.0, 0.0, 0.0],
+                "orientation_rpy_rad": [0.0, 0.0, 0.0]
             },
             "surgical_table": {
                 "center_xyz_m": [0.60, 0.0, -0.05],
@@ -56,7 +57,7 @@ def load_environment_config(config_path=None):
             "auto_track_source_tray": True,
             "height_above_tray_m": 1.08,
             "extrinsics": {
-                "position_robot_frame_xyz_m": [0.60, -0.42, 1.15],
+                "position_world_frame_xyz_m": [0.60, -0.42, 1.15],
                 "target_position_xyz_m": [0.60, -0.42, 0.07]
             },
             "intrinsics": {

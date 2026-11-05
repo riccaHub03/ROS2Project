@@ -34,7 +34,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from pipeline.config_loader import load_environment_config
-from pipeline.frame_transformer import quaternion_from_matrix
+from pipeline.frame_transformer import RobotBaseFrame, quaternion_from_matrix
 
 
 def parse_ply(filepath):
@@ -89,7 +89,7 @@ def run_grasp_geometry(source_type="sim", transforms_report_path=None, task_plan
     print("="*75)
 
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    out_dir = os.path.join(base_dir, "data", "outputs")
+    out_dir = os.path.dirname(os.path.abspath(output_path)) if output_path else os.path.join(base_dir, "data", "outputs")
     os.makedirs(out_dir, exist_ok=True)
 
     # 1. Risoluzione percorsi file di ingresso
@@ -113,6 +113,9 @@ def run_grasp_geometry(source_type="sim", transforms_report_path=None, task_plan
             tool_name = plan_data.get("target_instrument", tool_name)
 
     config = load_environment_config(config_path)
+    # I vecchi PLY, privi di metadati della base, erano espressi con base all'origine.
+    base_frame = RobotBaseFrame.from_dict(t_data.get("robot_base_pose_world", {}))
+    world_up_base = base_frame.rotation.T @ np.array([0.0, 0.0, 1.0])
     ply_path = t_data.get("pointcloud_file")
     if not ply_path or not os.path.exists(ply_path):
         raise FileNotFoundError(f"File PLY nuvola di punti non trovato: {ply_path}")
@@ -124,8 +127,9 @@ def run_grasp_geometry(source_type="sim", transforms_report_path=None, task_plan
 
     # Filtraggio del piano d'appoggio (vassoio/tavolo)
     # I punti dello strumento giacciono sopra la quota del piano del vassoio
-    z_min_raw = np.min(raw_pts[:, 2])
-    z_max_raw = np.max(raw_pts[:, 2])
+    heights_world = raw_pts @ world_up_base
+    z_min_raw = np.min(heights_world)
+    z_max_raw = np.max(heights_world)
     
     # Se ci sono punti aderenti al fondo vassoio (z ~ 0.05 m per vassoio basso o z ~ 0.16 per vassoio rialzato)
     # filtriamo via la base per isolare la geometria pura dell'attrezzo
@@ -133,7 +137,7 @@ def run_grasp_geometry(source_type="sim", transforms_report_path=None, task_plan
     if z_height_span > 0.015:
         # Filtra i pixel con z nei percentili più bassi se coincidenti col colore del vassoio
         z_cutoff = z_min_raw + 0.10 * z_height_span
-        tool_mask = raw_pts[:, 2] >= z_cutoff
+        tool_mask = heights_world >= z_cutoff
         tool_pts = raw_pts[tool_mask]
     else:
         tool_pts = raw_pts
@@ -157,12 +161,13 @@ def run_grasp_geometry(source_type="sim", transforms_report_path=None, task_plan
     v2 = evecs[:, 1]  # Asse laterale (larghezza dello strumento)
     v3 = evecs[:, 2]  # Asse normale (spessore / normale al piano del tavolo)
 
-    # Coerenza dell'asse normale v3: deve puntare verso l'alto (+Z)
-    if v3[2] < 0:
+    # Alto fisico del mondo, anche quando la base e' inclinata.
+    if np.dot(v3, world_up_base) < 0:
         v3 = -v3
 
     # Coerenza dell'asse longitudinale v1: convenzione verso +X o +Y positivo
-    if (v1[0] + v1[1]) < 0:
+    world_diagonal_base = base_frame.rotation.T @ np.array([1.0, 1.0, 0.0])
+    if np.dot(v1, world_diagonal_base) < 0:
         v1 = -v1
 
     # Ricalcolo v2 per garantire una terna ortonormale destrorsa rigorosa
@@ -290,6 +295,8 @@ def run_grasp_geometry(source_type="sim", transforms_report_path=None, task_plan
     report = {
         "stage": "stage5_grasp_geometry",
         "source_pipeline": source_type,
+        "coordinate_frame_id": base_frame.frame_id,
+        "robot_base_pose_world": base_frame.to_dict(),
         "timestamp": datetime.datetime.now().isoformat(),
         "target_instrument": tool_name,
         "input_pointcloud": {

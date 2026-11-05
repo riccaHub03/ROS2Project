@@ -6,6 +6,9 @@ Avvio grafico nativo sul Mac: `bash run_graphical.sh`, oppure doppio clic su
 `Avvia_simulazione.command`. L'avvio usa SAM3 e mostra la geometria e il KUKA;
 `bash run_graphical.sh --vision ground-truth` esegue il test senza AI. Dettagli,
 controlli e limiti del movimento dimostrativo sono in [GRAFICA.md](GRAFICA.md).
+La posa della base KUKA puo' essere traslata e ruotata rispetto al mondo nel
+file YAML; `--config percorso.yaml` permette di confrontare configurazioni
+diverse mantenendo fissi tavolo, vassoi e camera.
 
 ---
 

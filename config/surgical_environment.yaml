@@ -7,6 +7,7 @@
 # =====================================================================
 
 environment:
+  # Tavolo, vassoi e posa della base sono espressi nel riferimento fisso world.
   room:
     description: "Blocco Operatorio Robotizzato"
     dimensions_xyz_m: [4.0, 4.0, 2.8]
@@ -14,8 +15,8 @@ environment:
   kuka_base:
     description: "Base fissa del manipolatore KUKA LBR iiwa"
     frame_id: "lbr_link_0"
-    position_xyz_m: [0.0, 0.0, 0.0]
-    orientation_rpy_rad: [0.0, 0.0, 0.0]
+    position_xyz_m: [0.0, 0.0, 0.0] # X, Y, Z nel mondo, in metri
+    orientation_rpy_rad: [0.0, 0.0, 0.0] # Roll, pitch, yaw nel mondo, in radianti
 
   surgical_table:
     description: "Tavolo operatorio principale"
@@ -50,7 +51,7 @@ camera_overhead:
   auto_track_source_tray: true # Se true, la telecamera centra automaticamente la linea di vista sopra il vassoio di origine
   height_above_tray_m: 1.08    # Quota verticale (Z) sopra il vassoio quando auto_track_source_tray è attivo
   extrinsics:
-    position_robot_frame_xyz_m: [0.60, -0.42, 1.15] # Usato come posa fissa se auto_track_source_tray: false
+    position_world_frame_xyz_m: [0.60, -0.42, 1.15] # Posa fissa nel mondo se auto_track_source_tray: false
     target_position_xyz_m: [0.60, -0.42, 0.07]
     orientation_view: "nadir_top_down"
   intrinsics:

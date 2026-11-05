@@ -37,7 +37,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 from pipeline.config_loader import load_environment_config
-from pipeline.frame_transformer import quaternion_from_matrix
+from pipeline.frame_transformer import RobotBaseFrame, quaternion_from_matrix
 from pipeline.mesh_loader import find_instrument_mesh
 
 
@@ -189,8 +189,8 @@ def run_sim_stl_placement(plan_path=None, config_path=None, output_path=None, to
             f"Distanze pareti: DX={dist_wall_pos_x*1000:.0f}mm, SX={dist_wall_neg_x*1000:.0f}mm, UP={dist_wall_pos_y*1000:.0f}mm, DOWN={dist_wall_neg_y*1000:.0f}mm",
             ha="center", fontsize=9, fontweight="bold", color="navy")
 
-    ax.set_xlabel("Y (Robot Base Frame) [m]")
-    ax.set_ylabel("X (Robot Base Frame) [m]")
+    ax.set_xlabel("Y (World Frame) [m]")
+    ax.set_ylabel("X (World Frame) [m]")
     ax.set_title(f"Report Posizionamento STL nel Vassoio: {target_tool.title()}\n(Piatto su piano Z, Yaw: {yaw_deg:.1f}°)")
     ax.axis("equal")
     ax.grid(True, linestyle=":", alpha=0.5)
@@ -204,12 +204,15 @@ def run_sim_stl_placement(plan_path=None, config_path=None, output_path=None, to
     if output_path is None:
         output_path = os.path.join(out_dir, "stage3_stl_placement.json")
 
+    base_frame = RobotBaseFrame.from_config(config)
+    base_pos, base_quat = base_frame.pose_world_to_base(tool_world_pos, q_final)
     report = {
         "stage": "stage3_stl_placement",
         "timestamp": datetime.datetime.now().isoformat(),
         "target_instrument": target_tool,
         "source_stl_file": stl_path,
         "source_tray": source_tray_key,
+        "robot_base_pose_world": base_frame.to_dict(),
         "tray_bounding_box_m": {
             "center_xyz": tray_pos,
             "dimensions_xyz": tray_dims
@@ -219,10 +222,14 @@ def run_sim_stl_placement(plan_path=None, config_path=None, output_path=None, to
             "width_v2": round(width_m, 4),
             "thickness_v3": round(thickness_m, 4)
         },
-        "placed_pose_base_frame": {
+        "placed_pose_world_frame": {
             "position_xyz_m": tool_world_pos,
             "orientation_quaternion_xyzw": [round(float(q), 5) for q in q_final],
             "yaw_deg": round(yaw_deg, 2)
+        },
+        "placed_pose_base_frame": {
+            "position_xyz_m": base_pos.tolist(),
+            "orientation_quaternion_xyzw": base_quat,
         },
         "wall_clearances_m": {
             "dist_wall_neg_x": dist_wall_neg_x,
@@ -241,7 +248,7 @@ def run_sim_stl_placement(plan_path=None, config_path=None, output_path=None, to
         json.dump(report, f, indent=2)
 
     print(f"Strumento STL posizionato con successo dentro {source_tray_key}:")
-    print(f"   - Baricentro (Base Frame): {tool_world_pos} m")
+    print(f"   - Baricentro (World Frame): {tool_world_pos} m")
     print(f"   - Orientamento Yaw       : {yaw_deg:.1f}° (Piatto sul fondo vassoio)")
     print(f"   - Margine minimo pareti  : {min(dist_wall_neg_x, dist_wall_pos_x, dist_wall_neg_y, dist_wall_pos_y)*1000:.0f} mm")
     print(f"   - Report JSON salvato in : {output_path}")

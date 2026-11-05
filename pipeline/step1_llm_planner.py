@@ -73,7 +73,7 @@ def normalize_action(val):
     return "pick_and_place"
 
 
-def run_llm_planner(instruction_text=DEFAULT_INSTRUCTION, target_tool_hint=None, ollama_url=None, model="qwen2.5:3b", output_path=None, offline=False):
+def run_llm_planner(instruction_text=DEFAULT_INSTRUCTION, target_tool_hint=None, ollama_url=None, model="qwen2.5:3b", output_path=None, offline=False, config_path=None):
     print("\n" + "="*70)
     print("[CATENA DI MONTAGGIO - STAGE 1] LLM TASK PLANNER")
     print(f"   Istruzione ricevuta: \"{instruction_text}\"")
@@ -191,7 +191,7 @@ def run_llm_planner(instruction_text=DEFAULT_INSTRUCTION, target_tool_hint=None,
     if not raw_kw or (raw_kw == "scissors" and "scissor" not in raw_tool.lower()):
         raw_kw = extract_keyword_from_instrument(raw_tool)
 
-    config = load_environment_config()
+    config = load_environment_config(config_path)
     report = {
         "stage": "stage1_task_plan",
         "timestamp": datetime.datetime.now().isoformat(),

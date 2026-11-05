@@ -19,7 +19,7 @@ from pipeline.sim.robot_motion_preview import MotionPreview
 from pipeline.step1_llm_planner import run_llm_planner
 
 
-def _compute(plan, camera, vision, events):
+def _compute(plan, camera, vision, events, config_path=None):
     """Il processo separato mantiene reattiva la GUI anche durante SAM3 su CPU."""
     try:
         out = ROOT / "data/outputs"
@@ -53,13 +53,13 @@ def _compute(plan, camera, vision, events):
         events.put(("status", "Stage 4: deproiezione della maschera nel riferimento robot"))
         from pipeline.sim.sim_step4_transforms import run_sim_transforms
         from pipeline.step5_grasp_geometry import parse_ply, run_grasp_geometry
-        transforms = run_sim_transforms()
+        transforms = run_sim_transforms(config_path=config_path)
         points, _ = parse_ply(transforms["pointcloud_file"])
         centroid = np.mean(points, axis=0)
         if not np.allclose(centroid, transforms["frames"]["robot_base_frame"], atol=0.00015):
             raise RuntimeError("Centroide e nuvola di punti incoerenti: movimento annullato")
         events.put(("status", "Stage 5: PCA e proposta geometrica della presa"))
-        grasp = run_grasp_geometry(source_type="sim")
+        grasp = run_grasp_geometry(source_type="sim", config_path=config_path)
         grasp["status"] = "GRASP_CANDIDATE"
         grasp["segmentation_backend"] = mask["segmentation_backend"]
         grasp["feasibility"] = {"ik_checked": False, "collision_checked": False, "contact_checked": False}
@@ -88,17 +88,18 @@ def run_graphical_pipeline(args, instruction):
     manifest = out / "graphical_run.json"
     try:
         diagnostic = args.vision == "ground-truth"
+        config_path = getattr(args, "config", None)
         print("Modalita diagnostica: parser deterministico e maschera da simulatore" if diagnostic
               else "Pipeline con Ollama/SAM3; movimento PyBullet dimostrativo", flush=True)
         plan = run_llm_planner(instruction_text=instruction, target_tool_hint=args.tool, offline=diagnostic,
-                               ollama_url="http://127.0.0.1:11434/v1/chat/completions")
-        scene = RobotScene(load_environment_config(), plan, gui=not args.headless, seed=args.seed)
+                               ollama_url="http://127.0.0.1:11434/v1/chat/completions", config_path=config_path)
+        scene = RobotScene(load_environment_config(config_path), plan, gui=not args.headless, seed=args.seed)
         scene.status("Scena pronta. R: ripeti movimento; P: pausa; Q: chiudi")
         result.update(status="PROCESSING", task_plan=plan, camera_report=scene.camera_report)
         write_json(manifest, result)
         context = multiprocessing.get_context("spawn")
         events = context.Queue()
-        worker = context.Process(target=_compute, args=(plan, scene.camera_report, args.vision, events), daemon=True)
+        worker = context.Process(target=_compute, args=(plan, scene.camera_report, args.vision, events, config_path), daemon=True)
         worker.start()
         motion = grasp = None
         paused = False

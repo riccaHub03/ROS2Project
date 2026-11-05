@@ -25,6 +25,7 @@ import numpy as np
 from PIL import Image
 
 from pipeline.config_loader import load_environment_config
+from pipeline.frame_transformer import RobotBaseFrame
 
 
 def run_real_scene_capture(image_file=None, config_path=None, output_path=None):
@@ -64,7 +65,8 @@ def run_real_scene_capture(image_file=None, config_path=None, output_path=None):
 
     # 2. Profondità metrica reale (se disponibile da RealSense/Zivid o calibrata da YAML)
     cam_cfg = config.get("camera_overhead", {})
-    cam_pos = cam_cfg.get("extrinsics", {}).get("position_robot_frame_xyz_m", [0.55, 0.0, 0.85])
+    extr = cam_cfg.get("extrinsics", {})
+    cam_pos = extr.get("position_world_frame_xyz_m", extr.get("position_robot_frame_xyz_m", [0.55, 0.0, 0.85]))
     intr = cam_cfg.get("intrinsics", {})
     fx = float(intr.get("fx_px", 615.0))
     fy = float(intr.get("fy_px", 615.0))
@@ -89,7 +91,9 @@ def run_real_scene_capture(image_file=None, config_path=None, output_path=None):
         "source_type": "physical_camera_feed / real_surgical_tray_image",
         "source_file": image_file,
         "image_resolution_wh": [w, h],
+        "robot_base_pose_world": RobotBaseFrame.from_config(config).to_dict(),
         "camera_extrinsics": {
+            "frame_id": "world",
             "position_xyz_m": cam_pos,
             "target_distance_m": round(nominal_distance_m, 4)
         },

@@ -29,7 +29,7 @@ import pybullet_data
 import trimesh
 
 from pipeline.config_loader import load_environment_config
-from pipeline.frame_transformer import quaternion_from_matrix
+from pipeline.frame_transformer import RobotBaseFrame, quaternion_from_matrix
 
 
 def get_or_create_all_instruments_obj(base_dir):
@@ -185,7 +185,7 @@ def run_sim_camera_render(plan_path=None, config_path=None, output_path=None, mo
 
     # 5. Rendering Vista Telecamera RGB-D da Parametri YAML
     cam_extr = cam_cfg.get("extrinsics", {})
-    cam_pos_cfg = cam_extr.get("position_robot_frame_xyz_m")
+    cam_pos_cfg = cam_extr.get("position_world_frame_xyz_m", cam_extr.get("position_robot_frame_xyz_m"))
     cam_target_cfg = cam_extr.get("target_position_xyz_m")
     auto_track = cam_cfg.get("auto_track_source_tray", True)
     height_z = cam_cfg.get("height_above_tray_m", 1.08)
@@ -237,11 +237,14 @@ def run_sim_camera_render(plan_path=None, config_path=None, output_path=None, mo
         "simulated_instrument": target_tool,
         "3d_source_file": mesh_3d_file,
         "source_tray": source_tray_key,
+        "robot_base_pose_world": RobotBaseFrame.from_config(config).to_dict(),
         "settled_ground_truth_pose": {
+            "frame_id": "world",
             "position_xyz_m": [round(x, 4) for x in settled_pos],
             "orientation_xyzw": [round(q, 5) for q in settled_orn]
         },
         "camera_metadata": {
+            "frame_id": "world",
             "position_xyz_m": cam_pos,
             "target_position_xyz_m": cam_target,
             "resolution_wh": [w, h],

@@ -14,6 +14,7 @@ import pybullet_data
 import trimesh
 
 from pipeline.mesh_loader import find_instrument_mesh
+from pipeline.frame_transformer import RobotBaseFrame
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -74,6 +75,7 @@ def prepare_mesh(source):
 class RobotScene:
     def __init__(self, config, plan, *, gui=False, seed=42):
         self.config, self.plan, self.gui = config, plan, gui
+        self.base_frame = RobotBaseFrame.from_config(config)
         self.cid = p.connect(p.GUI if gui else p.DIRECT)
         if self.cid < 0:
             raise RuntimeError("Impossibile aprire PyBullet")
@@ -133,10 +135,10 @@ class RobotScene:
                                    textSize=1.1, physicsClientId=self.cid)
 
     def _build_robot(self):
-        base = self.config["environment"]["kuka_base"]
-        if not np.allclose(base["position_xyz_m"], 0) or not np.allclose(base["orientation_rpy_rad"], 0):
-            raise ValueError("L'anteprima usa world coincidente con lbr_link_0: configura la base all'origine")
-        self.robot = p.loadURDF("kuka_iiwa/model.urdf", useFixedBase=True, physicsClientId=self.cid)
+        self.robot = p.loadURDF(
+            "kuka_iiwa/model.urdf", basePosition=self.base_frame.position.tolist(),
+            baseOrientation=self.base_frame.quaternion, useFixedBase=True, physicsClientId=self.cid,
+        )
         self.joints = list(range(7))
         self.ee = 6
         self.limits = [p.getJointInfo(self.robot, j, physicsClientId=self.cid)[8:10] for j in self.joints]
@@ -264,7 +266,8 @@ class RobotScene:
             pos = [*tray_pos[:2], tray_pos[2] + cam.get("height_above_tray_m", 1.08)]
             target = tray_pos
         else:
-            pos = cam["extrinsics"]["position_robot_frame_xyz_m"]
+            extr = cam["extrinsics"]
+            pos = extr.get("position_world_frame_xyz_m", extr.get("position_robot_frame_xyz_m"))
             target = cam["extrinsics"]["target_position_xyz_m"]
         w, h = cam["width_px"], cam["height_px"]
         intr = cam["intrinsics"]
@@ -289,9 +292,12 @@ class RobotScene:
             "stage": "sim_stage2_camera", "mode": "single", "simulated_instrument": self.plan["target_instrument"],
             "3d_source_file": self.mesh_file, "source_stl_file": self.mesh_info["source_mesh"],
             "source_tray": self.source, "settled_ground_truth_pose": {
-                "position_xyz_m": self.tool_initial_pos, "orientation_xyzw": self.tool_initial_orn},
+                "frame_id": "world", "position_xyz_m": self.tool_initial_pos,
+                "orientation_xyzw": self.tool_initial_orn},
+            "robot_base_pose_world": self.base_frame.to_dict(),
             "camera_metadata": {"position_xyz_m": pos, "target_position_xyz_m": target,
-                                "resolution_wh": [w, h], "fx_fy": [fx, fy], "cx_cy": [cx, cy]},
+                                "frame_id": "world", "resolution_wh": [w, h],
+                                "fx_fy": [fx, fy], "cx_cy": [cx, cy]},
             "files": {"camera_rgb_image": str(out / "sim_camera_rgb.png"),
                       "camera_depth_npy": str(out / "sim_camera_depth.npy"),
                       "ground_truth_mask": str(out / "sim_camera_ground_truth.png")},
@@ -299,12 +305,16 @@ class RobotScene:
         }
         write_json(out / "sim_stage2_camera.json", self.camera_report)
         self.save_overview(out / "sim_robot_scene.png")
+        base_pos, base_quat = self.base_frame.pose_world_to_base(self.tool_initial_pos, self.tool_initial_orn)
         write_json(out / "stage3_stl_placement.json", {
             "stage": "stage3_stl_placement", "source_stl_file": self.mesh_info["source_mesh"],
             "target_instrument": self.plan["target_instrument"], "source_tray": self.source,
             "stl_dimensions_m": dict(zip(("length_v1", "width_v2", "thickness_v3"), self.mesh_info["dimensions_m"])),
-            "placed_pose_base_frame": {"position_xyz_m": self.tool_initial_pos,
-                                       "orientation_quaternion_xyzw": self.tool_initial_orn},
+            "robot_base_pose_world": self.base_frame.to_dict(),
+            "placed_pose_world_frame": {"position_xyz_m": self.tool_initial_pos,
+                                        "orientation_quaternion_xyzw": self.tool_initial_orn},
+            "placed_pose_base_frame": {"position_xyz_m": base_pos.tolist(),
+                                       "orientation_quaternion_xyzw": base_quat},
             "artifacts_generated": {"placement_visual_png": str(out / "sim_robot_scene.png")},
             "pose_source": "same_pybullet_scene_as_rgbd", "status": "COMPLETED",
         })
@@ -324,10 +334,12 @@ class RobotScene:
 
     def show_grasp(self, report):
         data = report["designated_grasp_geometry"]
-        pos = data["grasp_centroid_base_frame_xyz_m"]
+        pos, quat = self.base_frame.pose_base_to_world(
+            data["grasp_centroid_base_frame_xyz_m"],
+            data["recommended_gripper_orientation"]["quaternion_xyzw"],
+        )
         vis = p.createVisualShape(p.GEOM_SPHERE, radius=0.008, rgbaColor=[0.1, 1, 0.2, 0.9], physicsClientId=self.cid)
         self.markers.append(p.createMultiBody(0, -1, vis, pos, physicsClientId=self.cid))
-        quat = data["recommended_gripper_orientation"]["quaternion_xyzw"]
         rotation = np.asarray(p.getMatrixFromQuaternion(quat)).reshape(3, 3)
         for axis, color in zip(rotation.T, ([1, 0, 0], [0, 0.75, 0], [0, 0, 1])):
             p.addUserDebugLine(pos, np.asarray(pos) + axis * 0.07, color, 3, physicsClientId=self.cid)
