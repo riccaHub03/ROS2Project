@@ -167,8 +167,23 @@ def run(*, mode: str = "all", plan_path: Optional[str] = None, config_path: Opti
         Image.fromarray(rgb).save(rgb_png)
         Image.fromarray(truth.astype(np.uint8) * 255).save(truth_png)
         np.save(depth_npy, depth)
-        d_min, d_max = float(np.min(depth)), float(np.max(depth))
-        d_norm = (depth - d_min) / (d_max - d_min) if d_max > d_min else np.zeros_like(depth)
+        # Depth visualization: clip the background/floor (depth beyond table) so contrast
+        # is fully allocated to the instruments and tray rather than squashed by the floor.
+        table_limit = float(camera.position[2] - tray.position[2]) + 0.10
+        valid = depth < table_limit
+        if np.any(valid):
+            d_min = float(np.min(depth[valid]))
+            d_max = float(np.max(depth[valid]))
+            d_range = d_max - d_min
+            if d_range > 1e-4:
+                # Closer to camera (higher relief) = brighter (white)
+                d_norm = np.clip(1.0 - (depth - d_min) / d_range, 0.0, 1.0)
+            else:
+                d_norm = np.zeros_like(depth)
+            d_norm[~valid] = 0.0
+        else:
+            d_min, d_max = float(np.min(depth)), float(np.max(depth))
+            d_norm = (depth - d_min) / (d_max - d_min) if d_max > d_min else np.zeros_like(depth)
         Image.fromarray((d_norm * 255.0).astype(np.uint8)).save(depth_vis)
 
         report.artifacts = {"rgb_png": str(rgb_png), "depth_npy": str(depth_npy), "depth_visual_png": str(depth_vis),

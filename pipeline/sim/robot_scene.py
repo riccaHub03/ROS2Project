@@ -274,18 +274,37 @@ class RobotScene:
         mask = (ids >= 0) & ((ids & ((1 << 24) - 1)) == self.tool)
         self.ground_truth_mask = mask
         rgb_png, depth_npy = out / "sim_capture_rgb.png", out / "sim_capture_depth.npy"
+        depth_vis = out / "sim_capture_depth_vis.png"
         truth_png, overview_png = out / "sim_capture_truth_mask.png", out / "sim_robot_scene.png"
         Image.fromarray(rgb).save(rgb_png)
         np.save(depth_npy, depth)
         Image.fromarray((mask * 255).astype(np.uint8)).save(truth_png)
         self.save_overview(overview_png)
 
+        tray_info = self.trays[self.source]
+        table_limit = float(camera.position[2] - tray_info["position_xyz_m"][2]) + 0.10
+        valid = depth < table_limit
+        if np.any(valid):
+            d_min = float(np.min(depth[valid]))
+            d_max = float(np.max(depth[valid]))
+            d_range = d_max - d_min
+            if d_range > 1e-4:
+                d_norm = np.clip(1.0 - (depth - d_min) / d_range, 0.0, 1.0)
+            else:
+                d_norm = np.zeros_like(depth)
+            d_norm[~valid] = 0.0
+        else:
+            d_min, d_max = float(np.min(depth)), float(np.max(depth))
+            d_norm = (depth - d_min) / (d_max - d_min) if d_max > d_min else np.zeros_like(depth)
+        Image.fromarray((d_norm * 255.0).astype(np.uint8)).save(depth_vis)
+
         instrument = self.plan["target_instrument"]
         initial_pose = {"position_xyz_m": round_list(self.tool_initial_pos),
                         "orientation_xyzw": round_list(self.tool_initial_orn, 5)}
         self.capture_report = StageReport(
             stage="sim_capture", inputs={"plan": "in-memory"},
-            artifacts={"rgb_png": str(rgb_png), "depth_npy": str(depth_npy), "truth_mask_png": str(truth_png)},
+            artifacts={"rgb_png": str(rgb_png), "depth_npy": str(depth_npy), "depth_visual_png": str(depth_vis),
+                       "truth_mask_png": str(truth_png)},
             data={"mode": "single", "simulated_instrument": instrument, "mesh_file": self.mesh_file,
                   "source_stl_file": self.mesh_info["source_mesh"], "source_tray": self.source,
                   "ground_truth_pose": initial_pose, "camera": camera.to_dict()})
