@@ -122,3 +122,9 @@ desktop.ini
 !.env.example
 !.env.template
 *.log
+
+# -----------------------------------------------------------------------------
+# 11. Dati esterni (GraspGen: checkpoint, dataset, oggetti) - scaricati, non versionati
+# -----------------------------------------------------------------------------
+data/external/*
+!data/external/.gitkeep

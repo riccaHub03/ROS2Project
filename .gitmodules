@@ -1,0 +1,3 @@
+[submodule "third_party/GraspGen"]
+	path = third_party/GraspGen
+	url = https://github.com/NVlabs/GraspGen.git

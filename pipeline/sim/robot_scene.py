@@ -19,6 +19,7 @@ from pipeline.common.reconstruction import CameraModel
 from pipeline.common.report import StageReport, write_json
 from pipeline.common.scene import camera_intrinsics, camera_pose, get_tray, round_list
 from pipeline.mesh_loader import find_instrument_mesh
+from pipeline.sim.placement import sample_tool_pose
 
 log = logging.getLogger("robot_scene")
 TCP_OFFSET = (0.0, 0.0, 0.10)
@@ -163,9 +164,9 @@ class RobotScene:
         dims = np.asarray(self.mesh_info["dimensions_m"])
         tray = self.trays[self.source]
         top = tray["position_xyz_m"][2] + tray["dimensions_xyz_m"][2] / 2
-        self.tool_initial_pos = [*tray["position_xyz_m"][:2], top + dims[2] / 2 + 0.001]
-        yaw = np.random.default_rng(seed).uniform(-0.4, 0.4)
-        self.tool_initial_orn = p.getQuaternionFromEuler([0, 0, float(yaw)])
+        x, y, yaw = sample_tool_pose(tray["position_xyz_m"], tray["dimensions_xyz_m"], dims[:2], seed)
+        self.tool_initial_pos = [x, y, top + dims[2] / 2 + 0.001]
+        self.tool_initial_orn = p.getQuaternionFromEuler([0, 0, yaw])
         vis = p.createVisualShape(p.GEOM_MESH, fileName=self.mesh_file,
                                   rgbaColor=[0.28, 0.31, 0.35, 1], physicsClientId=self.cid)
         col = p.createCollisionShape(p.GEOM_BOX, halfExtents=(dims / 2).tolist(), physicsClientId=self.cid)
