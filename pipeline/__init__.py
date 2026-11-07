@@ -1,6 +1,14 @@
+"""Surgical robotics perception & grasping pipeline (KUKA LBR iiwa + ROS 2 + SAM 3 + Qwen).
+
+Stages are independent modules, each runnable with ``python -m``:
+
+    pipeline.plan                      LLM task planner
+    pipeline.sim.capture               PyBullet scene + RGB-D render
+    pipeline.sim.segment               SAM 3 on the simulated view
+    pipeline.sim.reference_pose        STL tray placement (certified pose)
+    pipeline.sim.deproject             mask + depth -> 3D cloud and frames
+    pipeline.real.capture / segment / deproject   real-image counterparts
+    pipeline.grasp                     PCA zones + grasp pose
+
+Importing this package is intentionally side-effect free (no heavy dependencies).
 """
-Package autonomo della pipeline medica robotica (KUKA LBR iiwa + ROS 2 + SAM 3 + Qwen).
-"""
-from .config_loader import load_environment_config
-from .frame_transformer import FrameTransformer
-from .step5_grasp_geometry import run_grasp_geometry

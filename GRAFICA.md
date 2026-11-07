@@ -3,7 +3,7 @@
 Apri `Avvia_simulazione.command` con doppio clic, oppure esegui dal Terminale:
 
 ```bash
-cd /Users/alice/Desktop/Progetti/P6/ROS2Project
+cd /home/ricca/progetto_ROS
 bash run_graphical.sh
 ```
 
@@ -90,13 +90,31 @@ controllo IK prima di iniziare il trasferimento.
 
 Le nuvole e le pose di presa sono espresse nella base robot; i waypoint della
 simulazione sono in `world`. I JSON includono la posa della base e il riferimento
-dei dati. Quando cambi base, riesegui gli stage 4 e 5 per rigenerare le prese.
+dei dati. Quando cambi base, riesegui `deproject` e `grasp` per rigenerare le prese.
 L'altezza di approccio e quella di sollevamento restano quote Z del mondo,
 anche se la base e' inclinata.
 
 Per una camera fissa, `camera_overhead.extrinsics.position_world_frame_xyz_m`
 specifica la posizione in world. Il vecchio nome `position_robot_frame_xyz_m`
 resta accettato come alias per le configurazioni precedenti, con valori in world.
+
+## Controllo manuale interattivo: W-S-A-D e Puntatore del Mouse
+
+Per muovere liberamente il robot sulla scena chirurgica con la tastiera (**W-S-A-D**) e visualizzare la scena dalla telecamera:
+
+```bash
+bash run_interactive.sh
+```
+
+- **W / S / A / D**: movimento cartesiano continuo (avanti, indietro, sinistra, destra);
+- **Q / E**: solleva o abbassa la quota verticale $Z$;
+- **U / O** (oppure **J / L**): ruota l'orientamento della pinza ($Yaw$);
+- **Spazio**: apre e chiude le dita della pinza;
+- **G** (oppure **Click Destro**): presa o rilascio dello strumento;
+- **Rotella del mouse** (oppure tasto **M**): attiva/disattiva la modalità puntatore in cui il robot segue il mouse;
+- **V / C**: passa dalla vista telecamera alla vista 3D libera;
+- **H**: ripristina la posa iniziale HOME.
+
 
 ## Significato del movimento
 
@@ -119,12 +137,12 @@ solo i pixel visibili del corpo target.
 
 In `data/outputs/` trovi:
 
-- `graphical_run.json`: backend, stato, errore eventuale e riepilogo della run;
+- `graphical_run.json`: backend, stato (`data.state`), errore eventuale e riepilogo della run;
 - `sim_robot_scene.png`: scena iniziale con il robot;
-- `sim_camera_rgb.png`, `sim_camera_depth.npy`: acquisizione della scena;
-- `sim_camera_overlay.png`: maschera sovrapposta all'immagine;
-- `sim_reconstructed_instrument.ply`: geometria nel riferimento robot;
-- `stage5_grasp_geometry.json`: proposta della presa, con verifiche ancora da svolgere;
+- `sim_capture_rgb.png`, `sim_capture_depth.npy`: acquisizione della scena (report `sim_capture.json`);
+- `sim_segmentation_overlay.png`: maschera sovrapposta all'immagine (report `sim_segmentation.json`);
+- `sim_deprojection_cloud.ply`: geometria nel riferimento robot (report `sim_deprojection.json`);
+- `grasp.json`: proposta della presa, con verifiche ancora da svolgere (`data.readiness`);
 - `sim_robot_motion.json`: waypoint, errori e modello di presa impiegato;
 - `sim_robot_grasp.png`, `sim_robot_result.png`: presa proposta e risultato del movimento.
 

@@ -1,6 +1,5 @@
 """Controlli su scena condivisa, rifiuto IK e trasferimento misurato in DIRECT."""
 
-import json
 import copy
 from pathlib import Path
 import tempfile
@@ -13,23 +12,26 @@ import pybullet as p
 import trimesh
 import yaml
 
+from pipeline.common import paths
+from pipeline.common.report import StageReport
+from pipeline.common.ply import read_ply
 from pipeline.config_loader import load_environment_config
 from pipeline.sim import robot_scene
+from pipeline.sim.deproject import run as run_sim_transforms
+from pipeline.grasp import run as run_grasp_geometry
 from pipeline.sim.robot_motion_preview import MotionPreview
 from pipeline.frame_transformer import FrameTransformer, RobotBaseFrame, matrix_from_quaternion
-from pipeline.sim.sim_step4_transforms import run_sim_transforms
-from pipeline.step5_grasp_geometry import parse_ply, run_grasp_geometry
 
 
 class RobotPreviewTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         root = Path(self.temp.name)
-        self.root_patch = patch.object(robot_scene, "ROOT", root)
+        self.root_patch = patch.dict("os.environ", {paths.ROOT_ENV: str(root)})
         self.root_patch.start()
         mesh = root / "instrument.stl"
         trimesh.creation.box([0.14, 0.012, 0.004]).export(mesh)
-        config = load_environment_config()
+        config = load_environment_config(Path(__file__).resolve().parents[1] / "config/surgical_environment.yaml")
         config["environment"]["kuka_base"].update(
             position_xyz_m=[0, 0, 0], orientation_rpy_rad=[0, 0, 0])
         config["surgical_instrument"]["stl_path"] = str(mesh)
@@ -44,14 +46,14 @@ class RobotPreviewTests(unittest.TestCase):
 
     def test_camera_and_placement_use_same_pose(self):
         out = Path(self.temp.name) / "data/outputs"
-        camera = json.loads((out / "sim_stage2_camera.json").read_text())
-        placement = json.loads((out / "stage3_stl_placement.json").read_text())
-        self.assertEqual(camera["source_stl_file"], placement["source_stl_file"])
-        np.testing.assert_allclose(camera["settled_ground_truth_pose"]["position_xyz_m"],
-                                   placement["placed_pose_world_frame"]["position_xyz_m"])
-        mask = np.asarray(Image.open(camera["files"]["ground_truth_mask"]))
+        camera = StageReport.load(out / paths.SIM_CAPTURE, expect_stage="sim_capture")
+        placement = StageReport.load(out / paths.SIM_REFERENCE_POSE, expect_stage="sim_reference_pose")
+        self.assertEqual(camera.data["source_stl_file"], placement.data["source_stl_file"])
+        np.testing.assert_allclose(camera.data["ground_truth_pose"]["position_xyz_m"],
+                                   placement.data["pose"]["position_xyz_m"])
+        mask = np.asarray(Image.open(camera.artifact("truth_mask_png")))
         self.assertGreater(np.count_nonzero(mask), 15)
-        depth = np.load(camera["files"]["camera_depth_npy"])
+        depth = np.load(camera.artifact("depth_npy"))
         self.assertTrue(np.isfinite(depth[mask > 0]).all())
 
     def test_unreachable_ik_does_not_move_robot(self):
@@ -89,7 +91,7 @@ class RobotPreviewTests(unittest.TestCase):
     def test_translated_and_rotated_base_changes_robot_only(self):
         old_tcp, old_quat = self.scene.tcp_pose()
         old_tool = self.scene.tool_initial_pos
-        old_camera = self.scene.camera_report["camera_metadata"]
+        old_camera = self.scene.capture_report.data["camera"]
         self.scene.close()
         config = copy.deepcopy(self.config)
         config["environment"]["kuka_base"].update(
@@ -103,16 +105,16 @@ class RobotPreviewTests(unittest.TestCase):
         np.testing.assert_allclose(matrix_from_quaternion(actual_quat),
                                    matrix_from_quaternion(expected_quat), atol=1e-6)
         np.testing.assert_allclose(self.scene.tool_initial_pos, old_tool)
-        self.assertEqual(self.scene.camera_report["camera_metadata"], old_camera)
-        placement = json.loads((Path(self.temp.name) / "data/outputs/stage3_stl_placement.json").read_text())
-        np.testing.assert_allclose(frame.base_to_world(placement["placed_pose_base_frame"]["position_xyz_m"]),
+        self.assertEqual(self.scene.capture_report.data["camera"], old_camera)
+        placement = StageReport.load(Path(self.temp.name) / "data/outputs" / paths.SIM_REFERENCE_POSE)
+        np.testing.assert_allclose(frame.base_to_world(placement.data["pose_base_frame"]["position_xyz_m"]),
                                    old_tool)
 
     def test_camera_points_and_grasp_are_invariant_in_world(self):
         root = Path(self.temp.name)
-        camera = copy.deepcopy(self.scene.camera_report)
+        camera = copy.deepcopy(self.scene.capture_report)
         mask_path = root / "mask-report.json"
-        mask_path.write_text(json.dumps({"files": {"camera_mask_png": camera["files"]["ground_truth_mask"]}}))
+        StageReport("sim_segmentation", artifacts={"mask_png": camera.artifacts["truth_mask_png"]}).save(mask_path)
         outputs = []
         for name, position, rpy in [("origin", [0, 0, 0], [0, 0, 0]),
                                      ("tilted", [0.06, -0.03, 0.02], [0.2, -0.15, 0.3])]:
@@ -123,21 +125,21 @@ class RobotPreviewTests(unittest.TestCase):
             case.mkdir()
             cfg_path = case / "config.yaml"
             cfg_path.write_text(yaml.safe_dump(config))
-            camera["robot_base_pose_world"] = frame.to_dict()
+            camera.data["robot_base_pose_world"] = frame.to_dict()
             camera_path = case / "camera.json"
-            camera_path.write_text(json.dumps(camera))
-            transforms = run_sim_transforms(mask_report_path=str(mask_path), cam_report_path=str(camera_path),
-                                             config_path=str(cfg_path), output_path=str(case / "transforms.json"))
-            points, _ = parse_ply(transforms["pointcloud_file"])
-            np.testing.assert_allclose(points.mean(axis=0), transforms["frames"]["robot_base_frame"], atol=0.0001)
-            grasp = run_grasp_geometry(transforms_report_path=str(case / "transforms.json"),
-                                        config_path=str(cfg_path), output_path=str(case / "grasp.json"))
-            data = grasp["designated_grasp_geometry"]
+            camera.save(camera_path)
+            transforms = run_sim_transforms(segmentation_path=str(mask_path), capture_path=str(camera_path),
+                                             config_path=str(cfg_path), out_dir=str(case), report_path="transforms.json")
+            points, _ = read_ply(transforms.artifact("pointcloud_ply"))
+            np.testing.assert_allclose(points.mean(axis=0), transforms.data["frames"]["robot_base_frame"], atol=0.0001)
+            self.assertEqual(transforms.data["centroid_source"], "optical")
+            grasp = run_grasp_geometry(deprojection_path=str(case / "transforms.json"), out_dir=str(case))
+            data = grasp.data["designated_grasp_geometry"]
             world_pos, world_quat = frame.pose_base_to_world(
                 data["grasp_centroid_base_frame_xyz_m"],
                 data["recommended_gripper_orientation"]["quaternion_xyzw"])
             outputs.append((frame.base_to_world(points), world_pos, matrix_from_quaternion(world_quat),
-                            grasp["input_pointcloud"]["filtered_points"]))
+                            grasp.data["input_pointcloud"]["filtered_points"]))
         np.testing.assert_allclose(outputs[0][0], outputs[1][0], atol=2e-6)
         np.testing.assert_allclose(outputs[0][1], outputs[1][1], atol=0.0002)
         np.testing.assert_allclose(outputs[0][2], outputs[1][2], atol=0.0002)

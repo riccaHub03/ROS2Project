@@ -7,12 +7,14 @@ Zero impatto su watchdog, zero rallentamenti di fisica e massima resa visiva.
 
 import os
 import math
-import json
 import cv2
 import numpy as np
 import pybullet as p
 import pybullet_data
 from pathlib import Path
+
+from pipeline.common import paths
+from pipeline.common.report import StageReport
 
 
 def render_offline_video(trajectory_log=None, p_tool_initial=None, p_tray_final=None,
@@ -21,23 +23,20 @@ def render_offline_video(trajectory_log=None, p_tool_initial=None, p_tray_final=
     Riproduce offline la traiettoria registrata e genera un video MP4 ad alta qualità (720p/HD).
     Non interferisce con ROS 2, non usa controllori e non ha vincoli di tempo reale.
     """
-    if trajectory_log is None or len(trajectory_log) == 0:
-        log_file = "/workspace/data/outputs/robot_trajectory_log.json"
-        if os.path.exists(log_file):
-            with open(log_file, "r") as f:
-                data = json.load(f)
-                trajectory_log = data.get("trajectory", [])
-                p_tool_initial = data.get("tool_initial_xyz", p_tool_initial)
-                p_tray_final = data.get("tray_final_xyz", p_tray_final)
+    if not trajectory_log:
+        log_file = paths.report_path(paths.TRAJECTORY)
+        if log_file.exists():
+            saved = StageReport.load(log_file, expect_stage="robot_trajectory")
+            trajectory_log = saved.data.get("trajectory", [])
+            p_tool_initial = saved.data.get("tool_initial_xyz", p_tool_initial)
+            p_tray_final = saved.data.get("tray_final_xyz", p_tray_final)
 
     if not trajectory_log:
-        print("Nessuna traiettoria registrata trovata per il rendering offline.")
+        print("No recorded trajectory found for offline rendering.")
         return None
 
     if output_path is None:
-        out_dir = "/workspace/data/outputs"
-        os.makedirs(out_dir, exist_ok=True)
-        output_path = os.path.join(out_dir, "medical_pick_and_place.mp4")
+        output_path = str(paths.output_dir() / paths.VIDEO)
 
     print("\n" + "=" * 65)
     print("AVVIO RENDERING VIDEO OFFLINE POST-CINEMATICA (ALTA DEFINIZIONE)")
@@ -174,5 +173,17 @@ def render_offline_video(trajectory_log=None, p_tool_initial=None, p_tray_final=
     return output_path
 
 
+def main(argv=None) -> int:
+    import argparse
+    parser = argparse.ArgumentParser(description="Render the recorded robot trajectory to MP4")
+    parser.add_argument("--out-dir", default=None)
+    parser.add_argument("--output", default=None, help="MP4 path (default: <out-dir>/medical_pick_and_place.mp4)")
+    parser.add_argument("--fps", type=int, default=30)
+    args = parser.parse_args(argv)
+    if args.out_dir:
+        os.environ[paths.OUTPUT_ENV] = args.out_dir
+    return 0 if render_offline_video(output_path=args.output, fps=args.fps) else 1
+
+
 if __name__ == "__main__":
-    render_offline_video()
+    raise SystemExit(main())

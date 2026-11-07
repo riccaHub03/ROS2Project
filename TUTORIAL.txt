@@ -1,0 +1,105 @@
+
+#1. Pianificazione Clinica: pipeline.plan
+# Interpreta la frase in linguaggio naturale o imposta direttamente l'attrezzo target,
+# individuando vassoio di prelievo e vassoio di destinazione.
+
+# Con Ollama attivo (modello linguistico qwen2.5:3b)
+python3 -m pipeline.plan --instruction "Passami il bisturi dal vassoio 2 al vassoio 1"
+
+# Modalità OFFLINE / deterministica (istantanea, senza bisogno di Ollama)
+python3 -m pipeline.plan --instruction "Passami le forbici" --offline
+
+# Forzando direttamente un attrezzo specifico dal catalogo
+python3 -m pipeline.plan --tool "Bone Forceps" --offline
+
+#2. Acquisizione Camera & PyBullet: pipeline.sim.capture
+# Carica la scena di simulazione PyBullet con tavolo, vassoi e telecamera overhead,
+# posiziona lo strumento e acquisisce immagine RGB e profondità metrica.
+
+# Carica solo lo strumento specificato nel plan.json precedente
+python3 -m pipeline.sim.capture --mode single
+
+# Oppure carica l'intera scena complessa con tutti gli strumenti insieme
+python3 -m pipeline.sim.capture --mode all
+
+# Specificando un file di piano diverso
+python3 -m pipeline.sim.capture --plan data/outputs/plan.json --mode single
+
+# 3. Segmentazione Visiva 2D: pipeline.sim.segment
+# Isola i pixel dello strumento chirurgico richiesto nell'inquadratura della telecamera,
+# creando la maschera di segmentazione.
+
+# Modalità DIAGNOSTICA / Ground-Truth (rapida, perfetta per test senza GPU né pesi SAM3)
+python3 -m pipeline.sim.segment --backend ground-truth
+
+# Modalità con AI SAM 3 (Segment Anything 3)
+python3 -m pipeline.sim.segment --backend sam3
+
+# 4. Posa di Riferimento STL: pipeline.sim.reference_pose
+# Interroga il catalogo reale dei tuoi 5 GB (instruments_catalog.json),
+# individua il modello 3D STL esatto, lo posiziona sul vassoio ed estrae gli assi principali PCA di riferimento.
+
+# Legge lo strumento pianificato da plan.json
+python3 -m pipeline.sim.reference_pose
+
+# Oppure testa direttamente uno specifico strumento del dataset con un seed di rotazione
+python3 -m pipeline.sim.reference_pose --tool "Scalpel" --seed 42
+
+# 5. De-proiezione 3D e Trasformazioni Frame: pipeline.sim.deproject
+
+# De-proietta i pixel della maschera 2D nello spazio 3D metrico usando la mappa di profondità.
+# Calcola il centroide e le trasformazioni di coordinate tra i sistemi di riferimento (Camera→RobotBase→TCP).
+
+python3 -m pipeline.sim.deproject
+
+# 6. Geometria di Presa e Suddivisione Zone: pipeline.grasp
+#Analizza la nuvola di punti 3D con PCA per identificare le zone funzionali dello strumento (anelli/impugnatura, fusto/asta centrale, lame/punte di lavoro)
+# e calcola la posa di presa ottimale (XYZ e quaternione) con la corretta apertura della pinza.
+
+# Per la simulazione:
+python3 -m pipeline.grasp
+
+# Puoi passargli esplicitamente qualunque deproiezione (anche reale):
+python3 -m pipeline.grasp --deprojection data/outputs/sim_deprojection.json
+
+# 7. Esecuzione a Blocchi con l'Orchestratore (run_pipeline_sim.py)
+# Se non vuoi lanciare ogni singolo stadio a mano,
+# puoi eseguire sotto-intervalli della pipeline con i flag --from-stage e --stop-after:
+
+# Esempio 1: Esegui solo fino alla segmentazione visiva e poi fermati
+python3 run_pipeline_sim.py --tool Scalpel --stop-after segment
+
+# Esempio 2: Hai già catturato e segmentato, vuoi rilanciare solo la parte 3D e Grasp
+python3 run_pipeline_sim.py --tool Scalpel --from-stage deproject
+
+# Esempio 3: Esegui solo dallo stadio capture allo stadio reference_pose
+python3 run_pipeline_sim.py --from-stage capture --stop-after reference_pose
+
+
+# NB!! Utilizzo Diretto da Script Python (Senza Terminale)
+# Se vuoi richiamare gli stadi all'interno di un tuo script Python personalizzato:
+
+from pipeline import plan, grasp
+from pipeline.sim import capture, segment, reference_pose, deproject
+
+# 1. Pianificazione
+report_plan = plan.run("Passami il bisturi", offline=True)
+
+# 2. Rendering e cattura RGB-D
+report_cap = capture.run(mode="single")
+
+# 3. Segmentazione (diagnostica o con SAM3)
+report_seg = segment.run(backend="ground-truth")
+
+# 4. Posa di riferimento STL
+report_ref = reference_pose.run(tool="Scalpel")
+
+# 5. De-proiezione 3D
+report_dep = deproject.run()
+
+# 6. Calcolo presa e zone funzionali
+report_grasp = grasp.run()
+
+# Accesso ai risultati
+print("Posa di presa calcolata:", report_grasp.data["grasp_pose"])
+print("Artefatti generati:", report_grasp.artifacts)

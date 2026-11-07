@@ -15,7 +15,7 @@ class MotionPreview:
             source_frame = RobotBaseFrame.from_dict(grasp_report["robot_base_pose_world"])
             if (not np.allclose(source_frame.position, scene.base_frame.position)
                     or not np.allclose(source_frame.rotation, scene.base_frame.rotation)):
-                raise ValueError("La presa usa una posa della base diversa: ricalcola gli stage 4 e 5")
+                raise ValueError("La presa usa una posa della base diversa: ricalcola deproject e grasp")
         data = grasp_report["designated_grasp_geometry"]
         if not data["gripper_compatibility_check"]["parallel_jaw_suitable"]:
             raise ValueError("La zona di presa supera l'apertura della pinza: movimento annullato")

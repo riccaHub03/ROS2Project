@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 from pathlib import Path
 
@@ -13,18 +14,17 @@ import pybullet as p
 import pybullet_data
 import trimesh
 
+from pipeline.common import paths
+from pipeline.common.reconstruction import CameraModel
+from pipeline.common.report import StageReport, write_json
+from pipeline.common.scene import camera_intrinsics, camera_pose, get_tray, round_list
 from pipeline.mesh_loader import find_instrument_mesh
 from pipeline.frame_transformer import RobotBaseFrame
+from pipeline.sim.placement import sample_tool_pose
 
-
-ROOT = Path(__file__).resolve().parents[2]
+log = logging.getLogger("robot_scene")
 TCP_OFFSET = (0.0, 0.0, 0.10)
 HOME = (0.0, 0.35, 0.0, -1.3, 0.0, 1.0, 0.0)
-
-
-def write_json(path, data):
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def prepare_mesh(source):
@@ -33,7 +33,7 @@ def prepare_mesh(source):
     key = hashlib.sha256(
         f"flat-v1:{source.resolve()}:{source.stat().st_mtime_ns}:{source.stat().st_size}".encode()
     ).hexdigest()[:16]
-    cache = ROOT / "data/inputs/.cache"
+    cache = paths.cache_dir()
     cache.mkdir(parents=True, exist_ok=True)
     obj = cache / f"robot_scene_{key}.obj"
     meta = obj.with_suffix(".json")
@@ -166,9 +166,9 @@ class RobotScene:
         dims = np.asarray(self.mesh_info["dimensions_m"])
         tray = self.trays[self.source]
         top = tray["position_xyz_m"][2] + tray["dimensions_xyz_m"][2] / 2
-        self.tool_initial_pos = [*tray["position_xyz_m"][:2], top + dims[2] / 2 + 0.001]
-        yaw = np.random.default_rng(seed).uniform(-0.4, 0.4)
-        self.tool_initial_orn = p.getQuaternionFromEuler([0, 0, float(yaw)])
+        x, y, yaw = sample_tool_pose(tray["position_xyz_m"], tray["dimensions_xyz_m"], dims[:2], seed)
+        self.tool_initial_pos = [x, y, top + dims[2] / 2 + 0.001]
+        self.tool_initial_orn = p.getQuaternionFromEuler([0, 0, yaw])
         vis = p.createVisualShape(p.GEOM_MESH, fileName=self.mesh_file,
                                   rgbaColor=[0.28, 0.31, 0.35, 1], physicsClientId=self.cid)
         col = p.createCollisionShape(p.GEOM_BOX, halfExtents=(dims / 2).tolist(), physicsClientId=self.cid)
@@ -258,23 +258,14 @@ class RobotScene:
         self.sync_gripper()
 
     def capture(self):
-        out = ROOT / "data/outputs"
-        out.mkdir(parents=True, exist_ok=True)
-        cam = self.config["camera_overhead"]
-        tray_pos = self.trays[self.source]["position_xyz_m"]
-        if cam.get("auto_track_source_tray", True):
-            pos = [*tray_pos[:2], tray_pos[2] + cam.get("height_above_tray_m", 1.08)]
-            target = tray_pos
-        else:
-            extr = cam["extrinsics"]
-            pos = extr.get("position_world_frame_xyz_m", extr.get("position_robot_frame_xyz_m"))
-            target = cam["extrinsics"]["target_position_xyz_m"]
-        w, h = cam["width_px"], cam["height_px"]
-        intr = cam["intrinsics"]
-        fx, fy = intr["fx_px"], intr["fy_px"]
-        cx, cy = intr.get("cx_px", w / 2), intr.get("cy_px", h / 2)
+        """Render the overhead RGB-D view and write the sim_capture / sim_reference_pose reports."""
+        out = paths.output_dir()
+        pose = camera_pose(self.config, get_tray(self.config, self.source))
+        camera = CameraModel(pose.position, pose.target, camera_intrinsics(self.config))
+        i = camera.intrinsics
+        w, h, fx, fy, cx, cy = i.width, i.height, i.fx, i.fy, i.cx, i.cy
         near, far = 0.1, 3.0
-        view = p.computeViewMatrix(pos, target, [-1, 0, 0])
+        view = p.computeViewMatrix(camera.position, camera.target, [-1, 0, 0])
         proj = p.computeProjectionMatrix(-cx * near / fx, (w - cx) * near / fx,
                                          -(h - cy) * near / fy, cy * near / fy, near, far)
         rendered = p.getCameraImage(w, h, view, proj, renderer=p.ER_TINY_RENDERER,
@@ -285,39 +276,54 @@ class RobotScene:
         ids = np.asarray(rendered[4]).reshape(h, w)
         mask = (ids >= 0) & ((ids & ((1 << 24) - 1)) == self.tool)
         self.ground_truth_mask = mask
-        Image.fromarray(rgb).save(out / "sim_camera_rgb.png")
-        np.save(out / "sim_camera_depth.npy", depth)
-        Image.fromarray((mask * 255).astype(np.uint8)).save(out / "sim_camera_ground_truth.png")
-        self.camera_report = {
-            "stage": "sim_stage2_camera", "mode": "single", "simulated_instrument": self.plan["target_instrument"],
-            "3d_source_file": self.mesh_file, "source_stl_file": self.mesh_info["source_mesh"],
-            "source_tray": self.source, "settled_ground_truth_pose": {
-                "frame_id": "world", "position_xyz_m": self.tool_initial_pos,
-                "orientation_xyzw": self.tool_initial_orn},
-            "robot_base_pose_world": self.base_frame.to_dict(),
-            "camera_metadata": {"position_xyz_m": pos, "target_position_xyz_m": target,
-                                "frame_id": "world", "resolution_wh": [w, h],
-                                "fx_fy": [fx, fy], "cx_cy": [cx, cy]},
-            "files": {"camera_rgb_image": str(out / "sim_camera_rgb.png"),
-                      "camera_depth_npy": str(out / "sim_camera_depth.npy"),
-                      "ground_truth_mask": str(out / "sim_camera_ground_truth.png")},
-            "status": "COMPLETED",
-        }
-        write_json(out / "sim_stage2_camera.json", self.camera_report)
-        self.save_overview(out / "sim_robot_scene.png")
+        rgb_png, depth_npy = out / "sim_capture_rgb.png", out / "sim_capture_depth.npy"
+        depth_vis = out / "sim_capture_depth_vis.png"
+        truth_png, overview_png = out / "sim_capture_truth_mask.png", out / "sim_robot_scene.png"
+        Image.fromarray(rgb).save(rgb_png)
+        np.save(depth_npy, depth)
+        Image.fromarray((mask * 255).astype(np.uint8)).save(truth_png)
+        self.save_overview(overview_png)
+
+        tray_info = self.trays[self.source]
+        table_limit = float(camera.position[2] - tray_info["position_xyz_m"][2]) + 0.10
+        valid = depth < table_limit
+        if np.any(valid):
+            d_min = float(np.min(depth[valid]))
+            d_max = float(np.max(depth[valid]))
+            d_range = d_max - d_min
+            if d_range > 1e-4:
+                d_norm = np.clip(1.0 - (depth - d_min) / d_range, 0.0, 1.0)
+            else:
+                d_norm = np.zeros_like(depth)
+            d_norm[~valid] = 0.0
+        else:
+            d_min, d_max = float(np.min(depth)), float(np.max(depth))
+            d_norm = (depth - d_min) / (d_max - d_min) if d_max > d_min else np.zeros_like(depth)
+        Image.fromarray((d_norm * 255.0).astype(np.uint8)).save(depth_vis)
+
+        instrument = self.plan["target_instrument"]
+        initial_pose = {"position_xyz_m": round_list(self.tool_initial_pos),
+                        "orientation_xyzw": round_list(self.tool_initial_orn, 5)}
         base_pos, base_quat = self.base_frame.pose_world_to_base(self.tool_initial_pos, self.tool_initial_orn)
-        write_json(out / "stage3_stl_placement.json", {
-            "stage": "stage3_stl_placement", "source_stl_file": self.mesh_info["source_mesh"],
-            "target_instrument": self.plan["target_instrument"], "source_tray": self.source,
-            "stl_dimensions_m": dict(zip(("length_v1", "width_v2", "thickness_v3"), self.mesh_info["dimensions_m"])),
-            "robot_base_pose_world": self.base_frame.to_dict(),
-            "placed_pose_world_frame": {"position_xyz_m": self.tool_initial_pos,
-                                        "orientation_quaternion_xyzw": self.tool_initial_orn},
-            "placed_pose_base_frame": {"position_xyz_m": base_pos.tolist(),
-                                       "orientation_quaternion_xyzw": base_quat},
-            "artifacts_generated": {"placement_visual_png": str(out / "sim_robot_scene.png")},
-            "pose_source": "same_pybullet_scene_as_rgbd", "status": "COMPLETED",
-        })
+        pose_base = {"position_xyz_m": base_pos.tolist(), "orientation_xyzw": base_quat}
+        self.capture_report = StageReport(
+            stage="sim_capture", inputs={"plan": "in-memory"},
+            artifacts={"rgb_png": str(rgb_png), "depth_npy": str(depth_npy), "depth_visual_png": str(depth_vis),
+                       "truth_mask_png": str(truth_png)},
+            data={"mode": "single", "simulated_instrument": instrument, "mesh_file": self.mesh_file,
+                  "source_stl_file": self.mesh_info["source_mesh"], "source_tray": self.source,
+                  "ground_truth_pose": initial_pose, "camera": camera.to_dict(),
+                  "robot_base_pose_world": self.base_frame.to_dict()})
+        self.capture_report.save(out / paths.SIM_CAPTURE)
+        StageReport(
+            stage="sim_reference_pose", inputs={"plan": "in-memory"}, artifacts={"placement_png": str(overview_png)},
+            data={"target_instrument": instrument, "source_stl_file": self.mesh_info["source_mesh"],
+                  "source_tray": self.source,
+                  "stl_dimensions_m": dict(zip(("length_v1", "width_v2", "thickness_v3"), self.mesh_info["dimensions_m"])),
+                  "pose": initial_pose, "pose_base_frame": pose_base,
+                  "robot_base_pose_world": self.base_frame.to_dict(),
+                  "pose_source": "same_pybullet_scene_as_rgbd"},
+        ).save(out / paths.SIM_REFERENCE_POSE)
 
     def save_overview(self, path):
         view = p.computeViewMatrixFromYawPitchRoll([0.45, 0, 0.30], 1.9, 48, -32, 0, 2)
