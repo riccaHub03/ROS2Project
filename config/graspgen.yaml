@@ -1,0 +1,41 @@
+# Paths relative to the ROS2Project root, unless absolute.
+submodule: third_party/GraspGen
+expected_revision: 2dd8852e1be60f5f9d277fafcc621835cdf59110
+planner: diffusion
+model_gripper: robotiq_2f_140
+checkpoint_config: graspgen_robotiq_2f_140.yml
+server:
+  host: 127.0.0.1
+  port: 5556
+  timeout_ms: 60000  # each of metadata and inference; no unlimited connection retry
+  require_provenance: true  # use python -m pipeline.graspgen.server on the GPU
+inference:
+  num_grasps: 200
+  grasp_threshold: -1.0
+  topk_num_grasps: 100
+  min_grasps: 40
+  max_tries: 6
+  remove_outliers: true
+input:
+  units: m  # legacy deproject reports without units must still contain metres
+  min_points: 21  # upstream outlier removal uses K=20 neighbours
+  max_points: 4096  # deterministic sampling; upstream outlier distances use O(N^2) memory
+  min_extent_m: 0.001
+  max_extent_m: 2.0
+  seed: 42
+visualization:
+  max_candidates: 20
+robot:
+  gripper: visual_parallel_jaws
+  # Nominal Robotiq grasp-base -> TCP at finger tips, expressed in GraspGen axes.
+  # TCP y closes the jaws; GraspGen x closes them. TCP z and GraspGen z approach.
+  # This is a visualization convention, NOT a measured mounting calibration.
+  T_gripper_tcp:
+    - [0, 1, 0, 0]
+    - [-1, 0, 0, 0]
+    - [0, 0, 1, 0.195]
+    - [0, 0, 0, 1]
+  tcp_transform_verified: false
+  compatibility_verified: false
+  verification_evidence: ""
+  motion_enabled: false

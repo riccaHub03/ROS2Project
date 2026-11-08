@@ -339,6 +339,13 @@ class RobotScene:
                                                physicsClientId=self.cid)
 
     def show_grasp(self, report):
+        if report.get("grasp_backend") == "graspgen":
+            from pipeline.graspgen.preview import gripper_lines
+            for candidate in report["candidates"][:20]:
+                line = self.base_frame.base_to_world(gripper_lines(candidate["T_base_gripper"]))
+                for a, b in zip(line[:-1], line[1:]):
+                    p.addUserDebugLine(a, b, [0.1, 0.7, 0.3], 2, physicsClientId=self.cid)
+            self.status("GraspGen: nominal Robotiq poses; physical grasp UNVALIDATED")
         data = report["designated_grasp_geometry"]
         pos, quat = self.base_frame.pose_base_to_world(
             data["grasp_centroid_base_frame_xyz_m"],

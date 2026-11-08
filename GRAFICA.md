@@ -158,3 +158,12 @@ Per la verifica senza finestra:
 
 L'esecuzione senza finestra termina con codice diverso da zero se la percezione,
 l'IK, il tracking o il deposito dimostrativo falliscono.
+
+## GraspGen
+
+Gli avvii grafici accettano anche `--grasp-backend graspgen` e le opzioni
+`--graspgen-config`, `--graspgen-host`, `--graspgen-port`, `--graspgen-timeout-ms`.
+PCA resta predefinito. Per GraspGen iniziare con `--no-motion`: vengono mostrate
+le prese nominali della Robotiq, mentre la pinza robot dimostrativa da 80 mm
+rimane incompatibile e il movimento è bloccato anche premendo R.
+Preparazione del server GPU e comandi completi in [GRASPGEN.md](GRASPGEN.md).

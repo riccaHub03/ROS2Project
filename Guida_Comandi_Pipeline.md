@@ -236,4 +236,7 @@ print("Artefatti generati:", rep_grasp.artifacts)
 
 ## 8. GraspGen (NVlabs)
 
-Il repository GraspGen è incluso, separato dalla pipeline, in `third_party/GraspGen`. Vedi [GRASPGEN.md](GRASPGEN.md).
+Il modello ufficiale in `third_party/GraspGen` è collegato tramite client/server
+allo stadio `grasp`. Usare `--grasp-backend graspgen` negli avvii sim, reale e
+grafico; PCA resta predefinito. Per setup Mac/PC, test, geometria e blocco del
+movimento con la pinza dimostrativa vedere [GRASPGEN.md](GRASPGEN.md).

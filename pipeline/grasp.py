@@ -1,4 +1,4 @@
-"""Stage ``grasp``: PCA of the instrument cloud -> functional zones, grasp pose, gripper feasibility.
+"""Stage ``grasp``: selectable PCA geometry (default) or official remote GraspGen inference.
 
 The tool is split along its main axis into Zone A (finger rings, 0-35%), Zone B (shank/hinge,
 35-65%, the grasp zone) and Zone C (blades, 65-100%, forbidden). A parallel-jaw gripper pose is
@@ -151,7 +151,7 @@ def _zone_report(a: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def run(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = None,
+def _run_pca(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = None,
         out_dir: Optional[str] = None, report_path: Optional[str] = None) -> StageReport:
     out = paths.output_dir(out_dir)
     deprojection_file = paths.resolve(deprojection_path, paths.SIM_DEPROJECTION, out)
@@ -189,6 +189,7 @@ def run(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = N
         x_ee, y_ee, z_ee = a["ee_axes"]
         report.artifacts = {"zones_ply": str(zones_ply), "overview_png": str(overview)}
         report.data = {
+            "grasp_backend": "pca",
             "source_pipeline": source, "target_instrument": tool_name,
             "coordinate_frame_id": base_frame.frame_id,
             "robot_base_pose_world": base_frame.to_dict(),
@@ -220,13 +221,55 @@ def run(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = N
     return report
 
 
+def add_backend_arguments(parser):
+    """Shared flags for standalone grasp, sim, real and graphical launchers."""
+    parser.add_argument("--grasp-backend", choices=["pca", "graspgen"], default="pca")
+    parser.add_argument("--graspgen-config", default=None, help="Client/TCP YAML (default: config/graspgen.yaml)")
+    parser.add_argument("--graspgen-host", default=None)
+    parser.add_argument("--graspgen-port", type=int, default=None)
+    parser.add_argument("--graspgen-timeout-ms", type=int, default=None)
+
+
+def backend_kwargs(args):
+    return dict(backend=args.grasp_backend, graspgen_config=args.graspgen_config,
+                graspgen_host=args.graspgen_host, graspgen_port=args.graspgen_port,
+                graspgen_timeout_ms=args.graspgen_timeout_ms)
+
+
+def run(*, deprojection_path=None, plan_path=None, out_dir=None, report_path=None,
+        backend="pca", graspgen_config=None, graspgen_host=None, graspgen_port=None,
+        graspgen_timeout_ms=None) -> StageReport:
+    """Keep grasp.json as the pipeline interface and retain backend-specific reports.
+
+    A failed GraspGen run overwrites the current interface with FAILED; an older
+    successful PCA result can never be consumed as an implicit fallback.
+    """
+    if backend not in {"pca", "graspgen"}:
+        raise StageError(STAGE, f"unknown grasp backend {backend!r}")
+    out = paths.output_dir(out_dir)
+    target = paths.output_report(report_path, paths.GRASP, out)
+    archive = out / f"grasp_{backend}.json"
+    kwargs = dict(deprojection_path=deprojection_path, plan_path=plan_path,
+                  out_dir=out_dir, report_path=str(target.resolve()))
+    try:
+        if backend == "pca":
+            return _run_pca(**kwargs)
+        from pipeline.graspgen.backend import run as run_graspgen
+        return run_graspgen(**kwargs, config_path=graspgen_config, host=graspgen_host,
+                            port=graspgen_port, timeout_ms=graspgen_timeout_ms)
+    finally:
+        if target.exists() and target.resolve() != archive.resolve():
+            StageReport.load(target, require_completed=False).save(archive)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = stage_parser(__doc__.splitlines()[0], config=False)
     parser.add_argument("--deprojection", default=None,
                         help="sim_deprojection.json or real_deprojection.json (default: sim)")
     parser.add_argument("--plan", default=None)
+    add_backend_arguments(parser)
     return run_cli(parser, lambda a: run(deprojection_path=a.deprojection, plan_path=a.plan,
-                                         out_dir=a.out_dir, report_path=a.report), argv)
+                                         out_dir=a.out_dir, report_path=a.report, **backend_kwargs(a)), argv)
 
 
 if __name__ == "__main__":

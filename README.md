@@ -10,6 +10,13 @@ La posa della base KUKA puo' essere traslata e ruotata rispetto al mondo nel
 file YAML; `--config percorso.yaml` permette di confrontare configurazioni
 diverse mantenendo fissi tavolo, vassoi e camera.
 
+Lo stadio `grasp` supporta `--grasp-backend pca` (predefinito) e
+`--grasp-backend graspgen`, anche negli avvii reale e grafico. GraspGen usa il
+client ufficiale leggero sul Mac e il server ufficiale su un PC NVIDIA separato.
+Setup, test, checkpoint e ordine delle prove sono in [GRASPGEN.md](GRASPGEN.md).
+Con la pinza dimostrativa attuale usare `--no-motion`: le pose Robotiq 2F-140
+si possono visualizzare, ma il movimento GraspGen viene bloccato.
+
 ---
 
 ## 📋 Architettura della Pipeline (`run_pipeline_sim.py`)

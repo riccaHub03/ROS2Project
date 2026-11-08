@@ -74,6 +74,9 @@ def run(*, segmentation_path: Optional[str] = None, capture_path: Optional[str] 
 
         report.artifacts = {"pointcloud_ply": str(cloud), "frames_png": str(figure)}
         report.data = {
+            "pointcloud_units": "m",
+            "geometry_verified_for_motion": False,
+            "geometry_verification_note": "Simulator reconstruction; calibration/contact not validated",
             "num_points": int(len(rec.points_base)), "centroid_source": source,
             "coordinate_frame_id": rec.transformer.base_frame.frame_id,
             "robot_base_pose_world": rec.transformer.base_frame.to_dict(),

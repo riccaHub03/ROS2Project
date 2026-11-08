@@ -49,7 +49,10 @@ def run(*, segmentation_path: Optional[str] = None, capture_path: Optional[str] 
         cloud = out / "real_deprojection_cloud.ply"
         write_ply(cloud, rec.points_base, rec.colors)
         report.artifacts = {"pointcloud_ply": str(cloud)}
-        report.data = {"num_points": int(len(rec.points_base)), "frames": rec.frames(config),
+        report.data = {"pointcloud_units": "m", "geometry_verified_for_motion": False,
+                       "depth_source": "nominal_constant_plane_from_photo",
+                       "geometry_verification_note": "No measured RGB-D depth or verified extrinsic calibration",
+                       "num_points": int(len(rec.points_base)), "frames": rec.frames(config),
                        "coordinate_frame_id": rec.transformer.base_frame.frame_id,
                        "robot_base_pose_world": rec.transformer.base_frame.to_dict()}
         log.info("%d points | base centroid %s", len(rec.points_base), round_list(rec.centroid_base))

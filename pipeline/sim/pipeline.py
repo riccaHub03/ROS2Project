@@ -42,6 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
                         help="SAM 3, or the diagnostic ground-truth mask rendered by the simulator (skips SAM 3)")
     parser.add_argument("--no-motion", action="store_true", help="Show the grasp without moving the robot")
     parser.add_argument("--exit-after-run", action="store_true", help="Close the window when the run ends")
+    grasp.add_backend_arguments(parser)
     return parser
 
 
@@ -69,7 +70,8 @@ def build_steps(args: argparse.Namespace, instruction: str, mode: str) -> List[S
         Step("segment", lambda: segment.run(backend=args.vision, **common)),
         Step("reference_pose", lambda: reference_pose.run(tool=args.tool, seed=args.seed, **cfg)),
         Step("deproject", lambda: deproject.run(reference_pose_path=str(out / paths.SIM_REFERENCE_POSE), **cfg)),
-        Step("grasp", lambda: grasp.run(deprojection_path=str(out / paths.SIM_DEPROJECTION), **common)),
+        Step("grasp", lambda: grasp.run(deprojection_path=str(out / paths.SIM_DEPROJECTION),
+                                       **grasp.backend_kwargs(args), **common)),
     ]
 
 

@@ -12,3 +12,6 @@ PyYAML>=6.0
 torch>=2.0.0
 torchvision>=0.15.0
 transformers>=5.2.0
+
+# Official remote GraspGen client (the CUDA model has its own container)
+-r requirements-graspgen-client.txt

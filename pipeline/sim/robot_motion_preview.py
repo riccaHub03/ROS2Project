@@ -11,6 +11,8 @@ from pipeline.frame_transformer import RobotBaseFrame
 class MotionPreview:
     def __init__(self, scene, grasp_report):
         self.scene = scene
+        from pipeline.graspgen.backend import require_motion_allowed
+        require_motion_allowed(grasp_report, gripper="visual_parallel_jaws")
         if "robot_base_pose_world" in grasp_report:
             source_frame = RobotBaseFrame.from_dict(grasp_report["robot_base_pose_world"])
             if (not np.allclose(source_frame.position, scene.base_frame.position)
