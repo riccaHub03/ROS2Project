@@ -135,7 +135,9 @@ class FrameTransformer:
     def __init__(self, camera_position_xyz=(0.60, -0.42, 1.15),
                  camera_target_xyz=(0.60, -0.42, 0.07),
                  camera_intrinsics=None,
-                 camera_up_vector=(-1.0, 0.0, 0.0), robot_base_frame=None):
+                 camera_up_vector=(-1.0, 0.0, 0.0), robot_base_frame=None, camera_orientation_xyzw=None):
+        """``camera_orientation_xyzw``: rotazione del frame ottico (x destra, y basso, z avanti) nel world,
+        da calibrazione mano-occhio o TF. Se assente la posa e' ricavata da position/target/up (look-at)."""
         self.cam_pos = np.array(camera_position_xyz, dtype=np.float64)
         self.cam_target = np.array(camera_target_xyz, dtype=np.float64)
         self.base_frame = robot_base_frame or RobotBaseFrame()
@@ -172,6 +174,8 @@ class FrameTransformer:
         y_opt = np.cross(z_opt, x_opt)
 
         self.R_world_opt = np.column_stack([x_opt, y_opt, z_opt])
+        if camera_orientation_xyzw is not None:
+            self.R_world_opt = matrix_from_quaternion(camera_orientation_xyzw)
         self.R_base_opt = self.base_frame.rotation.T @ self.R_world_opt
 
         # Matrice di trasformazione omogenea 4x4 (Optical -> Robot Base)

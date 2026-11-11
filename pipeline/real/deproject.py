@@ -45,6 +45,8 @@ def run(*, segmentation_path: Optional[str] = None, capture_path: Optional[str] 
         depth = np.load(capture.artifact("depth_npy"))
         rgb = np.array(Image.open(capture.artifact("rgb_png")).convert("RGB"))
         rec = reconstruct(mask, depth, rgb, CameraModel.from_dict(capture.require("camera")), config)
+        live_ee = capture.data.get("ee_reference_pose")      # posa EE letta dalla TF alla cattura (ROS 2)
+        ee_pose = (live_ee["position_xyz_m"], live_ee["quaternion_xyzw"]) if live_ee else None
 
         cloud = out / "real_deprojection_cloud.ply"
         write_ply(cloud, rec.points_base, rec.colors)
@@ -56,8 +58,8 @@ def run(*, segmentation_path: Optional[str] = None, capture_path: Optional[str] 
                        "geometry_verification_note": (
                            "Measured RGB-D depth, calibrated intrinsics and verified extrinsics" if verified else
                            "No measured RGB-D depth, calibrated intrinsics or verified extrinsic calibration"),
-                       "num_points": int(len(rec.points_base)), "frames": rec.frames(config),
-                       "ee_reference_source": ee_reference_source(config),
+                       "num_points": int(len(rec.points_base)), "frames": rec.frames(config, ee_pose),
+                       "ee_reference_source": "tf" if live_ee else ee_reference_source(config),
                        "coordinate_frame_id": rec.transformer.base_frame.frame_id,
                        "robot_base_pose_world": rec.transformer.base_frame.to_dict()}
         log.info("%d points | base centroid %s", len(rec.points_base), round_list(rec.centroid_base))

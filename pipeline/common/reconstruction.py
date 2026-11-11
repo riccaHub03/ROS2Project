@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -18,25 +18,31 @@ class CameraModel:
     position: List[float]
     target: List[float]
     intrinsics: Intrinsics
+    orientation_xyzw: Optional[List[float]] = None   # frame ottico nel world (TF / mano-occhio); None = look-at
 
     def to_dict(self) -> Dict[str, Any]:
         i = self.intrinsics
-        return {"position_xyz_m": round_list(self.position), "target_position_xyz_m": round_list(self.target),
+        data = {"position_xyz_m": round_list(self.position), "target_position_xyz_m": round_list(self.target),
                 "frame_id": "world", "resolution_wh": [i.width, i.height],
                 "fx_fy": [i.fx, i.fy], "cx_cy": [i.cx, i.cy]}
+        if self.orientation_xyzw is not None:
+            data["orientation_optical_xyzw"] = round_list(self.orientation_xyzw, 6)
+        return data
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "CameraModel":
         w, h = d["resolution_wh"]
         fx, fy = d["fx_fy"]
         cx, cy = d.get("cx_cy", [w / 2.0, h / 2.0])
-        return cls(list(d["position_xyz_m"]), list(d["target_position_xyz_m"]), Intrinsics(w, h, fx, fy, cx, cy))
+        orientation = d.get("orientation_optical_xyzw")
+        return cls(list(d["position_xyz_m"]), list(d["target_position_xyz_m"]), Intrinsics(w, h, fx, fy, cx, cy),
+                   list(orientation) if orientation is not None else None)
 
     def transformer(self, base_frame: RobotBaseFrame | None = None) -> FrameTransformer:
         i = self.intrinsics
         return FrameTransformer(camera_position_xyz=self.position, camera_target_xyz=self.target,
                                 camera_intrinsics={"fx_px": i.fx, "fy_px": i.fy, "cx_px": i.cx, "cy_px": i.cy},
-                                robot_base_frame=base_frame)
+                                robot_base_frame=base_frame, camera_orientation_xyzw=self.orientation_xyzw)
 
 
 @dataclass
@@ -58,8 +64,10 @@ class Reconstruction:
                               self.transformer.transform_world_to_camera(world),
                               np.asarray(centroid_base))
 
-    def frames(self, config: Config) -> Dict[str, List[float]]:
-        ee_pos, ee_quat = ee_reference(config)
+    def frames(self, config: Config,
+               ee_pose: Optional[Tuple[Sequence[float], Sequence[float]]] = None) -> Dict[str, List[float]]:
+        """``ee_pose``: posa EE nel world letta dalla TF alla cattura; se assente quella della config."""
+        ee_pos, ee_quat = ee_pose if ee_pose is not None else ee_reference(config)
         centroid_ee = self.transformer.transform_world_to_ee(self.centroid_world, ee_pos, ee_quat)
         return {"camera_optical_frame": round_list(self.centroid_camera),
                 "robot_base_frame": round_list(self.centroid_base),

@@ -50,6 +50,12 @@ e non invia nessun comando. Quote, tempi e vassoi vengono da `config/surgical_en
 
 Al termine salva `data/outputs/robot_trajectory.json` e, se richiesto, il video.
 
+## Camera e TF dal vivo (pipeline reale)
+
+L'acquisizione dalla camera RGB-D e dalla TF non passa da questo package: la fa lo stadio `real_capture`
+(`--source ros2`, vedi il [README](../README.md#collegare-i-dispositivi-fisici)). Anche il preflight prima delle prove
+(`python3 -m pipeline.real.preflight`) è là.
+
 ## Limite attuale: robot reale
 
 I topic di default sono quelli della piattaforma di simulazione `lbr_pybullet_tutorial` (percorso cartesiano,

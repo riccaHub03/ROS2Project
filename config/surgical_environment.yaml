@@ -64,6 +64,19 @@ camera_overhead:
   height_px: 480
   publish_hz: 10.0
   depth_format: "32FC1" # Profondità metrica float32 in metri
+  # Sorgente dal vivo della pipeline reale (--source ros2): topic della camera e frame TF. Le opzioni da riga di
+  # comando (--color-topic, --world-frame, ...) hanno la precedenza. Valori sotto = default del codice.
+  ros2:
+    color_topic: /camera/color/image_raw
+    depth_topic: /camera/aligned_depth_to_color/image_raw   # profondita' ALLINEATA al colore (16UC1 mm o 32FC1 m)
+    camera_info_topic: /camera/color/camera_info
+    world_frame: world        # se la TF non ha 'world' usare il frame della base e tenere kuka_base = posa identita'
+    camera_frame: null        # null = frame_id di CameraInfo (deve essere il frame OTTICO)
+    ee_frame: null            # es. lbr_link_ee: la posa dell'end-effector viene letta dalla TF alla cattura
+    timeout_s: 10.0
+    depth_frames: 5           # mediana su piu' fotogrammi di profondita'
+    max_sync_s: 0.2
+    tf_timeout_s: 3.0
 
 # ---------------------------------------------------------------------
 # Riferimento Strumento Chirurgico STL & Presa Fisica

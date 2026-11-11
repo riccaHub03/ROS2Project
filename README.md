@@ -54,6 +54,108 @@ Ogni stadio si lancia da solo (`python3 -m pipeline.sim.segment --help`) oppure 
 `run_pipeline_sim.py` (`--from-stage`, `--stop-after`). Dettagli, contratto dei report e pipeline su immagine
 reale: [docs/pipeline.md](docs/pipeline.md).
 
+## Collegare i dispositivi fisici
+
+La pipeline reale può acquisire **dal vivo** da una camera RGB-D ROS 2 (`--source ros2`) e leggere dalla TF la
+posa della camera e dell'end-effector. Prima di ogni prova c'è un controllo che non muove nulla
+(`pipeline.real.preflight`). **Il movimento del KUKA reale non è ancora collegato**: vedi "Cosa manca" qui sotto.
+
+### Stato
+
+| Parte | Stato |
+|---|---|
+| Acquisizione RGB-D da camera ROS 2 (colore, profondità allineata, `CameraInfo`) | **pronta** (`--source ros2`), provata con una camera finta |
+| Intrinseche dalla camera (`CameraInfo`) | **pronte** |
+| Posa camera dalla TF (calibrazione mano-occhio pubblicata come trasformazione) | **pronta**, serve la calibrazione vera |
+| Posa dell'end-effector dalla TF a ogni cattura | **pronta** (`--ee-frame`) |
+| Segmentazione SAM 3, nuvola di punti, geometria di presa, verifica IK/collisioni | pronte (software, nessun dispositivo) |
+| Preflight prima della prova | **pronto** |
+| Calibrazione mano-occhio | **da fare** con il vostro setup: il codice non la esegue |
+| Movimento del KUKA reale (MoveIt / ros2_control, driver della pinza) | **non implementato**: il nodo `surgical_executor` parla solo con la piattaforma di simulazione |
+| Pinza reale | la presa è calcolata per la pinza dimostrativa da 80 mm; con la Robotiq 2F-140 (GraspGen) il movimento resta bloccato |
+
+SAM 3 **non è un dispositivo**: è il modello di segmentazione e gira come software su un PC. I dispositivi sono la
+camera RGB-D, il braccio KUKA e la pinza.
+
+### Cosa deve pubblicare l'hardware
+
+| Cosa | Tipo | Requisiti |
+|---|---|---|
+| Immagine a colori | `sensor_msgs/Image` | `rgb8` o `bgr8`, di preferenza rettificata (niente distorsione) |
+| Profondità | `sensor_msgs/Image` | **allineata al colore** (stessa risoluzione), `16UC1` in mm o `32FC1` in m |
+| Parametri camera | `sensor_msgs/CameraInfo` | calibrata (matrice `K` non nulla); `frame_id` = frame **ottico** (x destra, y basso, z avanti) |
+| Calibrazione mano-occhio | TF `world → frame ottico della camera` | posa del frame **ottico**, non di `camera_link` |
+| Posa dell'end-effector | TF `world → frame flangia/TCP` | es. `lbr_link_ee` dal driver del KUKA |
+
+`world` è il riferimento in cui la pipeline esprime camera, vassoi e base del robot (`environment.kuka_base` nel
+YAML è la posa della base in `world`). Se la vostra TF non ha un frame `world` e usa `lbr_link_0` come radice,
+passate `--world-frame lbr_link_0` e lasciate `kuka_base` con posizione e rotazione nulle: il preflight segnala
+l'incoerenza. I nomi dei topic e dei frame sono in `camera_overhead.ros2` del YAML e si sovrascrivono da riga di comando.
+
+Esempio di pubblicazione della calibrazione mano-occhio come TF statica (i numeri vengono dalla vostra calibrazione):
+
+```bash
+ros2 run tf2_ros static_transform_publisher --x 0.60 --y -0.42 --z 1.15 \
+    --qx 0.707107 --qy 0.707107 --qz 0.0 --qw 0.0 --frame-id world --child-frame-id camera_color_optical_frame
+```
+
+### Procedura per la prima prova
+
+Tutto nel container (`bash scripts/docker_shell.sh`), con ROS 2 caricato dall'entrypoint.
+
+1. **Prova a secco senza hardware**: una camera finta pubblica gli stessi topic e le stesse TF.
+   ```bash
+   python3 scripts/fake_ros2_camera.py &                       # terminale 1
+   python3 -m pipeline.real.preflight --ee-frame fake_ee       # terminale 2: tutto OK tranne l'avviso sulle estrinseche
+   python3 -m pipeline.real.capture --source ros2 --ee-frame fake_ee
+   ```
+   La camera finta prova solo l'acquisizione e la catena dei frame, non la calibrazione né la segmentazione.
+2. **Collegare la camera reale** e il driver (profondità allineata al colore). Controllare i topic con
+   `ros2 topic list` e `ros2 topic hz <topic>`; adattare `camera_overhead.ros2` nel YAML se i nomi differiscono.
+3. **Calibrare** (mano-occhio) e pubblicare la TF `world → frame ottico`. Verificare con
+   `ros2 run tf2_ros tf2_echo world <frame_ottico>`.
+4. **Collegare il KUKA** con `lbr_fri_ros2_stack` e verificare la TF `world → flangia`.
+5. **Preflight**:
+   ```bash
+   python3 -m pipeline.real.preflight --ee-frame lbr_link_ee
+   ```
+   Stampa `OK / WARN / FAIL` con il rimedio e scrive `data/outputs/real_preflight.json`. Esce con codice 1 se c'è
+   un `FAIL`. Controlla: topic e risoluzione, profondità valida, sincronia colore/profondità, intrinseche,
+   distorsione, TF della camera e dell'end-effector, coerenza tra profondità e posa della camera, estrinseche
+   verificate nel YAML, pesi SAM 3, Ollama (e il server GraspGen con `--grasp-backend graspgen`).
+6. **Dichiarare verificata la calibrazione** solo dopo averla misurata: `camera_overhead.extrinsics.verified: true`.
+   Senza, ogni presa resta `NOT_READY_FOR_ROBOT_MOTION`. Con la camera in posizione:
+   ```bash
+   python3 -m pipeline.real.preflight --ee-frame lbr_link_ee    # atteso: "pronto. Una cattura adesso risulterebbe motion_safe"
+   ```
+7. **Pipeline senza movimento**, ispezionando le immagini e i report a ogni stadio:
+   ```bash
+   python3 run_pipeline_real.py --source ros2 --ee-frame lbr_link_ee --instruction "Passami le forbici" --stop-after capture
+   python3 run_pipeline_real.py --source ros2 --ee-frame lbr_link_ee --instruction "Passami le forbici"
+   ```
+   Controllare `real_capture_rgb.png`, la maschera `real_segmentation_overlay.png`, la nuvola
+   `real_deprojection_cloud.ply` e in `grasp.json` il campo `readiness` (e `readiness_blockers`).
+8. **Il movimento** non parte da qui: `surgical_executor` è per la simulazione. Per il robot reale va scritto il
+   backend (vedi [docs/ros2.md](docs/ros2.md)). Finché non c'è, la pipeline termina con `grasp.json` e la posa
+   di presa nel riferimento della base.
+
+### Come la pipeline decide se la presa è abilitata al movimento
+
+`real_capture.json` ha `motion_safe: true` solo se **tutte** queste condizioni sono vere: profondità misurata,
+intrinseche da `CameraInfo`, posa della camera letta dalla TF e `camera_overhead.extrinsics.verified: true`.
+Inoltre `grasp.json` richiede una posa dell'end-effector non nominale (meglio dalla TF con `--ee-frame`, oppure
+`motion_control.ee_reference_pose`) e almeno un candidato di presa fattibile (IK, limiti di giunto, collisioni nel
+modello della cella). Altrimenti `readiness` è
+`NOT_READY_FOR_ROBOT_MOTION` e `readiness_blockers` elenca i motivi.
+
+### Limiti da conoscere
+
+- La verifica di IK e collisioni è un pre-filtro su un modello PyBullet con la geometria dell'iiwa 14 e una pinza
+  dimostrativa: non sostituisce MoveIt né i controlli di sicurezza del robot.
+- La calibrazione mano-occhio la esegue chi monta il sistema. Una posa nominale o sbagliata sposta tutte le prese.
+- Le immagini vengono trattate come pinhole: usare un flusso rettificato.
+- L'uso in ambito clinico richiede validazione e conformità normativa che questo codice non fornisce.
+
 ## Riferimento dei comandi
 
 Ogni comando ha `--help` con l'elenco completo delle opzioni (`python3 -m pipeline.grasp --help`,
@@ -66,7 +168,7 @@ container: `/workspace`). Gli stadi sono moduli: si lanciano con `python3 -m <mo
 |---|---|---|
 | Mesh STL/OBJ di test | `models/surgical_instruments/` | create da `python3 scripts/generate_surgical_meshes.py` (forbici e bisturi). Anche `data/inputs/` viene cercata |
 | Dataset 3D reale (3D-COSI, 232 modelli) | `data/inputs/Surgical Instruments/` | poi `python3 scripts/build_instruments_catalog.py` scrive `data/inputs/instruments_catalog.json`; `run_pipeline_sim.py --list-tools` mostra gli strumenti |
-| Foto reale del vassoio | `data/inputs/surgical_scene.jpg` (o `--image`) | solo pipeline reale |
+| Foto reale del vassoio | `data/inputs/surgical_scene.jpg` (o `--image`) | pipeline reale da file; con `--source ros2` si legge dalla camera |
 | Depth allineata alla foto | `--depth` (`.npy` in metri o PNG 16 bit in mm) | senza depth la presa reale **non** è abilitata al movimento |
 | Configurazione | `config/surgical_environment.yaml` (o `--config`) | scena, vassoi, camera, quote, velocità, IK differenziale |
 | Configurazione GraspGen | `config/graspgen.yaml` (o `--graspgen-config`) | host, porta, gripper |
@@ -142,26 +244,47 @@ riepilogo dell'IK differenziale se attivo).
 plan → capture → segment → deproject → grasp
 ```
 
+La sorgente è un **file** (default) o la **camera ROS 2** dal vivo (`--source ros2`, vedi
+[Collegare i dispositivi fisici](#collegare-i-dispositivi-fisici)).
+
 ```bash
+# da file
 python3 run_pipeline_real.py --instruction "Passami le forbici" --image foto.png --depth depth.npy \
     --intrinsics 615 615 320 240
+# dal vivo: camera RGB-D + TF
+python3 -m pipeline.real.preflight --ee-frame lbr_link_ee                  # prima di ogni prova
+python3 run_pipeline_real.py --source ros2 --ee-frame lbr_link_ee --instruction "Passami le forbici"
 ```
 
 | Opzione | Significato |
 |---|---|
-| `--image FILE` | foto del vassoio con tutti gli strumenti |
+| `--source file\|ros2` | file su disco (default) oppure camera ROS 2 dal vivo |
+| `--image FILE` | foto del vassoio con tutti gli strumenti (solo `--source file`) |
 | `--depth FILE` | depth metrica allineata (`.npy` in m o PNG 16 bit in mm); senza, piano costante nominale e presa non abilitata |
-| `--intrinsics FX FY CX CY` | intrinseche calibrate, in pixel di `--image` |
+| `--intrinsics FX FY CX CY` | intrinseche calibrate in pixel di `--image` (con `ros2` vengono da `CameraInfo`) |
+| `--color-topic`, `--depth-topic`, `--camera-info-topic` | topic della camera (solo `ros2`; default in `camera_overhead.ros2` del YAML) |
+| `--world-frame` | frame TF in cui la pipeline esprime le pose (default `world`) |
+| `--camera-frame` | frame TF ottico della camera (default: `frame_id` di `CameraInfo`) |
+| `--ee-frame` | frame TF della flangia/TCP: la posa dell'end-effector viene letta a ogni cattura |
+| `--timeout S`, `--depth-frames N` | attesa dei messaggi (default 10 s) e fotogrammi di profondità per la mediana (default 5) |
 | `--min-confidence X` | soglia SAM 3 (default 0.3) |
 | `--instruction`, `--from-stage`, `--stop-after`, `--grasp-backend`, `--graspgen-*`, `--config`, `--out-dir`, `-v` | come nella pipeline simulata (gli stadi sono `plan`, `capture`, `segment`, `deproject`, `grasp`) |
 
-Stadi singoli: `python3 -m pipeline.real.capture | segment | deproject`. Scrivono `real_capture.json`,
-`real_segmentation.json` (+ maschera e overlay), `real_deprojection.json` (+ nuvola `.ply`) e poi `grasp.json`:
+Stadi singoli: `python3 -m pipeline.real.capture | segment | deproject` (`capture` accetta le stesse opzioni di
+sorgente). Scrivono `real_capture.json` (+ `real_capture_rgb.png`, `real_capture_depth.npy`),
+`real_segmentation.json` (+ `real_segmentation_mask.png`, `real_segmentation_overlay.png`),
+`real_deprojection.json` (+ `real_deprojection_cloud.ply`) e poi `grasp.json`:
 
 ```bash
+python3 -m pipeline.real.capture --source ros2 --ee-frame lbr_link_ee
 python3 -m pipeline.real.segment --min-confidence 0.4
+python3 -m pipeline.real.deproject
 python3 -m pipeline.grasp --deprojection data/outputs/real_deprojection.json
 ```
+
+**Preflight** (non muove nulla): `python3 -m pipeline.real.preflight [--source ros2|file] [--ee-frame F]
+[--grasp-backend pca|graspgen]`. Scrive `real_preflight.json` ed esce con codice 1 se c'è un `FAIL`.
+**Camera finta** per prove a secco: `python3 scripts/fake_ros2_camera.py --help`.
 
 ### GraspGen (server GPU separato)
 
@@ -246,7 +369,9 @@ caso di problemi è il JSON dello stadio che si è fermato.**
 | `sim_segmentation.json` | segment | `segmentation_backend`, `num_instances`, `confidence_score`, `bbox_2d_pixels`, `centroid_2d_pixels` |
 | `sim_reference_pose.json` | reference_pose | `source_stl_file`, `stl_dimensions_m`, `pose`, `wall_clearances_m` |
 | `sim_deprojection.json` | deproject | `num_points`, `frames`, `coordinate_frame_id`, `robot_base_pose_world`, `motion_safe` |
-| `real_capture/segmentation/deprojection.json` | pipeline reale | stessi campi della controparte simulata |
+| `real_capture.json` | capture reale | come la simulata, più `source_type` (`real_surgical_tray_image` o `live_ros2_rgbd`), `depth_source`, `intrinsics_calibrated`, `extrinsics_verified`, `motion_safe` e, dal vivo, `acquisition` (topic, frame, sincronia, pixel validi) ed `ee_reference_pose` (da TF) |
+| `real_segmentation.json`, `real_deprojection.json` | pipeline reale | stessi campi della controparte simulata; la deproiezione riporta `ee_reference_source` (`tf`, `configured` o `nominal`) |
+| `real_preflight.json` | preflight | `checks` (stato, dettaglio, rimedio), `ready_for_motion` |
 | `grasp.json` | grasp | vedi sotto |
 | `sim_robot_motion.json` | `--gui`/`--headless` | `status`, `waypoints`, `measured_phase_errors`, `differential_ik` |
 | `robot_trajectory.json` | nodo ROS 2 | traiettoria dei giunti registrata |
@@ -295,7 +420,7 @@ docker/            Dockerfile, entrypoint.sh, runtime del server GraspGen
 docs/              documentazione (vedi tabella)
 pipeline/          codice: stadi (plan, grasp, sim/, real/), common/, graspgen/, motion/ (piano di pick & place)
 ros2/              package ROS 2 surgical_executor e workspace.repos
-scripts/           docker_shell.sh, run_sim_gui.sh, run_interactive.sh e strumenti di sviluppo
+scripts/           docker_shell.sh, run_sim_gui.sh, run_interactive.sh, ros2_build.sh, fake_ros2_camera.py e strumenti di sviluppo
 tests/             test unittest
 third_party/       GraspGen (submodule git)
 run_pipeline_sim.py, run_pipeline_real.py   entrypoint della pipeline simulata e su immagine reale
