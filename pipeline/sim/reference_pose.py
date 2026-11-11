@@ -115,7 +115,7 @@ def plot_placement(path: Path, verts_m: np.ndarray, placed: dict, tray: Tray, to
             f"Wall distances: +X={cl['dist_wall_pos_x'] * 1000:.0f}mm, -X={cl['dist_wall_neg_x'] * 1000:.0f}mm, "
             f"+Y={cl['dist_wall_pos_y'] * 1000:.0f}mm, -Y={cl['dist_wall_neg_y'] * 1000:.0f}mm",
             ha="center", fontsize=9, fontweight="bold", color="navy")
-    ax.set(xlabel="Y (robot base frame) [m]", ylabel="X (robot base frame) [m]",
+    ax.set(xlabel="Y (world) [m]", ylabel="X (world) [m]",
            title=f"STL placement in tray: {tool_name.title()} (flat on Z, yaw {placed['yaw_deg']:.1f} deg)")
     ax.axis("equal")
     ax.grid(True, linestyle=":", alpha=0.5)

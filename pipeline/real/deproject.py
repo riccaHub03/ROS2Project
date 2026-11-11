@@ -47,13 +47,20 @@ def run(*, segmentation_path: Optional[str] = None, capture_path: Optional[str] 
         rec = reconstruct(mask, depth, rgb, CameraModel.from_dict(capture.require("camera")), config)
 
         cloud = out / "real_deprojection_cloud.ply"
-        write_ply(cloud, rec.points_world, rec.colors)
+        write_ply(cloud, rec.points_base, rec.colors)
         report.artifacts = {"pointcloud_ply": str(cloud)}
-        report.data = {"num_points": int(len(rec.points_world)), "frames": rec.frames(config),
+        # Physical-motion clearance: only measured depth + calibrated intrinsics + verified extrinsics
+        verified = bool(capture.data.get("motion_safe", False))
+        report.data = {"pointcloud_units": "m", "geometry_verified_for_motion": verified, "motion_safe": verified,
+                       "depth_source": capture.data.get("depth_source"),
+                       "geometry_verification_note": (
+                           "Measured RGB-D depth, calibrated intrinsics and verified extrinsics" if verified else
+                           "No measured RGB-D depth, calibrated intrinsics or verified extrinsic calibration"),
+                       "num_points": int(len(rec.points_base)), "frames": rec.frames(config),
                        "ee_reference_source": ee_reference_source(config),
-                       "motion_safe": bool(capture.data.get("motion_safe", False)),
-                       "depth_source": capture.data.get("depth_source")}
-        log.info("%d points | base centroid %s", len(rec.points_world), round_list(rec.centroid_base))
+                       "coordinate_frame_id": rec.transformer.base_frame.frame_id,
+                       "robot_base_pose_world": rec.transformer.base_frame.to_dict()}
+        log.info("%d points | base centroid %s", len(rec.points_base), round_list(rec.centroid_base))
     return report
 
 

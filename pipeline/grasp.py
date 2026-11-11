@@ -1,4 +1,4 @@
-"""Stage ``grasp``: PCA of the instrument cloud -> functional zones, grasp pose, gripper feasibility.
+"""Stage ``grasp``: selectable PCA geometry (default) or official remote GraspGen inference.
 
 The tool is split along its main axis into Zone A (finger rings, 0-35%), Zone B (shank/hinge,
 35-65%, the grasp zone) and Zone C (blades, 65-100%, forbidden). A parallel-jaw gripper pose is
@@ -31,7 +31,7 @@ from pipeline.common.report import StageError, StageReport, stage_run
 from pipeline.common.scene import round_list
 from pipeline.common.workspace import GRASP_MARGIN_M, Workspace, from_config
 from pipeline.config_loader import load_environment_config
-from pipeline.frame_transformer import quaternion_from_matrix
+from pipeline.frame_transformer import RobotBaseFrame, quaternion_from_matrix
 
 STAGE = "grasp"
 log = logging.getLogger(STAGE)
@@ -45,25 +45,29 @@ CLEARANCE_M = 0.020
 ZONE_COLORS = {"A": (40, 120, 220), "B": (40, 220, 80), "C": (220, 50, 50)}
 
 
-def isolate_tool(points: np.ndarray) -> np.ndarray:
+def isolate_tool(points: np.ndarray, world_up=(0.0, 0.0, 1.0)) -> np.ndarray:
     """Drop the lowest slice of the cloud (support plane) when the cloud is tall enough."""
-    span = points[:, 2].max() - points[:, 2].min()
+    heights = points @ np.asarray(world_up)
+    span = heights.max() - heights.min()
     if span > MIN_HEIGHT_SPAN_M:
-        tool = points[points[:, 2] >= points[:, 2].min() + BASE_PLANE_FRACTION * span]
+        tool = points[heights >= heights.min() + BASE_PLANE_FRACTION * span]
         if len(tool) >= 10:
             return tool
     return points
 
 
-def principal_axes(points: np.ndarray):
+def principal_axes(points: np.ndarray, base_frame: RobotBaseFrame | None = None):
     """Centroid and right-handed (v1 longitudinal, v2 lateral, v3 up-normal) axes."""
     centroid = points.mean(axis=0)
     evals, evecs = np.linalg.eigh(np.cov(points - centroid, rowvar=False))
     evecs = evecs[:, np.argsort(evals)[::-1]]
     v1, v3 = evecs[:, 0], evecs[:, 2]
-    if v3[2] < 0:
+    base = base_frame or RobotBaseFrame()
+    world_up = base.rotation.T @ np.array([0.0, 0.0, 1.0])
+    world_diagonal = base.rotation.T @ np.array([1.0, 1.0, 0.0])
+    if np.dot(v3, world_up) < 0:
         v3 = -v3
-    if v1[0] + v1[1] < 0:
+    if np.dot(v1, world_diagonal) < 0:
         v1 = -v1
     v2 = np.cross(v3, v1)
     return centroid, v1, v2 / np.linalg.norm(v2), v3
@@ -77,8 +81,8 @@ def gripper_frame(v2: np.ndarray, v3: np.ndarray):
     return x_ee, y_ee, z_ee
 
 
-def analyze(tool_points: np.ndarray) -> Dict[str, Any]:
-    centroid, v1, v2, v3 = principal_axes(tool_points)
+def analyze(tool_points: np.ndarray, base_frame: RobotBaseFrame | None = None) -> Dict[str, Any]:
+    centroid, v1, v2, v3 = principal_axes(tool_points, base_frame)
     centered = tool_points - centroid
     s = centered @ v1
     length = float(s.max() - s.min())
@@ -169,9 +173,9 @@ def readiness_blockers(a: Dict[str, Any], workspace: Workspace, deprojection: St
     return blockers
 
 
-def run(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = None,
-        config_path: Optional[str] = None, out_dir: Optional[str] = None,
-        report_path: Optional[str] = None) -> StageReport:
+def _run_pca(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = None,
+             config_path: Optional[str] = None, out_dir: Optional[str] = None,
+             report_path: Optional[str] = None) -> StageReport:
     out = paths.output_dir(out_dir)
     deprojection_file = paths.resolve(deprojection_path, paths.SIM_DEPROJECTION, out)
     plan_file = paths.resolve(plan_path, paths.PLAN, out)
@@ -193,10 +197,12 @@ def run(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = N
         points, _ = read_ply(ply)
         if len(points) < MIN_CLOUD_POINTS:
             raise StageError(STAGE, f"too few 3D points ({len(points)}) for geometric analysis")
-        tool_points = isolate_tool(points)
+        base_frame = RobotBaseFrame.from_dict(deprojection.data.get("robot_base_pose_world", {}))
+        world_up = base_frame.rotation.T @ np.array([0.0, 0.0, 1.0])
+        tool_points = isolate_tool(points, world_up)
         log.info("analyzing %d points (raw: %d)", len(tool_points), len(points))
 
-        a = analyze(tool_points)
+        a = analyze(tool_points, base_frame)
         blockers = readiness_blockers(a, workspace, deprojection)
         for message in blockers:
             report.warn(log, f"NOT READY: {message}")
@@ -211,7 +217,10 @@ def run(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = N
         x_ee, y_ee, z_ee = a["ee_axes"]
         report.artifacts = {"zones_ply": str(zones_ply), "overview_png": str(overview)}
         report.data = {
+            "grasp_backend": "pca",
             "source_pipeline": source, "target_instrument": tool_name,
+            "coordinate_frame_id": base_frame.frame_id,
+            "robot_base_pose_world": base_frame.to_dict(),
             "input_pointcloud": {"source_ply": str(ply), "total_points": int(len(points)),
                                  "filtered_points": int(len(tool_points))},
             "instrument_bounding_dimensions_m": {"length_along_v1": round(a["length"], 4),
@@ -244,13 +253,59 @@ def run(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = N
     return report
 
 
+def add_backend_arguments(parser):
+    """Shared flags for standalone grasp, sim, real and graphical launchers."""
+    parser.add_argument("--grasp-backend", choices=["pca", "graspgen"], default="pca")
+    parser.add_argument("--graspgen-config", default=None, help="Client/TCP YAML (default: config/graspgen.yaml)")
+    parser.add_argument("--graspgen-host", default=None)
+    parser.add_argument("--graspgen-port", type=int, default=None)
+    parser.add_argument("--graspgen-timeout-ms", type=int, default=None)
+
+
+def backend_kwargs(args):
+    return dict(backend=args.grasp_backend, graspgen_config=args.graspgen_config,
+                graspgen_host=args.graspgen_host, graspgen_port=args.graspgen_port,
+                graspgen_timeout_ms=args.graspgen_timeout_ms)
+
+
+def run(*, deprojection_path=None, plan_path=None, out_dir=None, report_path=None,
+        backend="pca", graspgen_config=None, graspgen_host=None, graspgen_port=None,
+        graspgen_timeout_ms=None, config_path=None) -> StageReport:
+    """Keep grasp.json as the pipeline interface and retain backend-specific reports.
+
+    ``config_path`` is the ENVIRONMENT config (workspace limits for the PCA readiness gates);
+    ``graspgen_config`` is the separate GraspGen client YAML.
+
+    A failed GraspGen run overwrites the current interface with FAILED; an older
+    successful PCA result can never be consumed as an implicit fallback.
+    """
+    if backend not in {"pca", "graspgen"}:
+        raise StageError(STAGE, f"unknown grasp backend {backend!r}")
+    out = paths.output_dir(out_dir)
+    target = paths.output_report(report_path, paths.GRASP, out)
+    archive = out / f"grasp_{backend}.json"
+    kwargs = dict(deprojection_path=deprojection_path, plan_path=plan_path,
+                  out_dir=out_dir, report_path=str(target.resolve()))
+    try:
+        if backend == "pca":
+            return _run_pca(**kwargs, config_path=config_path)
+        from pipeline.graspgen.backend import run as run_graspgen
+        return run_graspgen(**kwargs, config_path=graspgen_config, host=graspgen_host,
+                            port=graspgen_port, timeout_ms=graspgen_timeout_ms)
+    finally:
+        if target.exists() and target.resolve() != archive.resolve():
+            StageReport.load(target, require_completed=False).save(archive)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = stage_parser(__doc__.splitlines()[0])
     parser.add_argument("--deprojection", default=None,
                         help="sim_deprojection.json or real_deprojection.json (default: sim)")
     parser.add_argument("--plan", default=None)
+    add_backend_arguments(parser)
     return run_cli(parser, lambda a: run(deprojection_path=a.deprojection, plan_path=a.plan,
-                                         config_path=a.config, out_dir=a.out_dir, report_path=a.report), argv)
+                                         config_path=a.config, out_dir=a.out_dir, report_path=a.report,
+                                         **backend_kwargs(a)), argv)
 
 
 if __name__ == "__main__":

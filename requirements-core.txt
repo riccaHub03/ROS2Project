@@ -1,0 +1,10 @@
+# CPU pipeline/test profile, verified on Mac with Python 3.11.
+# Reinstall wheels for Linux; never copy the Mac .venv to the PC.
+numpy==1.26.4
+scipy==1.17.1
+matplotlib==3.11.2
+Pillow==13.0.0
+PyYAML==6.0.3
+pybullet==3.2.7
+trimesh==5.2.0
+fast-simplification==0.2.0

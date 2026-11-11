@@ -4,7 +4,7 @@ Modulo: Frame Transformer e Gestione Trasformazioni di Coordinate ROS 2.
 Gestisce il passaggio matematico e TF2 tra:
   1. Camera Optical Frame (Z avanti lungo la linea di vista, X destra, Y basso)
   2. Camera Link (montaggio fisico della telecamera)
-  3. Robot Base / Global Frame (lbr_link_0 / world)
+  3. World e base robot (lbr_link_0), distinti quando la base e' spostata
   4. End-Effector / TCP Frame (lbr_iiwa_link_7 / workbench_tcp)
 """
 
@@ -73,19 +73,72 @@ def matrix_from_quaternion(q):
     ], dtype=np.float64)
 
 
+class RobotBaseFrame:
+    """Posa della base nel mondo e conversioni di punti e pose fra i due frame."""
+
+    def __init__(self, position_xyz=(0, 0, 0), orientation_rpy=(0, 0, 0), frame_id="lbr_link_0"):
+        self.position = np.asarray(position_xyz, dtype=float)
+        self.rpy = np.asarray(orientation_rpy, dtype=float)
+        if (self.position.shape != (3,) or self.rpy.shape != (3,)
+                or not np.isfinite(self.position).all() or not np.isfinite(self.rpy).all()):
+            raise ValueError("La posa della base richiede tre coordinate e tre angoli RPY finiti")
+        self.frame_id = frame_id
+        roll, pitch, yaw = self.rpy
+        cr, sr = math.cos(roll), math.sin(roll)
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        cy, sy = math.cos(yaw), math.sin(yaw)
+        self.rotation = np.array([
+            [cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
+            [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
+            [-sp, cp * sr, cp * cr],
+        ])
+        self.quaternion = quaternion_from_matrix(self.rotation)
+
+    @classmethod
+    def from_config(cls, config):
+        return cls.from_dict(config.get("environment", {}).get("kuka_base", {}))
+
+    @classmethod
+    def from_dict(cls, pose):
+        return cls(pose.get("position_xyz_m", [0, 0, 0]),
+                   pose.get("orientation_rpy_rad", [0, 0, 0]),
+                   pose.get("frame_id", "lbr_link_0"))
+
+    def to_dict(self):
+        return {"parent_frame_id": "world", "frame_id": self.frame_id,
+                "position_xyz_m": self.position.tolist(),
+                "orientation_rpy_rad": self.rpy.tolist(),
+                "orientation_xyzw": self.quaternion}
+
+    def world_to_base(self, points):
+        return (np.asarray(points, dtype=float) - self.position) @ self.rotation
+
+    def base_to_world(self, points):
+        return np.asarray(points, dtype=float) @ self.rotation.T + self.position
+
+    def pose_world_to_base(self, position, quaternion):
+        rotation = self.rotation.T @ matrix_from_quaternion(quaternion)
+        return self.world_to_base(position), quaternion_from_matrix(rotation)
+
+    def pose_base_to_world(self, position, quaternion):
+        rotation = self.rotation @ matrix_from_quaternion(quaternion)
+        return self.base_to_world(position), quaternion_from_matrix(rotation)
+
+
 class FrameTransformer:
     """
     Gestore trasformazioni cinematiche per sensori RGB-D e cinematica robotica.
     Supporta de-proiezione dei pixel (u, v) + Depth metrica in 3D (Camera Frame),
-    trasformazione in World Frame (lbr_link_0) e in End-Effector Frame (workbench_tcp).
+    trasformazione nella base robot, nel mondo e nell'End-Effector Frame.
     """
 
     def __init__(self, camera_position_xyz=(0.60, -0.42, 1.15),
                  camera_target_xyz=(0.60, -0.42, 0.07),
                  camera_intrinsics=None,
-                 camera_up_vector=(-1.0, 0.0, 0.0)):
+                 camera_up_vector=(-1.0, 0.0, 0.0), robot_base_frame=None):
         self.cam_pos = np.array(camera_position_xyz, dtype=np.float64)
         self.cam_target = np.array(camera_target_xyz, dtype=np.float64)
+        self.base_frame = robot_base_frame or RobotBaseFrame()
 
         # Intrinsics camera
         intr = camera_intrinsics or {}
@@ -94,7 +147,7 @@ class FrameTransformer:
         self.cx = float(intr.get("cx_px", 320.0))
         self.cy = float(intr.get("cy_px", 240.0))
 
-        # Calcolo analitico e dinamico della Matrice di Rotazione: Camera Optical Frame -> Robot Base Frame
+        # Posa ottica nel mondo; la posa della base viene applicata separatamente.
         # Supporta qualsiasi posa della telecamera definita in surgical_environment.yaml
         view_dir = self.cam_target - self.cam_pos
         norm_view = np.linalg.norm(view_dir)
@@ -118,12 +171,18 @@ class FrameTransformer:
         # Ri-ortogonalizza y_opt per precisione numerica assoluta (Z x X)
         y_opt = np.cross(z_opt, x_opt)
 
-        self.R_base_opt = np.column_stack([x_opt, y_opt, z_opt])
+        self.R_world_opt = np.column_stack([x_opt, y_opt, z_opt])
+        self.R_base_opt = self.base_frame.rotation.T @ self.R_world_opt
 
         # Matrice di trasformazione omogenea 4x4 (Optical -> Robot Base)
         self.T_base_opt = np.eye(4, dtype=np.float64)
         self.T_base_opt[:3, :3] = self.R_base_opt
-        self.T_base_opt[:3, 3] = self.cam_pos
+        self.T_base_opt[:3, 3] = self.base_frame.world_to_base(self.cam_pos)
+
+        self.T_world_opt = np.eye(4, dtype=np.float64)
+        self.T_world_opt[:3, :3] = self.R_world_opt
+        self.T_world_opt[:3, 3] = self.cam_pos
+        self.T_opt_world = np.linalg.inv(self.T_world_opt)
 
         # Inversa (Robot Base -> Optical)
         self.T_opt_base = np.linalg.inv(self.T_base_opt)
@@ -144,7 +203,7 @@ class FrameTransformer:
         De-proietta tutti i pixel attivi della maschera usando l'immagine di profondità RGB-D.
         Ritorna:
           - points_camera: (N, 3) punti 3D nel frame ottico
-          - points_world: (N, 3) punti 3D nel frame base del robot (lbr_link_0)
+          - points_base: (N, 3) punti 3D nel frame base del robot (lbr_link_0)
           - (solo se return_pixels) pixels: (N, 2) coordinate (v, u) dei pixel validi,
             allineate riga per riga ai punti (per associare colori corretti).
         """
@@ -167,26 +226,26 @@ class FrameTransformer:
 
         # Trasformazione nel frame base robot
         pts_hom = np.hstack([pts_camera, np.ones((len(pts_camera), 1))])
-        pts_world_hom = (self.T_base_opt @ pts_hom.T).T
-        pts_world = pts_world_hom[:, :3]
+        pts_base_hom = (self.T_base_opt @ pts_hom.T).T
+        pts_base = pts_base_hom[:, :3]
 
         if return_pixels:
-            return pts_camera, pts_world, np.stack([v_valid, u_valid], axis=1)
-        return pts_camera, pts_world
+            return pts_camera, pts_base, np.stack([v_valid, u_valid], axis=1)
+        return pts_camera, pts_base
 
     def transform_camera_to_world(self, point_camera):
-        """Trasforma un punto [X_c, Y_c, Z_c] dal frame ottico al frame base (lbr_link_0)."""
+        """Trasforma un punto dal frame ottico al riferimento fisso world."""
         pt_hom = np.array([point_camera[0], point_camera[1], point_camera[2], 1.0])
-        return (self.T_base_opt @ pt_hom)[:3]
+        return (self.T_world_opt @ pt_hom)[:3]
 
     def transform_world_to_camera(self, point_world):
-        """Trasforma un punto [X_w, Y_w, Z_w] dal frame base al frame ottico."""
+        """Trasforma un punto dal riferimento fisso world al frame ottico."""
         pt_hom = np.array([point_world[0], point_world[1], point_world[2], 1.0])
-        return (self.T_opt_base @ pt_hom)[:3]
+        return (self.T_opt_world @ pt_hom)[:3]
 
     def transform_world_to_ee(self, point_world, ee_position_xyz, ee_orientation_xyzw):
         """
-        Trasforma un punto dal frame base al frame dell'end-effector (workbench_tcp / flange).
+        Trasforma un punto world nel frame EE, la cui posa e' anch'essa espressa in world.
         Ritorna [X_ee, Y_ee, Z_ee].
         """
         R_base_ee = matrix_from_quaternion(ee_orientation_xyzw)
@@ -201,7 +260,7 @@ class FrameTransformer:
         return (T_ee_base @ pt_hom)[:3]
 
     def transform_ee_to_world(self, point_ee, ee_position_xyz, ee_orientation_xyzw):
-        """Trasforma un punto relativo all'end-effector nel frame globale del robot."""
+        """Trasforma un punto relativo all'end-effector nel riferimento world."""
         R_base_ee = matrix_from_quaternion(ee_orientation_xyzw)
         t_base_ee = np.array(ee_position_xyz, dtype=np.float64)
 
@@ -228,11 +287,11 @@ class FrameTransformer:
         # 1. lbr_link_0 -> camera_link (corpo della telecamera)
         t1 = TransformStamped()
         t1.header.stamp = stamp
-        t1.header.frame_id = "lbr_link_0"
+        t1.header.frame_id = self.base_frame.frame_id
         t1.child_frame_id = "camera_link"
-        t1.transform.translation.x = float(self.cam_pos[0])
-        t1.transform.translation.y = float(self.cam_pos[1])
-        t1.transform.translation.z = float(self.cam_pos[2])
+        t1.transform.translation.x = float(self.T_base_opt[0, 3])
+        t1.transform.translation.y = float(self.T_base_opt[1, 3])
+        t1.transform.translation.z = float(self.T_base_opt[2, 3])
         # Orientamento nominale camera_link
         q1 = quaternion_from_matrix(self.R_base_opt)
         t1.transform.rotation.x = q1[0]

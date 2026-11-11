@@ -13,7 +13,7 @@ python3 -m pipeline.plan --instruction "Passami le forbici" --offline
 python3 -m pipeline.plan --tool "Bone Forceps" --offline
 
 #2. Acquisizione Camera & PyBullet: pipeline.sim.capture
-# Carica la scena di simulazione PyBullet con tavolo, vassoi e telecamera overhead, 
+# Carica la scena di simulazione PyBullet con tavolo, vassoi e telecamera overhead,
 # posiziona lo strumento e acquisisce immagine RGB e profondità metrica.
 
 # Carica solo lo strumento specificato nel plan.json precedente
@@ -26,7 +26,7 @@ python3 -m pipeline.sim.capture --mode all
 python3 -m pipeline.sim.capture --plan data/outputs/plan.json --mode single
 
 # 3. Segmentazione Visiva 2D: pipeline.sim.segment
-# Isola i pixel dello strumento chirurgico richiesto nell'inquadratura della telecamera, 
+# Isola i pixel dello strumento chirurgico richiesto nell'inquadratura della telecamera,
 # creando la maschera di segmentazione.
 
 # Modalità DIAGNOSTICA / Ground-Truth (rapida, perfetta per test senza GPU né pesi SAM3)
@@ -36,7 +36,7 @@ python3 -m pipeline.sim.segment --backend ground-truth
 python3 -m pipeline.sim.segment --backend sam3
 
 # 4. Posa di Riferimento STL: pipeline.sim.reference_pose
-# Interroga il catalogo reale dei tuoi 5 GB (instruments_catalog.json), 
+# Interroga il catalogo reale dei tuoi 5 GB (instruments_catalog.json),
 # individua il modello 3D STL esatto, lo posiziona sul vassoio ed estrae gli assi principali PCA di riferimento.
 
 # Legge lo strumento pianificato da plan.json
@@ -47,7 +47,7 @@ python3 -m pipeline.sim.reference_pose --tool "Scalpel" --seed 42
 
 # 5. De-proiezione 3D e Trasformazioni Frame: pipeline.sim.deproject
 
-# De-proietta i pixel della maschera 2D nello spazio 3D metrico usando la mappa di profondità. 
+# De-proietta i pixel della maschera 2D nello spazio 3D metrico usando la mappa di profondità.
 # Calcola il centroide e le trasformazioni di coordinate tra i sistemi di riferimento (Camera→RobotBase→TCP).
 
 python3 -m pipeline.sim.deproject

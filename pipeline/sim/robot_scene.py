@@ -19,6 +19,7 @@ from pipeline.common.reconstruction import CameraModel
 from pipeline.common.report import StageReport, write_json
 from pipeline.common.scene import camera_intrinsics, camera_pose, get_tray, round_list
 from pipeline.mesh_loader import find_instrument_mesh
+from pipeline.frame_transformer import RobotBaseFrame
 from pipeline.sim.placement import sample_tool_pose
 
 log = logging.getLogger("robot_scene")
@@ -74,6 +75,7 @@ def prepare_mesh(source):
 class RobotScene:
     def __init__(self, config, plan, *, gui=False, seed=42):
         self.config, self.plan, self.gui = config, plan, gui
+        self.base_frame = RobotBaseFrame.from_config(config)
         self.cid = p.connect(p.GUI if gui else p.DIRECT)
         if self.cid < 0:
             raise RuntimeError("Impossibile aprire PyBullet")
@@ -135,10 +137,10 @@ class RobotScene:
                                    textSize=1.1, physicsClientId=self.cid)
 
     def _build_robot(self):
-        base = self.config["environment"]["kuka_base"]
-        if not np.allclose(base["position_xyz_m"], 0) or not np.allclose(base["orientation_rpy_rad"], 0):
-            raise ValueError("L'anteprima usa world coincidente con lbr_link_0: configura la base all'origine")
-        self.robot = p.loadURDF("kuka_iiwa/model.urdf", useFixedBase=True, physicsClientId=self.cid)
+        self.robot = p.loadURDF(
+            "kuka_iiwa/model.urdf", basePosition=self.base_frame.position.tolist(),
+            baseOrientation=self.base_frame.quaternion, useFixedBase=True, physicsClientId=self.cid,
+        )
         self.joints = list(range(7))
         self.ee = 6
         self.limits = [p.getJointInfo(self.robot, j, physicsClientId=self.cid)[8:10] for j in self.joints]
@@ -166,7 +168,8 @@ class RobotScene:
         dims = np.asarray(self.mesh_info["dimensions_m"])
         tray = self.trays[self.source]
         top = tray["position_xyz_m"][2] + tray["dimensions_xyz_m"][2] / 2
-        x, y, yaw = sample_tool_pose(tray["position_xyz_m"], tray["dimensions_xyz_m"], dims[:2], seed)
+        x, y, yaw = sample_tool_pose(tray["position_xyz_m"], tray["dimensions_xyz_m"], dims[:2], seed,
+                                    base_xy=self.base_frame.position[:2])
         self.tool_initial_pos = [x, y, top + dims[2] / 2 + 0.001]
         self.tool_initial_orn = p.getQuaternionFromEuler([0, 0, yaw])
         vis = p.createVisualShape(p.GEOM_MESH, fileName=self.mesh_file,
@@ -304,20 +307,25 @@ class RobotScene:
         instrument = self.plan["target_instrument"]
         initial_pose = {"position_xyz_m": round_list(self.tool_initial_pos),
                         "orientation_xyzw": round_list(self.tool_initial_orn, 5)}
+        base_pos, base_quat = self.base_frame.pose_world_to_base(self.tool_initial_pos, self.tool_initial_orn)
+        pose_base = {"position_xyz_m": base_pos.tolist(), "orientation_xyzw": base_quat}
         self.capture_report = StageReport(
             stage="sim_capture", inputs={"plan": "in-memory"},
             artifacts={"rgb_png": str(rgb_png), "depth_npy": str(depth_npy), "depth_visual_png": str(depth_vis),
                        "truth_mask_png": str(truth_png)},
             data={"mode": "single", "simulated_instrument": instrument, "mesh_file": self.mesh_file,
                   "source_stl_file": self.mesh_info["source_mesh"], "source_tray": self.source,
-                  "ground_truth_pose": initial_pose, "camera": camera.to_dict()})
+                  "ground_truth_pose": initial_pose, "camera": camera.to_dict(),
+                  "robot_base_pose_world": self.base_frame.to_dict()})
         self.capture_report.save(out / paths.SIM_CAPTURE)
         StageReport(
             stage="sim_reference_pose", inputs={"plan": "in-memory"}, artifacts={"placement_png": str(overview_png)},
             data={"target_instrument": instrument, "source_stl_file": self.mesh_info["source_mesh"],
                   "source_tray": self.source,
                   "stl_dimensions_m": dict(zip(("length_v1", "width_v2", "thickness_v3"), self.mesh_info["dimensions_m"])),
-                  "pose": initial_pose, "pose_source": "same_pybullet_scene_as_rgbd"},
+                  "pose": initial_pose, "pose_base_frame": pose_base,
+                  "robot_base_pose_world": self.base_frame.to_dict(),
+                  "pose_source": "same_pybullet_scene_as_rgbd"},
         ).save(out / paths.SIM_REFERENCE_POSE)
 
     def save_overview(self, path):
@@ -334,11 +342,20 @@ class RobotScene:
                                                physicsClientId=self.cid)
 
     def show_grasp(self, report):
+        if report.get("grasp_backend") == "graspgen":
+            from pipeline.graspgen.preview import gripper_lines
+            for candidate in report["candidates"][:20]:
+                line = self.base_frame.base_to_world(gripper_lines(candidate["T_base_gripper"]))
+                for a, b in zip(line[:-1], line[1:]):
+                    p.addUserDebugLine(a, b, [0.1, 0.7, 0.3], 2, physicsClientId=self.cid)
+            self.status("GraspGen: nominal Robotiq poses; physical grasp UNVALIDATED")
         data = report["designated_grasp_geometry"]
-        pos = data["grasp_centroid_base_frame_xyz_m"]
+        pos, quat = self.base_frame.pose_base_to_world(
+            data["grasp_centroid_base_frame_xyz_m"],
+            data["recommended_gripper_orientation"]["quaternion_xyzw"],
+        )
         vis = p.createVisualShape(p.GEOM_SPHERE, radius=0.008, rgbaColor=[0.1, 1, 0.2, 0.9], physicsClientId=self.cid)
         self.markers.append(p.createMultiBody(0, -1, vis, pos, physicsClientId=self.cid))
-        quat = data["recommended_gripper_orientation"]["quaternion_xyzw"]
         rotation = np.asarray(p.getMatrixFromQuaternion(quat)).reshape(3, 3)
         for axis, color in zip(rotation.T, ([1, 0, 0], [0, 0.75, 0], [0, 0, 1])):
             p.addUserDebugLine(pos, np.asarray(pos) + axis * 0.07, color, 3, physicsClientId=self.cid)

@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+import yaml
 from PIL import Image
 
 from pipeline import grasp, plan
@@ -93,14 +94,52 @@ class RealChainSafetyTests(unittest.TestCase):
         self.assertEqual(rep.data["readiness"], grasp.NOT_READY)
         self.assertTrue(any("nominal depth" in b for b in rep.data["readiness_blockers"]))
 
-    def test_measured_depth_and_calibration_clear_the_flag(self):
+    def _verified_config(self, ee_pose=True):
+        """Environment config where the lab has verified the camera extrinsics (and set the EE pose)."""
+        cfg = yaml.safe_load(Path(paths.__file__).resolve().parents[2].joinpath(
+            "config/surgical_environment.yaml").read_text())
+        cfg["camera_overhead"]["extrinsics"]["verified"] = True
+        if ee_pose:
+            cfg["motion_control"]["ee_reference_pose"] = {"position_xyz_m": [0.45, 0.0, 0.45],
+                                                          "quaternion_xyzw": [0.0, 1.0, 0.0, 0.0]}
+        path = self.tmp / "verified_env.yaml"
+        path.write_text(yaml.safe_dump(cfg))
+        return str(path)
+
+    def _measured_inputs(self):
         cap = self._capture()
-        depth = np.load(cap.artifact("depth_npy"))
         depth_file = self.tmp / "depth.npy"
-        np.save(depth_file, depth)
-        cap = self._capture(depth=str(depth_file), intrinsics=(1800.0, 1800.0, 960.0, 540.0))
-        self.assertTrue(cap.data["motion_safe"])
+        np.save(depth_file, np.load(cap.artifact("depth_npy")))
+        return str(depth_file), (1800.0, 1800.0, 960.0, 540.0)
+
+    def test_depth_and_intrinsics_alone_do_not_clear_nominal_extrinsics(self):
+        depth_file, intrinsics = self._measured_inputs()
+        cap = self._capture(depth=depth_file, intrinsics=intrinsics)
         self.assertEqual(cap.data["depth_source"], "measured")
+        self.assertTrue(cap.data["intrinsics_calibrated"])
+        self.assertFalse(cap.data["extrinsics_verified"])
+        self.assertFalse(cap.data["motion_safe"])
+
+    def test_fully_verified_inputs_clear_the_grasp(self):
+        depth_file, intrinsics = self._measured_inputs()
+        cfg = self._verified_config()
+        cap = self._capture(depth=depth_file, intrinsics=intrinsics, config_path=cfg)
+        self.assertTrue(cap.data["motion_safe"])
+        # instrument at the image centre = right under the camera, above the middle of tray_2 (reachable)
+        real_segment.run(out_dir=str(self.out), segmenter=FakeSegmenter(0.9, box=(525, 555, 860, 1060)))
+        dep = real_deproject.run(out_dir=str(self.out), config_path=cfg)
+        self.assertIs(dep.data["geometry_verified_for_motion"], True)
+        self.assertIs(dep.data["motion_safe"], True)
+        rep = grasp.run(deprojection_path=str(self.out / paths.REAL_DEPROJECTION), out_dir=str(self.out),
+                        config_path=cfg)
+        self.assertEqual(rep.data["readiness_blockers"], [])
+        self.assertEqual(rep.data["readiness"], grasp.READY)
+
+    def test_unverified_inputs_never_set_the_verified_flag(self):
+        self._capture()
+        real_segment.run(out_dir=str(self.out), segmenter=FakeSegmenter(0.9))
+        dep = real_deproject.run(out_dir=str(self.out))
+        self.assertIs(dep.data["geometry_verified_for_motion"], False)
 
     def test_misaligned_depth_is_rejected(self):
         np.save(self.tmp / "bad.npy", np.zeros((10, 10), np.float32))
@@ -116,6 +155,12 @@ class GeometryGateTests(unittest.TestCase):
         self.assertFalse(ws.contains([0.20, 0.0, 0.09]))         # too close to the base
         self.assertTrue(ws.contains([0.20, 0.0, 0.30]))          # high above the table the minimum does not apply
         self.assertTrue(ws.blockers([0.9, 0.0, 0.09]))
+
+    def test_placement_follows_a_moved_robot_base(self):
+        base = (0.30, -0.30)                       # base shifted in world: the annulus moves with it
+        for seed in range(20):
+            x, y, _ = sample_tool_pose([0.60, -0.42], [0.62, 0.68], (0.14, 0.02), seed, base_xy=base)
+            self.assertTrue(Workspace().contains([x - base[0], y - base[1], 0.09]))
 
     def test_random_placement_stays_reachable_and_inside_tray(self):
         for seed in range(20):

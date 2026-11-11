@@ -24,8 +24,11 @@ def rotated_half_extents(dims_xy, yaw):
 
 
 def sample_tool_pose(tray_position, tray_dimensions, tool_dims_xy, seed=None,
-                     yaw_range=(-math.pi / 2, math.pi / 2)):
+                     yaw_range=(-math.pi / 2, math.pi / 2), base_xy=(0.0, 0.0)):
     """Ritorna (x, y, yaw): posa casuale con tutto l'ingombro dentro il vassoio e centro raggiungibile.
+
+    ``x, y`` e ``base_xy`` sono nel riferimento world: la corona raggiungibile e' centrata sulla
+    base del robot (che puo' essere spostata rispetto all'origine).
 
     Se non esiste una posa valida (strumento troppo grande) ritorna il centro del vassoio.
     """
@@ -41,6 +44,6 @@ def sample_tool_pose(tray_position, tray_dimensions, tool_dims_xy, seed=None,
             continue
         x = cx + float(rng.uniform(-lim_x, lim_x))
         y = cy + float(rng.uniform(-lim_y, lim_y))
-        if GRASP_R_MIN <= math.hypot(x, y) <= GRASP_R_MAX:
+        if GRASP_R_MIN <= math.hypot(x - base_xy[0], y - base_xy[1]) <= GRASP_R_MAX:
             return x, y, yaw
     return cx, cy, 0.0

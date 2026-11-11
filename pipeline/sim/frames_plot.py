@@ -28,6 +28,7 @@ def render_frames_figure(path: Path, rgb: np.ndarray, transformer: FrameTransfor
     env = config.get("environment", {})
     trays = all_trays(config)
     base = np.array(env.get("kuka_base", {}).get("position_xyz_m", [0.0, 0.0, 0.0]))
+    centroid_world = transformer.base_frame.base_to_world(centroid_base)
     cx, cy, fx, fy = transformer.cx, transformer.cy, transformer.fx, transformer.fy
 
     def project(world_pt):
@@ -53,7 +54,7 @@ def render_frames_figure(path: Path, rgb: np.ndarray, transformer: FrameTransfor
 
     for tray in trays:
         draw_frame_2d(np.array(tray.position), f"{tray.name} Frame", 0.10, "gold")
-    draw_frame_2d(centroid_base, tool_frame_label, 0.09, "orange")
+    draw_frame_2d(centroid_world, tool_frame_label, 0.09, "orange")
 
     ox, oy = 65, 65  # camera optical frame widget
     ax1.annotate("", xy=(ox + 45, oy), xytext=(ox, oy), arrowprops=dict(arrowstyle="->", color="red", lw=3))
@@ -63,7 +64,7 @@ def render_frames_figure(path: Path, rgb: np.ndarray, transformer: FrameTransfor
     ax1.scatter([ox], [oy], c="cyan", s=90, edgecolors="black", zorder=7)
     ax1.text(ox - 55, oy - 12, "Camera Optical\nFrame", color="white", fontsize=8, fontweight="bold",
              bbox=dict(boxstyle="round,pad=0.25", facecolor="navy", alpha=0.85))
-    tool_px = project(centroid_base)
+    tool_px = project(centroid_world)
     if tool_px is not None:
         ax1.annotate("", xy=(int(cx), 20), xytext=tuple(tool_px),
                      arrowprops=dict(arrowstyle="->", color="magenta", lw=2, linestyle="--"))
@@ -82,21 +83,21 @@ def render_frames_figure(path: Path, rgb: np.ndarray, transformer: FrameTransfor
         ax2.text(origin[0], origin[1], origin[2] + scale * 0.25, label, fontsize=8, fontweight="bold")
 
     eye = np.eye(3)
-    draw_frame_3d(base, eye, "Robot base (lbr_link_0)", 0.18)
-    draw_frame_3d(np.asarray(cam_pos), transformer.R_base_opt, "Camera Optical Frame", 0.16)
+    draw_frame_3d(base, transformer.base_frame.rotation, "Robot base (lbr_link_0)", 0.18)
+    draw_frame_3d(np.asarray(cam_pos), transformer.R_world_opt, "Camera Optical Frame", 0.16)
     for tray in trays:
         draw_frame_3d(np.array(tray.position), eye, f"{tray.key} Frame", 0.12)
         bx, by = _rect_xy(tray.position, tray.dimensions)
         ax2.plot(bx, by, [tray.top_z] * 5, color="gray", lw=1.2, linestyle="--", label=f"Tray {tray.key}")
-    draw_frame_3d(centroid_base, eye, "Instrument Frame", 0.10)
+    draw_frame_3d(centroid_world, transformer.base_frame.rotation, "Instrument Frame", 0.10)
     ax2.plot(*zip(base, cam_pos), "k--", alpha=0.4, label="T_base_cam")
-    ax2.plot(*zip(cam_pos, centroid_base), "c-", lw=2, label="Deprojection optical axis")
-    ax2.plot(*zip(base, centroid_base), "m-.", lw=1.5, label="T_base_tool")
+    ax2.plot(*zip(cam_pos, centroid_world), "c-", lw=2, label="Deprojection optical axis")
+    ax2.plot(*zip(base, centroid_world), "m-.", lw=1.5, label="T_base_tool")
 
     table = env.get("surgical_table", {})
     tx, ty = _rect_xy(table.get("center_xyz_m", [0.60, 0.0, -0.05]), table.get("dimensions_xyz_m", [0.85, 1.60, 0.20]))
     ax2.plot(tx, ty, [float(table.get("surface_z_m", 0.05))] * 5, "b-", lw=1.8, alpha=0.6, label="Operating table")
-    ax2.set(xlabel="X (base) [m]", ylabel="Y (base) [m]", zlabel="Z (base) [m]")
+    ax2.set(xlabel="X (world) [m]", ylabel="Y (world) [m]", zlabel="Z (world) [m]")
     ax2.set_title("3D WORKSPACE FRAME DIAGRAM", fontsize=11, fontweight="bold")
     ax2.legend(loc="upper right", fontsize=7)
     ax2.view_init(elev=28, azim=-55)

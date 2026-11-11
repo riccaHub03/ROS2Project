@@ -49,6 +49,55 @@ bash run_graphical.sh --tool Scalpel
 bash run_graphical.sh --no-motion
 ```
 
+## Provare diverse posizioni della base
+
+La posa del robot si configura in `environment.kuka_base`. Posizione in metri,
+orientamento roll/pitch/yaw in radianti, entrambi rispetto al riferimento fisso
+`world`. Tavolo, vassoi e camera restano nelle loro posizioni nel mondo.
+
+Per conservare la configurazione predefinita, copia il file completo:
+
+```bash
+cp config/surgical_environment.yaml config/prova-base.yaml
+```
+
+Nel file copiato modifica i due campi, per esempio:
+
+```yaml
+environment:
+  kuka_base:
+    position_xyz_m: [0.04, 0.01, 0.0]
+    orientation_rpy_rad: [0.0, 0.0, 0.12]
+```
+
+Questo esempio sposta il robot di 4 cm lungo X e 1 cm lungo Y e lo ruota di
+circa 6,9 gradi attorno a Z. Mantieni gli altri campi del file completo.
+Avvia ogni prova con:
+
+```bash
+bash run_graphical.sh --config config/prova-base.yaml
+```
+
+Per controllare rapidamente la sola catena geometrica e il movimento:
+
+```bash
+.venv/bin/python run_pipeline_sim.py --headless --vision ground-truth --tool Scissors --config config/prova-base.yaml
+```
+
+I parametri vengono letti all'avvio: dopo ogni modifica riavvia la prova.
+Una configurazione che rende le pose irraggiungibili viene rifiutata dal
+controllo IK prima di iniziare il trasferimento.
+
+Le nuvole e le pose di presa sono espresse nella base robot; i waypoint della
+simulazione sono in `world`. I JSON includono la posa della base e il riferimento
+dei dati. Quando cambi base, riesegui `deproject` e `grasp` per rigenerare le prese.
+L'altezza di approccio e quella di sollevamento restano quote Z del mondo,
+anche se la base e' inclinata.
+
+Per una camera fissa, `camera_overhead.extrinsics.position_world_frame_xyz_m`
+specifica la posizione in world. Il vecchio nome `position_robot_frame_xyz_m`
+resta accettato come alias per le configurazioni precedenti, con valori in world.
+
 ## Controllo manuale interattivo: W-S-A-D e Puntatore del Mouse
 
 Per muovere liberamente il robot sulla scena chirurgica con la tastiera (**W-S-A-D**) e visualizzare la scena dalla telecamera:
@@ -109,3 +158,12 @@ Per la verifica senza finestra:
 
 L'esecuzione senza finestra termina con codice diverso da zero se la percezione,
 l'IK, il tracking o il deposito dimostrativo falliscono.
+
+## GraspGen
+
+Gli avvii grafici accettano anche `--grasp-backend graspgen` e le opzioni
+`--graspgen-config`, `--graspgen-host`, `--graspgen-port`, `--graspgen-timeout-ms`.
+PCA resta predefinito. Per GraspGen iniziare con `--no-motion`: vengono mostrate
+le prese nominali della Robotiq, mentre la pinza robot dimostrativa da 80 mm
+rimane incompatibile e il movimento è bloccato anche premendo R.
+Preparazione del server GPU e comandi completi in [GRASPGEN.md](GRASPGEN.md).

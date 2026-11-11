@@ -36,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--from-stage", choices=STAGES, default=None)
     parser.add_argument("--stop-after", choices=STAGES, default=None)
     parser.add_argument("-v", "--verbose", action="store_true")
+    grasp.add_backend_arguments(parser)
     return parser
 
 
@@ -48,7 +49,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         Step("capture", lambda: capture.run(image=args.image, depth=args.depth, intrinsics=args.intrinsics, **cfg)),
         Step("segment", lambda: segment.run(min_confidence=args.min_confidence, **common)),
         Step("deproject", lambda: deproject.run(**cfg)),
-        Step("grasp", lambda: grasp.run(deprojection_path=str(out / paths.REAL_DEPROJECTION), **cfg)),
+        Step("grasp", lambda: grasp.run(deprojection_path=str(out / paths.REAL_DEPROJECTION),
+                                       **grasp.backend_kwargs(args), **cfg)),
     ]
 
 

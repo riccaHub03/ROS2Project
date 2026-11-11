@@ -5,16 +5,27 @@ import math
 import numpy as np
 import pybullet as p
 
+from pipeline.frame_transformer import RobotBaseFrame
+
 
 class MotionPreview:
     def __init__(self, scene, grasp_report):
         self.scene = scene
+        from pipeline.graspgen.backend import require_motion_allowed
+        require_motion_allowed(grasp_report, gripper="visual_parallel_jaws")
+        if "robot_base_pose_world" in grasp_report:
+            source_frame = RobotBaseFrame.from_dict(grasp_report["robot_base_pose_world"])
+            if (not np.allclose(source_frame.position, scene.base_frame.position)
+                    or not np.allclose(source_frame.rotation, scene.base_frame.rotation)):
+                raise ValueError("La presa usa una posa della base diversa: ricalcola deproject e grasp")
         data = grasp_report["designated_grasp_geometry"]
         if not data["gripper_compatibility_check"]["parallel_jaw_suitable"]:
             raise ValueError("La zona di presa supera l'apertura della pinza: movimento annullato")
-        point = np.asarray(data["grasp_centroid_base_frame_xyz_m"], dtype=float)
-        quat = np.asarray(data["recommended_gripper_orientation"]["quaternion_xyzw"], dtype=float)
-        quat /= np.linalg.norm(quat)
+        point, quat = scene.base_frame.pose_base_to_world(
+            data["grasp_centroid_base_frame_xyz_m"],
+            data["recommended_gripper_orientation"]["quaternion_xyzw"],
+        )
+        quat = np.asarray(quat)
         tray = scene.trays[scene.destination]
         place = np.asarray(tray["position_xyz_m"], dtype=float).copy()
         place[2] += tray["dimensions_xyz_m"][2] / 2 + 0.003 + (point[2] - scene.tool_bottom)
@@ -37,7 +48,7 @@ class MotionPreview:
             ("Deposito", place, None),
             ("Apertura pinza", place, "release"),
             ("Risalita", [place[0], place[1], lift], None),
-            ("Rientro", [0.48, 0, 0.40], None),
+            ("Rientro", scene.base_frame.base_to_world([0.48, 0, 0.40]), None),
         ]
         self.waypoints = []
         for label, position, event in targets:
@@ -123,7 +134,10 @@ class MotionPreview:
             "collision_free_path_validated": False, "physical_grasp_validated": False,
             "gripper_model": "visual_parallel_jaws", "attachment_model": "ideal_fixed_constraint",
             "tcp_offset_flange_xyz_m": [0, 0, 0.10], "waypoints": self.waypoints,
+            "waypoints_frame_id": "world", "robot_base_pose_world": self.scene.base_frame.to_dict(),
             "measured_phase_errors": self.results, "simulation_duration_s": self.total,
             "final_tool_position_m": position, "tool_center_inside_destination_xy": inside,
+            "final_tool_position_frame_id": "world",
+            "final_tool_position_base_frame_m": self.scene.base_frame.world_to_base(position).tolist(),
             "destination_contact_count": len(contacts), "tool_settled_on_destination": bool(settled),
         }

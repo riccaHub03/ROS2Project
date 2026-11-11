@@ -54,35 +54,43 @@ def run(*, segmentation_path: Optional[str] = None, capture_path: Optional[str] 
         rec = reconstruct(mask, depth, rgb, camera, config)
         tray = get_tray(config, capture.require("source_tray"))
         source = "optical"
-        if tray.contains_xy(rec.centroid_base, TRAY_MARGIN_M):
-            log.info("optical centroid %s lies inside %s", round_list(rec.centroid_base), tray.key)
+        if tray.contains_xy(rec.centroid_world, TRAY_MARGIN_M):
+            log.info("optical world centroid %s lies inside %s", round_list(rec.centroid_world), tray.key)
         elif reference_pose_path:
             pose = StageReport.load(reference_pose_path, expect_stage="sim_reference_pose").require("pose", "position_xyz_m")
             report.warn(log, f"optical centroid {round_list(rec.centroid_base)} is OUTSIDE {tray.key}; "
                              f"falling back to the certified reference pose {pose}")
-            rec, source = rec.with_centroid_base(np.array(pose)), "reference_pose_fallback"
+            rec, source = rec.with_centroid_base(rec.transformer.base_frame.world_to_base(pose)), "reference_pose_fallback"
         else:
             report.warn(log, f"optical centroid {round_list(rec.centroid_base)} is OUTSIDE {tray.key} "
                              "and no --reference-pose was given: keeping the optical centroid")
 
         truth = capture.data.get("ground_truth_pose", {}).get("position_xyz_m")
-        error_mm = float(np.linalg.norm(rec.centroid_base - np.array(truth))) * 1000.0 if truth else None
+        error_mm = float(np.linalg.norm(rec.centroid_world - np.array(truth))) * 1000.0 if truth else None
 
         cloud, figure = out / "sim_deprojection_cloud.ply", out / "sim_deprojection_frames.png"
-        write_ply(cloud, rec.points_world, rec.colors)
+        write_ply(cloud, rec.points_base, rec.colors)
         render_frames_figure(figure, rgb, rec.transformer, rec.centroid_base, camera.position, config)
 
         report.artifacts = {"pointcloud_ply": str(cloud), "frames_png": str(figure)}
         report.data = {
-            "num_points": int(len(rec.points_world)), "centroid_source": source,
+            "pointcloud_units": "m",
+            "geometry_verified_for_motion": False,
+            "geometry_verification_note": "Simulator reconstruction; calibration/contact not validated",
+            "num_points": int(len(rec.points_base)), "centroid_source": source,
+            "coordinate_frame_id": rec.transformer.base_frame.frame_id,
+            "robot_base_pose_world": rec.transformer.base_frame.to_dict(),
             "frames": rec.frames(config),
             "ground_truth_validation": {"ground_truth_xyz_m": truth,
-                                        "reconstructed_xyz_m": round_list(rec.centroid_base),
+                                        "reconstructed_xyz_m": round_list(rec.centroid_world),
+                                        "frame_id": "world",
                                         "error_mm": None if error_mm is None else round(error_mm, 2)},
+            # motion_safe: the simulator geometry is exact, so the PCA preview may move the simulated robot.
+            # geometry_verified_for_motion (above) stays False: nothing here is verified for a physical robot.
             "ee_reference_source": ee_reference_source(config), "motion_safe": True,
         }
         log.info("%d points | base centroid %s | error vs ground truth %s",
-                 len(rec.points_world), round_list(rec.centroid_base),
+                 len(rec.points_base), round_list(rec.centroid_base),
                  "n/a" if error_mm is None else f"{error_mm:.2f} mm")
     return report
 

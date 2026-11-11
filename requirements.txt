@@ -14,3 +14,6 @@ torchvision>=0.15.0
 transformers>=5.2.0
 huggingface_hub>=0.24.0
 opencv-python-headless>=4.8.0   # robot_executor / video_recorder
+
+# Official remote GraspGen client (the CUDA model has its own container)
+-r requirements-graspgen-client.txt

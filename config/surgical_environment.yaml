@@ -7,6 +7,7 @@
 # =====================================================================
 
 environment:
+  # Tavolo, vassoi e posa della base sono espressi nel riferimento fisso world.
   room:
     description: "Blocco Operatorio Robotizzato"
     dimensions_xyz_m: [4.0, 4.0, 2.8]
@@ -14,8 +15,8 @@ environment:
   kuka_base:
     description: "Base fissa del manipolatore KUKA LBR iiwa"
     frame_id: "lbr_link_0"
-    position_xyz_m: [0.0, 0.0, 0.0]
-    orientation_rpy_rad: [0.0, 0.0, 0.0]
+    position_xyz_m: [0.0, 0.0, 0.0] # X, Y, Z nel mondo, in metri
+    orientation_rpy_rad: [0.0, 0.0, 0.0] # Roll, pitch, yaw nel mondo, in radianti
 
   surgical_table:
     description: "Tavolo operatorio principale"
@@ -50,8 +51,9 @@ camera_overhead:
   auto_track_source_tray: true # Se true, la telecamera centra automaticamente la linea di vista sopra il vassoio di origine
   height_above_tray_m: 1.08    # Quota verticale (Z) sopra il vassoio quando auto_track_source_tray è attivo
   extrinsics:
-    position_robot_frame_xyz_m: [0.60, -0.42, 1.15] # Usato come posa fissa se auto_track_source_tray: false
+    position_world_frame_xyz_m: [0.60, -0.42, 1.15] # Posa fissa nel mondo se auto_track_source_tray: false
     target_position_xyz_m: [0.60, -0.42, 0.07]
+    verified: false # true SOLO dopo la calibrazione mano-occhio misurata: senza, la presa reale non e' abilitata al movimento
     orientation_view: "nadir_top_down"
   intrinsics:
     fx_px: 615.0
@@ -110,9 +112,9 @@ motion_control:
     reach_r_min_m: 0.41   # raggio minimo, vale solo sotto low_z_m
     reach_r_max_m: 0.78
     low_z_m: 0.15
-  # Posa dell'end-effector usata per esprimere i punti nel frame EE. SUL ROBOT REALE sostituire con
-  # la TF lbr_link_0 -> flangia/TCP letta all'acquisizione; senza, il frame EE e' nominale e la presa
-  # reale viene segnata NOT_READY_FOR_ROBOT_MOTION.
+  # Posa dell'end-effector, espressa nel riferimento world, usata per esprimere i punti nel frame EE.
+  # SUL ROBOT REALE sostituire con la TF world -> flangia/TCP letta all'acquisizione; senza, il frame EE
+  # e' nominale e la presa reale viene segnata NOT_READY_FOR_ROBOT_MOTION.
   # ee_reference_pose:
   #   position_xyz_m: [0.45, 0.0, 0.45]
   #   quaternion_xyzw: [0.0, 1.0, 0.0, 0.0]

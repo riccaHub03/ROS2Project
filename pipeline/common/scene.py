@@ -56,7 +56,8 @@ def camera_pose(config: Config, source_tray: Tray) -> CameraPose:
     """Overhead camera pose: tracks the source tray unless a fixed pose is configured."""
     cam = config.get("camera_overhead", {})
     extr = cam.get("extrinsics", {})
-    fixed_pos, fixed_target = extr.get("position_robot_frame_xyz_m"), extr.get("target_position_xyz_m")
+    fixed_pos = extr.get("position_world_frame_xyz_m", extr.get("position_robot_frame_xyz_m"))
+    fixed_target = extr.get("target_position_xyz_m")
     tray_pos = list(source_tray.position)
     if cam.get("auto_track_source_tray", True) or not fixed_pos or fixed_pos == "auto":
         height = cam.get("height_above_tray_m", 1.08)
@@ -87,7 +88,7 @@ def ee_reference(config: Config) -> tuple[List[float], List[float]]:
     """End-effector pose (position, quaternion xyzw) used to express points in the EE frame.
 
     Taken from ``motion_control.ee_reference_pose`` when configured (on the real robot: the
-    TF lbr_link_0 -> flange/TCP read at capture time). Otherwise a nominal staging pose is
+    TF world -> flange/TCP read at capture time, in the world frame like trays and base pose). Otherwise a nominal staging pose is
     used, which is only meaningful in simulation (see :func:`ee_reference_source`).
     """
     motion = config.get("motion_control", {})

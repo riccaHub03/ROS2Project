@@ -54,7 +54,7 @@ class RunManifest:
         self.report.save(self.path)
 
 
-def _compute(vision: str, events, config_path: Optional[str] = None) -> None:
+def _compute(vision: str, events, config_path: Optional[str] = None, grasp_options=None) -> None:
     """Worker process: keeps the GUI responsive while SAM 3 runs on CPU."""
     try:
         out = paths.output_dir()
@@ -79,14 +79,18 @@ def _compute(vision: str, events, config_path: Optional[str] = None) -> None:
                 points.mean(axis=0), deprojection.data["frames"]["robot_base_frame"], atol=CENTROID_TOLERANCE_M)):
             raise RuntimeError("Centroid and point cloud are inconsistent: motion cancelled")
 
-        events.put(("status", "Stage grasp: PCA and grasp proposal"))
-        report = grasp.run(deprojection_path=str(out / paths.SIM_DEPROJECTION), config_path=config_path)
+        options = grasp_options or {}
+        events.put(("status", f"Stage grasp: {options.get('backend', 'pca')} proposal"))
+        report = grasp.run(deprojection_path=str(out / paths.SIM_DEPROJECTION), config_path=config_path, **options)
         if report.data.get("readiness_blockers"):
             raise RuntimeError("Grasp not cleared: " + "; ".join(report.data["readiness_blockers"]))
-        report.data.update(readiness="GRASP_CANDIDATE", segmentation_backend=mask.data["segmentation_backend"],
+        if report.data["grasp_backend"] == "pca":
+            report.data["readiness"] = "GRASP_CANDIDATE"
+        report.data.update(segmentation_backend=mask.data["segmentation_backend"],
                            feasibility={**report.data.get("feasibility", {}), "ik_checked": False,
                                         "collision_checked": False, "contact_checked": False})
         report.save(out / paths.GRASP)
+        report.save(out / f"grasp_{report.data['grasp_backend']}.json")
         events.put(("result", report.data))
     except BaseException as exc:
         traceback.print_exc()
@@ -110,6 +114,7 @@ def run_graphical_pipeline(args, instruction: str) -> int:
     lock = _acquire_lock(out)
     scene = worker = events = None
     manifest = RunManifest(out / "graphical_run.json", vision=args.vision,
+                           grasp_backend=args.grasp_backend,
                            display="headless" if args.headless else "native_pybullet_gui",
                            physical_grasp_validated=False)
     try:
@@ -124,7 +129,8 @@ def run_graphical_pipeline(args, instruction: str) -> int:
         manifest.update("PROCESSING", plan_report=str(out / paths.PLAN), capture_report=str(out / paths.SIM_CAPTURE))
         context = multiprocessing.get_context("spawn")
         events = context.Queue()
-        worker = context.Process(target=_compute, args=(args.vision, events, args.config), daemon=True)
+        worker = context.Process(target=_compute, args=(args.vision, events, args.config,
+                                                        grasp.backend_kwargs(args)), daemon=True)
         worker.start()
         motion = grasp_data = None
         paused = done = False
@@ -151,9 +157,12 @@ def run_graphical_pipeline(args, instruction: str) -> int:
                     scene.status("Paused" if paused else "Resumed")
                 if pressed("r") and done and grasp_data is not None and not args.no_motion:
                     scene.restore()
-                    motion = MotionPreview(scene, grasp_data)
-                    done, exit_code = False, 0
-                    manifest.update("ANIMATING", status=RUNNING)
+                    try:
+                        motion = MotionPreview(scene, grasp_data)
+                        done, exit_code = False, 0
+                        manifest.update("ANIMATING", status=RUNNING)
+                    except (ValueError, RuntimeError) as exc:
+                        fail(str(exc))
             while True:
                 try:
                     kind, payload = events.get_nowait()

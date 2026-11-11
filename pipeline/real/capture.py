@@ -1,9 +1,10 @@
 """Stage ``real_capture``: acquire the multi-instrument tray image (no STL needed).
 
 Takes a photo from disk (a ROS 2 camera feed can be dumped to a file and passed with
-``--image``). With ``--depth`` (aligned metric depth) and ``--intrinsics`` (camera calibration)
-the capture is marked ``motion_safe``; without them it uses a nominal constant depth plane on the
-tray surface and downstream stages refuse to clear the grasp for robot motion.
+``--image``). With ``--depth`` (aligned metric depth), ``--intrinsics`` (camera calibration) and
+``camera_overhead.extrinsics.verified: true`` (hand-eye calibration) the capture is marked
+``motion_safe``; otherwise it uses a nominal constant depth plane on the tray surface and downstream
+stages refuse to clear the grasp for robot motion.
 
 Input : image file (or auto-discovered in data/inputs) + environment config
 Output: ``real_capture.json`` -> data: source_file, camera (same schema as sim_capture)
@@ -87,7 +88,8 @@ def run(*, image: Optional[str] = None, depth: Optional[str] = None,
 
         cam_cfg = config.get("camera_overhead", {})
         extr = cam_cfg.get("extrinsics", {})
-        position = extr.get("position_robot_frame_xyz_m", FALLBACK_CAMERA_POSITION)
+        position = extr.get("position_world_frame_xyz_m",
+                            extr.get("position_robot_frame_xyz_m", FALLBACK_CAMERA_POSITION))
         target = extr.get("target_position_xyz_m", [position[0], position[1], tray.top_z])
 
         # --- intrinsics: calibrated values if given, otherwise scaled from the config (nominal) ---
@@ -101,6 +103,10 @@ def run(*, image: Optional[str] = None, depth: Optional[str] = None,
             report.warn(log, f"intrinsics are NOT calibrated: scaled from the config ({base.width}x{base.height} "
                              f"-> {w}x{h}); pass --intrinsics FX FY CX CY from the camera calibration")
         camera = CameraModel(list(position), list(target), Intrinsics(w, h, fx, fy, cx, cy))
+        extrinsics_verified = bool(extr.get("verified", False))
+        if not extrinsics_verified:
+            report.warn(log, "camera extrinsics are NOMINAL (camera_overhead.extrinsics.verified is false): "
+                             "hand-eye calibration required before robot motion")
 
         # --- depth: measured if given, otherwise a nominal plane on the tray SURFACE ---------------
         measured_depth = depth is not None
@@ -110,7 +116,7 @@ def run(*, image: Optional[str] = None, depth: Optional[str] = None,
             depth_source = "measured"
         else:
             depth_map = np.full((h, w), nominal_distance, dtype=np.float32)
-            depth_source = "nominal_constant_plane"
+            depth_source = "nominal_constant_plane_from_photo"
             report.warn(log, "no measured depth: using a constant plane on the tray surface; the instrument "
                              "height is unknown, so this result is NOT cleared for robot motion")
 
@@ -118,11 +124,11 @@ def run(*, image: Optional[str] = None, depth: Optional[str] = None,
         img.save(rgb_png)
         np.save(depth_npy, depth_map)
 
-        motion_safe = measured_depth and calibrated_intrinsics
+        motion_safe = measured_depth and calibrated_intrinsics and extrinsics_verified
         report.artifacts = {"rgb_png": str(rgb_png), "depth_npy": str(depth_npy)}
         report.data = {"source_file": str(source), "source_type": "real_surgical_tray_image",
                        "source_tray": tray.key, "camera": camera.to_dict(), "depth_source": depth_source,
-                       "intrinsics_calibrated": calibrated_intrinsics,
+                       "intrinsics_calibrated": calibrated_intrinsics, "extrinsics_verified": extrinsics_verified,
                        "nominal_distance_m": round(nominal_distance, 4), "motion_safe": motion_safe}
         log.info("captured %s (%dx%d), depth %s, motion_safe=%s", source.name, w, h, depth_source, motion_safe)
     return report
