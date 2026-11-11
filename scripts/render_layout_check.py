@@ -1,4 +1,15 @@
+#!/usr/bin/env python3
+"""Rende la vista overhead del layout (tavolo, vassoi, collezione completa) per un controllo visivo.
+
+Non e' un test automatico: esegui  python3 scripts/render_layout_check.py
+Output: <data/outputs>/layout_check_render.png
+"""
 import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+
 import pybullet as p
 import pybullet_data
 import numpy as np
@@ -33,7 +44,7 @@ v_tr2 = p.createVisualShape(p.GEOM_BOX, halfExtents=[tr2_dims[0]/2, tr2_dims[1]/
 p.createMultiBody(0, c_tr2, v_tr2, tr2_pos)
 
 # All Instruments OBJ inside Tray 2
-mesh_file = "/workspace/data/inputs/All_Instruments_combined.obj"
+mesh_file = os.path.join(ROOT, "data", "inputs", "All_Instruments_combined.obj")
 # Instruments rotated to lay flat:
 # Local Z became -Y, local Y became +Z
 # Rotation matrix: col0=[1,0,0], col1=[0,0,1], col2=[0,-1,0]
@@ -57,6 +68,8 @@ proj_mat = p.computeProjectionMatrixFOV(fov=48.0, aspect=640/480, nearVal=0.1, f
 
 w, h, rgb, depth, seg = p.getCameraImage(640, 480, view_mat, proj_mat, renderer=p.ER_TINY_RENDERER)
 img = Image.fromarray(rgb[:, :, :3])
-img.save("/workspace/data/outputs/test_new_tray_render.png")
-print("Rendered to /workspace/data/outputs/test_new_tray_render.png")
+from pipeline.common import paths
+out_png = paths.output_dir() / "layout_check_render.png"
+img.save(out_png)
+print(f"Rendered to {out_png}")
 p.disconnect()
