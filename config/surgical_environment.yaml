@@ -97,10 +97,26 @@ video_rendering:
 # Parametri di Controllo del Moto (ROS 2 Control & Cinematica Cartesiana)
 # ---------------------------------------------------------------------
 motion_control:
+  # Velocita' nominali del TCP: fonte unica per l'anteprima PyBullet e per l'IK differenziale.
   velocities:
-    cartesian_linear_speed_m_s: 0.16
+    cartesian_linear_speed_m_s: 0.12
     cartesian_angular_speed_rad_s: 0.80
-    joint_speed_rad_s: 1.00
+  # IK differenziale (damped least squares) con vincoli di velocita', accelerazione e jerk dei giunti
+  # (pipeline/sim/constrained_differential_ik.py). I limiti sono bound del passo di controllo, non una verifica a
+  # posteriori. enabled: false => IK PyBullet con interpolazione lineare, nessun vincolo e nessun grafico.
+  differential_ik:
+    enabled: false
+    # Velocita' massime A1..A7 in rad/s (KUKA iiwa 14); uno scalare vale per tutti i giunti.
+    joint_max_velocity_rad_s: [1.485, 1.485, 1.745, 1.309, 2.269, 2.356, 2.356]
+    velocity_safety_factor: 0.6        # si pianifica al 60% del limite hardware
+    # Accelerazione e jerk NON sono dati del costruttore: segnaposto prudenti, da TARARE sul robot reale.
+    joint_max_acceleration_rad_s2: 4.0
+    joint_max_jerk_rad_s3: 40.0
+    position_margin_rad: 0.05          # distanza di sicurezza dai limiti di posizione (con frenata anticipata)
+    damping: {max: 0.05, singularity_threshold: 0.05}   # smorzamento DLS, cresce solo vicino alle singolarita'
+    nullspace_gain: 1.0                # richiamo verso la postura di partenza (evita cambi di ramo)
+    feedback_gain: 5.0                 # guadagno P dell'errore cartesiano [1/s]
+    plot: true                         # sim_robot_joint_velocities.png e sim_robot_joint_acc_jerk.png
   heights_z_m:
     staging_z: 0.45      # Standby e transizione
     approach_z: 0.32     # Quota discesa sopra lo strumento
@@ -118,10 +134,9 @@ motion_control:
   # ee_reference_pose:
   #   position_xyz_m: [0.45, 0.0, 0.45]
   #   quaternion_xyzw: [0.0, 1.0, 0.0, 0.0]
-  tolerances:
-    goal_time_s: 0.0
-    goal_joint_tolerance_rad: 0.0
-    stopped_velocity_tolerance_rad_s: 0.0
+  # Tempi del nodo ROS 2 surgical_executor (ros2/surgical_executor).
   timeouts:
-    step_timeout_sec: 30.0
-    bringup_wait_sec: 25.0
+    step_timeout_sec: 30.0      # esecuzione di una sequenza di waypoint
+    bringup_wait_sec: 25.0      # attesa della piattaforma robotica
+    accept_timeout_sec: 10.0    # attesa dell'accettazione della traiettoria
+    gripper_settle_sec: 0.8     # pausa dopo il comando alla pinza

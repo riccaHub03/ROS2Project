@@ -5,7 +5,9 @@ import math
 import numpy as np
 import pybullet as p
 
+from pipeline.common import paths
 from pipeline.frame_transformer import RobotBaseFrame
+from pipeline.sim import constrained_differential_ik as diff_ik
 
 
 class MotionPreview:
@@ -33,9 +35,14 @@ class MotionPreview:
         if self.close_width > 0.080:
             raise ValueError("Apertura richiesta fuori dal campo della pinza")
         motion = scene.config.get("motion_control", {})
+        velocities = motion["velocities"]
+        linear_speed = float(velocities["cartesian_linear_speed_m_s"])
+        angular_speed = float(velocities["cartesian_angular_speed_rad_s"])
         heights = motion.get("heights_z_m", {})
         lift = max(heights.get("lift_clearance_z", 0.35), point[2] + 0.18)
         approach = max(heights.get("approach_z", 0.32), point[2] + 0.12)
+        built = diff_ik.build_for_scene(scene)
+        self.planner, kinematics = built if built else (None, None)
         self.phases = []
         current, current_quat = scene.tcp_pose()
         seed = [p.getJointState(scene.robot, j, physicsClientId=scene.cid)[0] for j in scene.joints]
@@ -59,19 +66,26 @@ class MotionPreview:
             else:
                 distance = np.linalg.norm(position - current)
                 angle = 2 * math.acos(float(np.clip(abs(np.dot(current_quat, quat)), 0, 1)))
-                duration = max(0.6, distance / 0.12, angle / 0.8)
-                count = max(3, int(math.ceil(duration * 12)))
-                samples = [seed]
-                for alpha in np.linspace(0, 1, count)[1:]:
-                    xyz = np.asarray(current) * (1 - alpha) + position * alpha
-                    orn = p.getQuaternionSlerp(current_quat, quat, float(alpha))
-                    seed = scene.solve_ik(xyz, orn, seed)
-                    samples.append(seed)
+                duration = max(0.6, distance / linear_speed, angle / angular_speed)
+                if self.planner:
+                    samples = self.planner.plan_phase(label, position, diff_ik.quat_to_matrix(quat), duration)
+                    seed = list(samples[-1])
+                    duration = (len(samples) - 1) * diff_ik.CONTROL_DT
+                else:
+                    count = max(3, int(math.ceil(duration * 12)))
+                    samples = [seed]
+                    for alpha in np.linspace(0, 1, count)[1:]:
+                        xyz = np.asarray(current) * (1 - alpha) + position * alpha
+                        orn = p.getQuaternionSlerp(current_quat, quat, float(alpha))
+                        seed = scene.solve_ik(xyz, orn, seed)
+                        samples.append(seed)
             self.phases.append({"label": label, "duration": duration, "samples": np.asarray(samples),
                                 "position": position, "orientation": quat.copy(), "event": event})
             self.waypoints.append({"phase": label, "tcp_position_m": position.tolist(),
                                    "quaternion_xyzw": quat.tolist(), "duration_s": duration})
             current, current_quat = position, quat
+        if kinematics:
+            kinematics.close()
         self.index = 0
         self.elapsed = 0.0
         self.total = 0.0
@@ -80,7 +94,7 @@ class MotionPreview:
         self._announced = -1
         scene.show_path(self.waypoints)
 
-    def tick(self, dt=1 / 240):
+    def tick(self, dt=diff_ik.CONTROL_DT):
         if self.finished:
             return
         phase = self.phases[self.index]
@@ -128,7 +142,12 @@ class MotionPreview:
                                       physicsClientId=self.scene.cid)
         velocity, _ = p.getBaseVelocity(self.scene.tool, physicsClientId=self.scene.cid)
         settled = inside and bool(contacts) and np.linalg.norm(velocity) < 0.02
+        constraints = {"enabled": False}
+        if self.planner:
+            constraints = self.planner.summary()
+            constraints["plots"] = self.planner.save_plot(paths.output_dir())
         return {
+            "differential_ik": constraints,
             "status": "COMPLETED" if self.finished and settled else "INCOMPLETE",
             "backend": "native_pybullet_position_servo", "ik_and_joint_limits_checked": True,
             "collision_free_path_validated": False, "physical_grasp_validated": False,
