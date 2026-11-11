@@ -5,6 +5,9 @@ Output: ``sim_capture.json`` -> data: mode, simulated_instrument, mesh_file, sou
         ground_truth_pose, camera (see CameraModel.to_dict)
         artifacts: rgb_png, depth_npy, depth_visual_png, truth_mask_png (ground-truth tool mask)
 
+``prefix`` renames the artifacts (default ``sim_capture`` -> ``sim_capture_rgb.png`` ...), so a second
+capture of another scene (e.g. the offscreen overview) never overwrites the one the grasp is built on.
+
 Run alone:  python -m pipeline.sim.capture --mode single
 """
 
@@ -141,7 +144,8 @@ def render_rgbd(cid: int, camera: CameraModel, tool_body: int) -> Tuple[np.ndarr
 
 # --------------------------------------------------------------------------- stage
 def run(*, mode: str = "all", plan_path: Optional[str] = None, config_path: Optional[str] = None,
-        out_dir: Optional[str] = None, report_path: Optional[str] = None) -> StageReport:
+        out_dir: Optional[str] = None, report_path: Optional[str] = None,
+        prefix: str = "sim_capture") -> StageReport:
     out = paths.output_dir(out_dir)
     plan_file = paths.resolve(plan_path, paths.PLAN, out)
     with stage_run(STAGE, paths.output_report(report_path, paths.SIM_CAPTURE, out),
@@ -162,8 +166,8 @@ def run(*, mode: str = "all", plan_path: Optional[str] = None, config_path: Opti
         finally:
             p.disconnect(cid)
 
-        rgb_png, depth_npy = out / "sim_capture_rgb.png", out / "sim_capture_depth.npy"
-        depth_vis, truth_png = out / "sim_capture_depth_vis.png", out / "sim_capture_truth_mask.png"
+        rgb_png, depth_npy = out / f"{prefix}_rgb.png", out / f"{prefix}_depth.npy"
+        depth_vis, truth_png = out / f"{prefix}_depth_vis.png", out / f"{prefix}_truth_mask.png"
         Image.fromarray(rgb).save(rgb_png)
         Image.fromarray(truth.astype(np.uint8) * 255).save(truth_png)
         np.save(depth_npy, depth)

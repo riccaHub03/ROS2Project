@@ -15,6 +15,34 @@ La scena rimane aperta dopo il risultato. Usa i controlli PyBullet per orbitare
 e ingrandire; premi P per mettere in pausa, R per ripetere il movimento concluso,
 Q o Esc per chiudere. Il terminale riporta le fasi e gli eventuali errori.
 
+## Maschera e depth di tutti gli strumenti (predefinito)
+
+La finestra mostra **sempre lo STL** dello strumento scelto mentre PyBullet lo trasporta:
+non mostra mai la maschera ne' la collezione OBJ. La presa viene calcolata su quella scena STL.
+
+Di default (`--mode all`) la run produce **in piu'**, fuori schermo, le immagini dell'intera
+collezione `All_Instruments`: RGB, depth e la maschera di **tutti** gli strumenti, con il
+bersaglio evidenziato in verde. Parte **dopo** che la presa e' pronta, quindi non ritarda il
+movimento, e un suo errore non invalida la presa (resta segnato nel manifest).
+
+| File in `data/outputs/` | Contenuto |
+|---|---|
+| `sim_overview_capture_rgb.png` | foto a colori dell'intera collezione sul vassoio |
+| `sim_overview_capture_depth_vis.png` / `_depth.npy` | picture depth (chiaro = vicino) e matrice metrica in metri |
+| `sim_overview_segmentation_all_mask.png` | maschera bianco/nero di tutti gli strumenti |
+| `sim_overview_segmentation_all_overlay.png` | un colore per strumento, bersaglio in verde |
+| `sim_overview_segmentation_all_instances.png` | etichette a 16 bit: 0 sfondo, 1..N strumenti |
+| `sim_overview.json` | report con numero di strumenti, punteggi, bounding box e avvisi |
+
+Con SAM3 la panoramica aggiunge due inferenze dopo la presa (bersaglio e "surgical instrument");
+con `--headless` o `--exit-after-run` la run attende che finiscano prima di uscire. Con
+`--vision ground-truth` non serve SAM3: la maschera e' quella del corpo della collezione
+(un unico corpo rigido). Per saltare tutto e avere il comportamento precedente:
+
+```bash
+bash run_graphical.sh --mode single
+```
+
 ## Due modalita' esplicite
 
 L'avvio predefinito usa **SAM3** per la segmentazione e prova a interpretare

@@ -16,6 +16,7 @@ Il sistema è stato interamente disaccoppiato in stadi indipendenti e testabili.
 | 4. Reference Pose | pipeline.sim.reference_pose | sim_step3b_stl_placement.py | sim_reference_pose.json, tray_placement.png |
 | 5. Deproject | pipeline.sim.deproject | sim_step4_transforms.py | sim_deprojection.json, cloud.ply, frames.png |
 | 6. Grasp | pipeline.grasp | step5_grasp_geometry.py | grasp.json, grasp_zones.ply, overview.png |
+| Extra. Overview | pipeline.sim.overview | (nuovo) | sim_overview.json, sim_overview_capture_rgb.png, sim_overview_capture_depth_vis.png, sim_overview_segmentation_all_mask.png, ..._all_overlay.png |
 
 ## 2. Opzioni Comuni a TUTTI i Moduli
 
@@ -56,7 +57,7 @@ Inizializza la scena di simulazione PyBullet con tavolo operatorio, vassoi inox 
 # 1. Modalità Singolo Strumento (legge il target da data/outputs/plan.json):
 python3 -m pipeline.sim.capture --mode single
 
-# 2. Modalità Scena Completa (carica tutti gli strumenti simultaneamente):
+# 2. Modalità Scena Completa (tutti gli strumenti insieme): è il predefinito della pipeline completa
 python3 -m pipeline.sim.capture --mode all
 
 # 3. Specificando esplicitamente un file di piano personalizzato:
@@ -67,7 +68,7 @@ python3 -m pipeline.sim.capture --plan data/outputs/plan.json --mode single
 
 ### Stadio 3: Segmentazione Visiva 2D
 
-Isola i pixel dello strumento target nell'immagine RGB della telecamera, generando la maschera binaria di segmentazione.
+Isola i pixel dello strumento target nell'immagine RGB della telecamera, generando la maschera binaria di segmentazione. Di default produce anche la **maschera di tutti gli strumenti** (seconda inferenza SAM 3 con il prompt "surgical instrument"); `--no-all-instruments` la salta.
 
 ```bash
 # 1. Modalità DIAGNOSTICA / Ground-Truth (istantanea, basata su PyBullet ID, zero GPU):
@@ -75,9 +76,12 @@ python3 -m pipeline.sim.segment --backend ground-truth
 
 # 2. Modalità AI con Segment Anything 3 (SAM 3):
 python3 -m pipeline.sim.segment --backend sam3
+
+# 3. Solo il bersaglio, senza la maschera di tutti gli strumenti:
+python3 -m pipeline.sim.segment --backend sam3 --no-all-instruments
 ```
 
-**Input & Output Stadio 3:** Input: plan.json e sim_capture.json (+ rgb.png). Output: sim_segmentation.json, sim_segmentation_mask.png (maschera b/n), sim_segmentation_overlay.png (contorno verde sovrapposto).
+**Input & Output Stadio 3:** Input: plan.json e sim_capture.json (+ rgb.png). Output: sim_segmentation.json, sim_segmentation_mask.png (maschera b/n), sim_segmentation_overlay.png (contorno verde sovrapposto) e, per tutti gli strumenti, sim_segmentation_all_mask.png, sim_segmentation_all_overlay.png (un colore per strumento, bersaglio in verde) e sim_segmentation_all_instances.png (etichette a 16 bit).
 
 ### Stadio 4: Posa di Riferimento STL dal Dataset Reale
 
@@ -127,7 +131,20 @@ python3 -m pipeline.grasp --deprojection data/outputs/real_deprojection.json
 
 **Input & Output Stadio 6:** Input: sim_deprojection.json e plan.json. Output: grasp.json (posa presa XYZ, quaternione, apertura mm), grasp_zones.ply (nuvola 3D colorata per zone), grasp_overview.png.
 
+### Panoramica dell'intera collezione (Extra)
+
+Rende fuori schermo l'intera collezione `All_Instruments` e ne salva RGB, depth e la maschera di tutti gli strumenti. È informativa: la presa si calcola sulla scena STL. La esegue da sola la run con robot (`--gui`/`--headless`) dopo che la presa è pronta.
+
+```bash
+python3 -m pipeline.sim.overview --backend ground-truth   # senza SAM 3
+python3 -m pipeline.sim.overview --backend sam3
+```
+
+**Output:** sim_overview.json, sim_overview_capture_rgb.png, sim_overview_capture_depth_vis.png (e _depth.npy in metri), sim_overview_segmentation_all_mask.png, sim_overview_segmentation_all_overlay.png, sim_overview_segmentation_all_instances.png, più il bersaglio isolato (sim_overview_segmentation_mask.png / _overlay.png).
+
 ## 4. Orchestrazione a Blocchi ed Esecuzione Rapida
+
+**Modo predefinito (`--mode all`).** La pipeline completa lavora sull'intera collezione: RGB-D e maschera di **tutti** gli strumenti, poi usa lo STL del bersaglio. Con `--gui`/`--headless` la finestra mostra sempre lo STL trasportato da PyBullet (mai la maschera né l'OBJ) e la collezione viene resa fuori schermo, dopo la presa, in `sim_overview.json`. `--mode single` ripristina il comportamento precedente (solo lo STL). Senza robot, `--vision ground-truth` usa `single` per default: la maschera del simulatore ha bisogno di un corpo per strumento e la collezione è un corpo unico.
 
 Grazie al coordinatore pipeline.orchestrate, puoi eseguire sia l'intera pipeline che sotto-blocchi sequenziali tramite run_pipeline_sim.py:
 

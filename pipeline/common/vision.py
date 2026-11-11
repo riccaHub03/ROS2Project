@@ -176,3 +176,71 @@ def segment_image(image: Image.Image, prompts: Sequence[str], segmenter: Segment
     data = {"segmentation_backend": "sam3", "prompts_tried": list(prompts), "prompt_used": used,
             "num_instances": n, "confidence_score": round(score, 4), **mask_metrics(target)}
     return Segmentation((target.astype(np.uint8) * 255), make_overlay(rgb, target, others), data, warnings)
+
+
+# --------------------------------------------------------------------------- every instrument
+ALL_INSTRUMENTS_PROMPT = "surgical instrument"
+ALL_MIN_SCORE = 0.30          # per-instance acceptance threshold (same as the sam3_ros score_th)
+ALL_MAX_INSTANCES = 64
+INSTANCE_COLORS = np.array([[0, 160, 255], [255, 170, 0], [190, 90, 255], [0, 220, 200],
+                            [255, 80, 120], [150, 220, 0], [255, 230, 0], [120, 120, 255]])
+
+
+@dataclass
+class AllInstruments:
+    """Mask of EVERY instrument in the view, not only the target one."""
+    mask: np.ndarray            # uint8 0/255, union of the accepted instances
+    labels: np.ndarray          # uint16, 0 = background, 1..N = instance (best score first)
+    overlay: np.ndarray         # uint8 H x W x 3, one colour per instance, target in green
+    data: Dict[str, Any]
+    warnings: List[str] = field(default_factory=list)
+
+
+def _paint_instances(rgb: np.ndarray, labels: np.ndarray, target: Optional[np.ndarray]) -> np.ndarray:
+    overlay = rgb.copy()
+    for label in range(1, int(labels.max()) + 1):
+        blend(overlay, labels == label, INSTANCE_COLORS[(label - 1) % len(INSTANCE_COLORS)], 0.55)
+    if target is not None and target.any():
+        blend(overlay, target, TARGET_COLOR, 0.75)
+    return overlay
+
+
+def segment_all_instruments(image: Image.Image, segmenter: Segmenter, *, prompt: str = ALL_INSTRUMENTS_PROMPT,
+                            min_score: float = ALL_MIN_SCORE, max_instances: int = ALL_MAX_INSTANCES,
+                            target: Optional[np.ndarray] = None) -> AllInstruments:
+    """Mask every instrument with a generic prompt (best-scoring instances win overlaps).
+
+    Informational: an empty result is a warning, not an error. ``target`` (bool H x W) is only used
+    to highlight the instrument that will be grasped.
+    """
+    rgb = np.array(image.convert("RGB"))
+    h, w = rgb.shape[:2]
+    log.info("SAM3 prompt (all instruments): '%s'", prompt)
+    found = segmenter.segment(image, prompt)
+    order = [int(i) for i in np.argsort(-np.asarray(found.scores), kind="stable")
+             if found.scores[i] >= min_score][:max_instances]
+    labels = np.zeros((h, w), dtype=np.uint16)
+    summary: List[Dict[str, Any]] = []
+    for rank, idx in enumerate(order, start=1):
+        free = (found.masks[idx] > 0) & (labels == 0)
+        labels[free] = rank
+        summary.append({"label": rank, "score": round(float(found.scores[idx]), 4), **mask_metrics(free)})
+    mask = labels > 0
+    warnings = [] if order else [f"no instrument above score {min_score} for prompt '{prompt}'"]
+    data = {"segmentation_backend": "sam3", "prompt": prompt, "min_score": min_score,
+            "num_candidates": len(found), "num_instances": len(order),
+            "active_pixel_count": int(mask.sum()), "coverage_fraction": round(float(mask.mean()), 4),
+            "instances": summary}
+    return AllInstruments(mask.astype(np.uint8) * 255, labels, _paint_instances(rgb, labels, target), data, warnings)
+
+
+def all_instruments_from_mask(rgb: np.ndarray, truth: np.ndarray, *, target: Optional[np.ndarray] = None,
+                              source: str = "simulator_object_id") -> AllInstruments:
+    """Diagnostic counterpart: the simulator body mask (the whole collection is ONE rigid body)."""
+    truth = np.asarray(truth) > 0
+    labels = truth.astype(np.uint16)
+    data = {"segmentation_backend": source, "prompt": None, "num_instances": 1 if truth.any() else 0,
+            "active_pixel_count": int(truth.sum()), "coverage_fraction": round(float(truth.mean()), 4),
+            "instances": [{"label": 1, "score": None, **mask_metrics(truth)}] if truth.any() else []}
+    warnings = [] if truth.any() else ["simulator mask is empty"]
+    return AllInstruments(truth.astype(np.uint8) * 255, labels, _paint_instances(rgb, labels, target), data, warnings)

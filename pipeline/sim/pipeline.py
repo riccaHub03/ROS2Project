@@ -2,6 +2,10 @@
 
 Run:  python run_pipeline_sim.py --tool Scalpel          (or: python -m pipeline.sim.pipeline ...)
 With --gui/--headless the KUKA scene is driven by ``pipeline.sim.graphical``.
+
+By default (``--mode all``) the perception covers the WHOLE All_Instruments collection: RGB, depth picture and
+a mask of every instrument. The KUKA window always shows the single STL of the target being transported; in
+that case the full-collection views are produced offscreen (``sim_overview.json``).
 """
 
 from __future__ import annotations
@@ -27,7 +31,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tool", default=None, help="Specific instrument, e.g. 'Scalpel', 'Bone Forceps', 'Scissors'")
     parser.add_argument("--list-tools", action="store_true", help="Print the instrument catalog and exit")
     parser.add_argument("--mode", choices=["all", "single"], default=None,
-                        help="'all': full All_Instruments scene; 'single': one STL (default when --tool/--gui/--headless)")
+                        help="'all' (default): RGB-D and mask of EVERY instrument on the full All_Instruments scene; "
+                             "'single': only the target STL. With --gui/--headless the window always shows the STL and "
+                             "'all' adds the offscreen overview. Without the robot, --vision ground-truth defaults to "
+                             "'single' (the simulator mask needs one body per instrument)")
     parser.add_argument("--offline", action="store_true", help="Skip Ollama: deterministic planner")
     parser.add_argument("--seed", type=int, default=42, help="Seed for the instrument placement in the tray")
     parser.add_argument("--config", default=None)
@@ -60,6 +67,15 @@ def print_catalog() -> None:
     print('\nTry: python run_pipeline_sim.py --tool "Bone Forceps"')
 
 
+def resolve_mode(args: argparse.Namespace) -> str:
+    """Perception scene: explicit --mode, else 'all'; the ground-truth backend without robot falls back to 'single'."""
+    if args.mode:
+        return args.mode
+    if args.gui or args.headless:
+        return "all"
+    return "single" if args.vision == "ground-truth" else "all"
+
+
 def build_steps(args: argparse.Namespace, instruction: str, mode: str) -> List[Step]:
     common = dict(out_dir=args.out_dir)
     cfg = dict(config_path=args.config, **common)
@@ -67,11 +83,11 @@ def build_steps(args: argparse.Namespace, instruction: str, mode: str) -> List[S
     return [
         Step("plan", lambda: plan.run(instruction, tool_hint=args.tool, offline=args.offline, **cfg)),
         Step("capture", lambda: capture.run(mode=mode, **cfg)),
-        Step("segment", lambda: segment.run(backend=args.vision, **common)),
+        Step("segment", lambda: segment.run(backend=args.vision, all_instruments=(mode == "all"), **common)),
         Step("reference_pose", lambda: reference_pose.run(tool=args.tool, seed=args.seed, **cfg)),
         Step("deproject", lambda: deproject.run(reference_pose_path=str(out / paths.SIM_REFERENCE_POSE), **cfg)),
         Step("grasp", lambda: grasp.run(deprojection_path=str(out / paths.SIM_DEPROJECTION),
-                                       **grasp.backend_kwargs(args), **common)),
+                                       **grasp.backend_kwargs(args), **cfg)),
     ]
 
 
@@ -87,10 +103,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         f"Passami lo strumento {args.tool} posizionato sul vassoio 2 e mettilo nel vassoio 1 per l'intervento chirurgico."
         if args.tool else plan.DEFAULT_INSTRUCTION)
     robot_run = args.gui or args.headless
-    mode = args.mode or ("single" if args.tool or robot_run else "all")
+    mode = resolve_mode(args)
     if robot_run:
-        if mode != "single":
-            parser.error("the robot run requires --mode single: the combined collection has no separate bodies")
+        args.mode = mode        # the robot scene is always the STL; 'all' adds the offscreen overview
         from pipeline.sim.graphical import run_graphical_pipeline
         return run_graphical_pipeline(args, instruction)
     if args.no_motion or args.exit_after_run:

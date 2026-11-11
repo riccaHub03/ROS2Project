@@ -1,6 +1,11 @@
 """Interactive/headless KUKA run: keeps the PyBullet window alive on the main thread while a
 worker process runs segmentation -> deprojection -> grasp analysis through the regular stages.
 
+The window always shows the single STL of the target being transported. With ``--mode all`` (the default)
+the worker also renders the WHOLE All_Instruments collection offscreen AFTER the grasp is ready, saving its
+RGB / depth pictures and a mask of every instrument (``sim_overview.json``): it never delays the motion and
+a failure there never invalidates the grasp.
+
 Outputs (in addition to the stage reports): ``graphical_run.json`` (run manifest) and
 ``sim_robot_motion.json`` (measured motion report), both in the standard report envelope.
 """
@@ -24,7 +29,7 @@ from pipeline.common import paths
 from pipeline.common.ply import read_ply
 from pipeline.common.report import CANCELLED, COMPLETED, FAILED, RUNNING, StageReport
 from pipeline.config_loader import load_environment_config
-from pipeline.sim import deproject, segment
+from pipeline.sim import deproject, overview, segment
 from pipeline.sim.robot_motion_preview import MotionPreview
 from pipeline.sim.robot_scene import RobotScene
 
@@ -54,7 +59,21 @@ class RunManifest:
         self.report.save(self.path)
 
 
-def _compute(vision: str, events, config_path: Optional[str] = None, grasp_options=None) -> None:
+def _overview(vision: str, events, config_path: Optional[str]) -> None:
+    """Full-collection views, produced after the grasp so that they never delay the motion."""
+    try:
+        report = overview.run(backend=vision, config_path=config_path)
+        events.put(("overview", {"report": str(paths.output_dir() / paths.SIM_OVERVIEW),
+                                 "artifacts": report.artifacts,
+                                 "num_instruments": report.data["all_instruments"]["num_instances"],
+                                 "warnings": report.warnings}))
+    except BaseException as exc:          # informational: the grasp was already delivered
+        traceback.print_exc()
+        events.put(("overview_error", f"{type(exc).__name__}: {exc}"))
+
+
+def _compute(vision: str, events, config_path: Optional[str] = None, grasp_options=None,
+             overview_enabled: bool = False) -> None:
     """Worker process: keeps the GUI responsive while SAM 3 runs on CPU."""
     try:
         out = paths.output_dir()
@@ -65,7 +84,7 @@ def _compute(vision: str, events, config_path: Optional[str] = None, grasp_optio
             torch.set_num_threads(3)
         else:
             events.put(("status", "Diagnostic segment: mask from PyBullet IDs, SAM3 bypassed"))
-        mask = segment.run(backend=vision)
+        mask = segment.run(backend=vision, all_instruments=False)   # single-STL view: nothing else to mask
         confidence = mask.data["confidence_score"]
         if confidence is not None and confidence < MIN_CONFIDENCE:
             raise RuntimeError(f"SAM3 confidence below {MIN_CONFIDENCE}: inspect the overlay; motion cancelled")
@@ -92,6 +111,8 @@ def _compute(vision: str, events, config_path: Optional[str] = None, grasp_optio
         report.save(out / paths.GRASP)
         report.save(out / f"grasp_{report.data['grasp_backend']}.json")
         events.put(("result", report.data))
+        if overview_enabled:
+            _overview(vision, events, config_path)
     except BaseException as exc:
         traceback.print_exc()
         events.put(("error", f"{type(exc).__name__}: {exc}"))
@@ -113,8 +134,10 @@ def run_graphical_pipeline(args, instruction: str) -> int:
     out = paths.output_dir()
     lock = _acquire_lock(out)
     scene = worker = events = None
+    overview_enabled = getattr(args, "mode", None) == "all"
     manifest = RunManifest(out / "graphical_run.json", vision=args.vision,
                            grasp_backend=args.grasp_backend,
+                           overview={"enabled": overview_enabled, "status": "PENDING" if overview_enabled else "DISABLED"},
                            display="headless" if args.headless else "native_pybullet_gui",
                            physical_grasp_validated=False)
     try:
@@ -130,20 +153,23 @@ def run_graphical_pipeline(args, instruction: str) -> int:
         context = multiprocessing.get_context("spawn")
         events = context.Queue()
         worker = context.Process(target=_compute, args=(args.vision, events, args.config,
-                                                        grasp.backend_kwargs(args)), daemon=True)
+                                                        grasp.backend_kwargs(args), overview_enabled), daemon=True)
         worker.start()
         motion = grasp_data = None
         paused = done = False
         exit_code = 0
-        dead_since = None
+        dead_since = overview_dead_since = None
+        overview_pending = overview_enabled     # headless/exit-after-run waits for the offscreen overview
         tick = 0
         error_color = [0.8, 0.05, 0.05]
 
         def fail(message: str, **data: Any) -> None:
-            nonlocal done, exit_code
+            nonlocal done, exit_code, overview_pending
             scene.status(message, error_color)
             manifest.update("FAILED", status=FAILED, error=message, **data)
             done, exit_code = True, 1
+            if grasp_data is None:              # the worker stopped before it could start the overview
+                overview_pending = False
 
         while p.isConnected(scene.cid):
             frame_start = time.monotonic()
@@ -187,10 +213,26 @@ def run_graphical_pipeline(args, instruction: str) -> int:
                             manifest.update("ANIMATING")
                         except (ValueError, RuntimeError) as exc:
                             fail(str(exc))
+                elif kind == "overview":
+                    overview_pending = False
+                    manifest.update(overview={"enabled": True, "status": COMPLETED, **payload})
+                    log.info("overview of every instrument ready: %s", payload["report"])
+                elif kind == "overview_error":
+                    overview_pending = False
+                    manifest.update(overview={"enabled": True, "status": FAILED, "error": payload})
+                    log.warning("overview failed (the grasp is unaffected): %s", payload)
             if not done and worker.exitcode is not None and grasp_data is None:
                 dead_since = dead_since or time.monotonic()
                 if time.monotonic() - dead_since > 2:
                     fail(f"Analysis process terminated: exit code {worker.exitcode}")
+            if overview_pending and grasp_data is not None and worker.exitcode is not None:
+                overview_dead_since = overview_dead_since or time.monotonic()
+                if time.monotonic() - overview_dead_since > 2:
+                    overview_pending = False
+                    manifest.update(overview={"enabled": True, "status": FAILED,
+                                              "error": f"analysis process terminated: exit code {worker.exitcode}"})
+            if done and overview_pending and not scene.gui:
+                time.sleep(0.05)                # only the offscreen overview is left: do not spin a core
             for _ in range(4):
                 if motion is not None and not done and not paused:
                     try:
@@ -212,7 +254,7 @@ def run_graphical_pipeline(args, instruction: str) -> int:
                     scene.status("Preview complete (ideal fixed-constraint grasp). R: repeat; Q: quit")
                     done = True
             tick += 1
-            if done and (args.headless or args.exit_after_run):
+            if done and not overview_pending and (args.headless or args.exit_after_run):
                 return exit_code
             if scene.gui:
                 time.sleep(max(0, 1 / 60 - (time.monotonic() - frame_start)))

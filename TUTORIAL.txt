@@ -20,6 +20,7 @@ python3 -m pipeline.plan --tool "Bone Forceps" --offline
 python3 -m pipeline.sim.capture --mode single
 
 # Oppure carica l'intera scena complessa con tutti gli strumenti insieme
+# (e' il predefinito di run_pipeline_sim.py: RGB-D + maschera di tutti gli strumenti)
 python3 -m pipeline.sim.capture --mode all
 
 # Specificando un file di piano diverso
@@ -32,8 +33,11 @@ python3 -m pipeline.sim.capture --plan data/outputs/plan.json --mode single
 # Modalità DIAGNOSTICA / Ground-Truth (rapida, perfetta per test senza GPU né pesi SAM3)
 python3 -m pipeline.sim.segment --backend ground-truth
 
-# Modalità con AI SAM 3 (Segment Anything 3)
+# Modalità con AI SAM 3 (Segment Anything 3): maschera del bersaglio + maschera di tutti gli strumenti
 python3 -m pipeline.sim.segment --backend sam3
+
+# Solo il bersaglio (salta la seconda inferenza SAM 3)
+python3 -m pipeline.sim.segment --backend sam3 --no-all-instruments
 
 # 4. Posa di Riferimento STL: pipeline.sim.reference_pose
 # Interroga il catalogo reale dei tuoi 5 GB (instruments_catalog.json),

@@ -36,7 +36,8 @@ capture         python -m pipeline.sim.capture       ► sim_capture.json
         │                                              (+ sim_capture_rgb.png, sim_capture_depth.npy)
         ▼
 segment (SAM 3) python -m pipeline.sim.segment       ► sim_segmentation.json
-        │                                              (+ sim_segmentation_mask.png, _overlay.png)
+        │                                              (+ sim_segmentation_mask.png, _overlay.png,
+        │                                                 e di tutti gli strumenti: _all_mask.png, _all_overlay.png)
         ▼
 reference_pose  python -m pipeline.sim.reference_pose► sim_reference_pose.json
         │                                              (+ sim_reference_pose.png)
@@ -47,6 +48,12 @@ deproject       python -m pipeline.sim.deproject     ► sim_deprojection.json
 grasp           python -m pipeline.grasp             ► grasp.json
                                                        (+ grasp_zones.ply, grasp_overview.png)
 ```
+
+Di default (`--mode all`) `capture` e `segment` lavorano sull'**intera collezione**: RGB-D e maschera di tutti
+gli strumenti. Con `--gui`/`--headless` la finestra mostra sempre lo STL trasportato da PyBullet, e la
+collezione viene resa fuori schermo dopo la presa (`python -m pipeline.sim.overview` ► `sim_overview.json`,
+`sim_overview_capture_rgb.png`, `sim_overview_capture_depth_vis.png`, `sim_overview_segmentation_all_mask.png`).
+`--mode single` ripristina il comportamento precedente (solo lo STL).
 
 La pipeline reale (`run_pipeline_real.py`) usa `pipeline.real.{capture,segment,deproject}` e
 produce `real_capture.json`, `real_segmentation.json`, `real_deprojection.json`, poi `grasp.json`.
@@ -125,7 +132,8 @@ Questo comando genererà le mesh parametriche (es. `surgical_scissors.stl`, `sca
 ### Passo 2: Avvia la Pipeline di Simulazione
 
 ```bash
-# Esempio 1: Test su Bisturi chirurgico (Single Tool Mode)
+# Esempio 1: Test su Bisturi chirurgico. Di default RGB-D e maschera riguardano TUTTA la collezione
+# (--mode all); per lavorare solo sullo STL del bisturi: --mode single
 python3 run_pipeline_sim.py --tool "Scalpel"
 
 # Esempio 2: Test su Forbici chirurgiche
