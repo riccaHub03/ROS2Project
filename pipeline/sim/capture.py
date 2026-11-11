@@ -32,7 +32,7 @@ from pipeline.common.report import StageError, StageReport, stage_run
 from pipeline.common.scene import Config, camera_intrinsics, camera_pose, get_tray, round_list
 from pipeline.config_loader import load_environment_config
 from pipeline.frame_transformer import quaternion_from_matrix
-from pipeline.mesh_loader import find_instrument_mesh, inspect_stl_bounds
+from pipeline.mesh_loader import find_instrument_mesh
 
 STAGE = "sim_capture"
 log = logging.getLogger(STAGE)
@@ -40,7 +40,7 @@ log = logging.getLogger(STAGE)
 NEAR_M, FAR_M = 0.1, 2.0
 ALL_SCENE_SCALE = [0.01] * 3            # All_Instruments.obj is authored in centimetres
 ALL_SCENE_ROTATION = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]])  # lay flat, Z up
-TINY_RENDERER_MAX_FACES = 50_000        # TinyRenderer silently drops very dense meshes
+SINGLE_MODE_YAW = 0.4                   # rad: the instrument is not aligned with the tray axes
 
 
 # --------------------------------------------------------------------------- assets
@@ -64,26 +64,6 @@ def all_instruments_obj() -> Path:
     if raw_obj.exists():
         return _combine(raw_obj, combined)
     raise StageError(STAGE, f"All_Instruments collection not found under {source}")
-
-
-def render_friendly_mesh(mesh_path: str) -> str:
-    """Convex-hull proxy for meshes TinyRenderer cannot draw (> 50k faces); cached on disk."""
-    try:
-        mesh = trimesh.load(mesh_path)
-        if hasattr(mesh, "geometry"):
-            mesh = list(mesh.geometry.values())[0]
-        if len(mesh.faces) <= TINY_RENDERER_MAX_FACES:
-            return mesh_path
-        cache = paths.cache_dir()
-        cache.mkdir(parents=True, exist_ok=True)
-        proxy = cache / f"{Path(mesh_path).stem}_opt.obj"
-        if not proxy.exists():
-            log.info("simplifying %d faces -> convex hull for TinyRenderer", len(mesh.faces))
-            mesh.convex_hull.export(proxy)
-        return str(proxy)
-    except Exception as exc:
-        log.warning("using the original mesh (simplification failed: %s)", exc)
-        return mesh_path
 
 
 # --------------------------------------------------------------------------- scene
@@ -115,11 +95,15 @@ def spawn_tool(cid: int, mode: str, tray, plan_data: Dict[str, Any], config: Con
         stl_path = find_instrument_mesh(target_keyword=plan_data["target_instrument"], config=config)
         if not stl_path or not Path(stl_path).exists():
             raise StageError(STAGE, f"no STL mesh found for '{plan_data['target_instrument']}'")
-        bounds = inspect_stl_bounds(stl_path)
-        scale, orientation = bounds["recommended_scale"], bounds["flat_orientation"]
-        log.info("loading %s | dims %s cm | unit %s", Path(stl_path).name,
-                 [round(d * 100, 1) for d in bounds["scaled_dimensions_m"]], bounds["detected_unit"])
-        mesh_file, height_offset, color = render_friendly_mesh(stl_path), 0.008, [0.18, 0.18, 0.20, 1.0]
+        # Same preparation as the robot scene: metres, centred, lying FLAT (PCA normal along Z), decimated for the
+        # renderer. The instrument rests on the tray, which is what the grasp feasibility check assumes.
+        from pipeline.sim.robot_scene import prepare_mesh
+        mesh_file, info = prepare_mesh(stl_path)
+        dims = info["dimensions_m"]
+        scale, orientation = [1.0, 1.0, 1.0], p.getQuaternionFromEuler([0, 0, SINGLE_MODE_YAW])
+        log.info("loading %s | dims %s cm | scale to metres %s", Path(stl_path).name,
+                 [round(d * 100, 1) for d in dims], info["scale_to_meters"])
+        height_offset, color = dims[2] / 2.0 + 0.001, [0.18, 0.18, 0.20, 1.0]
     position = [tray.position[0], tray.position[1], tray.top_z + height_offset]
     visual = p.createVisualShape(p.GEOM_MESH, fileName=mesh_file, meshScale=scale, rgbaColor=color, physicsClientId=cid)
     body = p.createMultiBody(0, -1, visual, position, orientation, physicsClientId=cid)

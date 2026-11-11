@@ -15,7 +15,7 @@ Il sistema è stato interamente disaccoppiato in stadi indipendenti e testabili.
 | 3. Segment | pipeline.sim.segment | sim_step3_sam3_camera.py | sim_segmentation.json, mask.png, overlay.png |
 | 4. Reference Pose | pipeline.sim.reference_pose | sim_step3b_stl_placement.py | sim_reference_pose.json, tray_placement.png |
 | 5. Deproject | pipeline.sim.deproject | sim_step4_transforms.py | sim_deprojection.json, cloud.ply, frames.png |
-| 6. Grasp | pipeline.grasp | step5_grasp_geometry.py | grasp.json, grasp_zones.ply, overview.png |
+| 6. Grasp | pipeline.grasp | step5_grasp_geometry.py | grasp.json (candidati + fattibilità), grasp_zones.ply, overview.png, grasp_candidates.png |
 | Extra. Overview | pipeline.sim.overview | (nuovo) | sim_overview.json, sim_overview_capture_rgb.png, sim_overview_capture_depth_vis.png, sim_overview_segmentation_all_mask.png, ..._all_overlay.png |
 
 ## 2. Opzioni Comuni a TUTTI i Moduli
@@ -116,7 +116,20 @@ python3 -m pipeline.sim.deproject --capture data/outputs/sim_capture.json --segm
 
 ### Stadio 6: Geometria di Presa e Zone Funzionali
 
-Esegue l'analisi PCA sulla nuvola 3D de-proiettata, segmenta le zone funzionali (anelli/impugnatura, fusto centrale, lame/punte) e calcola la posa di presa ottimale e l'apertura pinza.
+Esegue l'analisi PCA sulla nuvola 3D de-proiettata, segmenta le zone funzionali (anelli/impugnatura, fusto centrale, lame/punte), propone **più candidati di presa** lungo la zona centrale e **verifica la fattibilità di ciascuno** in un modello PyBullet della cella: sceglie il migliore tra quelli fattibili.
+
+Ogni candidato è una tupla `g = (posizione, orientamento, apertura, approccio)` nel riferimento della base: 5 posizioni lungo la zona di presa × ganasce nei due versi (180° attorno all'approccio, che cambia la soluzione IK) = 10 candidati. L'approccio è verticale e le ganasce si chiudono sulla proiezione orizzontale dell'asse laterale dello strumento; le punte arrivano `pinch_target_m` sotto la superficie dello strumento ma mai a meno di 1 mm dal vassoio.
+
+La verifica percorre per ogni candidato lo **stesso percorso dell'anteprima** (`pipeline/common/waypoints.py`: avvicinamento, discesa, sollevamento, trasferimento, deposito) e controlla:
+
+| Controllo | Cosa verifica |
+|---|---|
+| Contatto e larghezza | apertura richiesta ≤ corsa della pinza, strumento sufficientemente piano, profondità di presa utile |
+| Orientamento / convenzione TCP | quaternione unitario, asse z del TCP = direzione di approccio, approccio verso il basso |
+| IK e limiti di giunto | soluzione IK a ogni campione del percorso, lontana ≥ 0.03 rad da ogni limite, senza salti di configurazione; si provano più configurazioni di partenza |
+| Collisioni | braccio, pinza e strumento trasportato contro tavolo, vassoi e se stessi (distanza minima 10 mm; solo le punte delle dita e lo strumento possono avvicinarsi al vassoio a 0.5 mm, a presa e deposito) |
+
+Una soluzione IK valida da sola non basta: la prima ramificazione che risolve un punto può far passare il braccio attraverso il vassoio. Il punteggio è `qualità × (0.5 + 0.5 × robustezza)`: qualità geometrica euristica (centralità, margine di apertura, supporto di punti, profondità di presa) e robustezza (margine dai limiti di giunto e distanza dagli ostacoli). Senza nessun candidato fattibile la presa è `NOT_READY_FOR_ROBOT_MOTION` con i motivi.
 
 ```bash
 # 1. Esecuzione standard per simulazione (legge sim_deprojection.json):
@@ -129,7 +142,9 @@ python3 -m pipeline.grasp --deprojection data/outputs/sim_deprojection.json
 python3 -m pipeline.grasp --deprojection data/outputs/real_deprojection.json
 ```
 
-**Input & Output Stadio 6:** Input: sim_deprojection.json e plan.json. Output: grasp.json (posa presa XYZ, quaternione, apertura mm), grasp_zones.ply (nuvola 3D colorata per zone), grasp_overview.png.
+**Input & Output Stadio 6:** Input: sim_deprojection.json, plan.json e il YAML dell'ambiente (`grasp_validation`). Output: grasp.json (`designated_grasp_geometry` = candidato scelto; `grasp_candidates` con, per ciascuno, posa, apertura, qualità, punteggio, esito di ogni controllo e motivi del rifiuto; `selected_candidate_id`; `feasibility`), grasp_zones.ply, grasp_overview.png e **grasp_candidates.png** (vista dall'alto di tutti i candidati: verde fattibile, rosso scartato, contorno oro il selezionato, tratteggiato = ganasce invertite, più la tabella con i motivi). Con `--gui`/`--headless` gli stessi candidati sono disegnati nella finestra PyBullet.
+
+Limiti dichiarati in `feasibility.limitations`: è un pre-filtro cinematico in un modello della cella (non sostituisce MoveIt né il controllore); il braccio è il `kuka_iiwa` di PyBullet (geometria iiwa 14, non iiwa 7: indicare l'URDF in `grasp_validation.robot_urdf`); pinza e strumento sono scatole e la pinza è quella dimostrativa, non quella del laboratorio; solo tavolo e vassoi sono ostacoli (altri strumenti no); la stabilità fisica della presa non è valutata. `grasp_validation.enabled: false` ripristina i soli candidati geometrici, che con `require_feasibility: true` restano `NOT_READY`.
 
 ### Panoramica dell'intera collezione (Extra)
 
@@ -274,5 +289,5 @@ python3 run_pipeline_real.py --image foto.png --depth depth.npy \
 - `grasp.json` riporta `readiness`: `VALIDATED_GEOMETRY_READY_FOR_TRAJECTORY_PLAN` solo se la pinza è compatibile,
   il punto è nella zona raggiungibile (`motion_control.workspace`, centrata sulla base), la depth è misurata, intrinseche ed
   estrinseche sono verificate e `motion_control.ee_reference_pose` (nel riferimento world) è impostata. Altrimenti `NOT_READY_FOR_ROBOT_MOTION` con i motivi in `readiness_blockers`.
-- IK, collisioni e contatto **non** sono verificati (`feasibility`): vanno fatti da MoveIt/`lbr_fri_ros2_stack`.
+- IK, limiti di giunto e collisioni sono verificati per ogni candidato in un modello PyBullet della cella (stadio 6: pre-filtro, non MoveIt); il contatto fisico (attrito, forze) no, e la pianificazione finale resta a MoveIt/`lbr_fri_ros2_stack`.
 - `pipeline/robot_executor.py` è solo per la simulazione PyBullet e rifiuta il movimento senza `grasp_report` validato.

@@ -46,7 +46,9 @@ deproject       python -m pipeline.sim.deproject     ► sim_deprojection.json
         │                                              (+ sim_deprojection_cloud.ply, _frames.png)
         ▼
 grasp           python -m pipeline.grasp             ► grasp.json
-                                                       (+ grasp_zones.ply, grasp_overview.png)
+                                                       (+ grasp_zones.ply, grasp_overview.png, grasp_candidates.png)
+                                                       10 candidati di presa, ciascuno verificato (IK, limiti,
+                                                       collisioni) in un modello PyBullet della cella
 ```
 
 Di default (`--mode all`) `capture` e `segment` lavorano sull'**intera collezione**: RGB-D e maschera di tutti

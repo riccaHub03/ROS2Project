@@ -25,6 +25,14 @@ from pipeline.sim.placement import sample_tool_pose
 log = logging.getLogger("robot_scene")
 TCP_OFFSET = (0.0, 0.0, 0.10)
 HOME = (0.0, 0.35, 0.0, -1.3, 0.0, 1.0, 0.0)
+# Demonstrative parallel gripper (flange frame, metres). The robot cell model used for the grasp feasibility
+# check builds its collision boxes from the same numbers: replace both with the laboratory gripper.
+PALM_HALF_EXTENTS = (0.032, 0.025, 0.0125)
+PALM_CENTER_Z = 0.025
+FINGER_HALF_EXTENTS = (0.013, 0.004, 0.025)
+FINGER_CENTER_Z = 0.075            # fingertips end at z = 0.10 = the TCP
+FINGER_REST_Y = 0.005              # finger centre offset when the jaws are closed
+MAX_OPENING_M = 0.080
 
 
 def prepare_mesh(source):
@@ -145,15 +153,16 @@ class RobotScene:
         self.ee = 6
         self.limits = [p.getJointInfo(self.robot, j, physicsClientId=self.cid)[8:10] for j in self.joints]
         self.reset_robot()
-        palm = p.createVisualShape(p.GEOM_BOX, halfExtents=[0.032, 0.025, 0.0125],
-                                   visualFramePosition=[0, 0, 0.025], rgbaColor=[0.15, 0.18, 0.22, 1],
+        palm = p.createVisualShape(p.GEOM_BOX, halfExtents=list(PALM_HALF_EXTENTS),
+                                   visualFramePosition=[0, 0, PALM_CENTER_Z], rgbaColor=[0.15, 0.18, 0.22, 1],
                                    physicsClientId=self.cid)
-        finger = p.createVisualShape(p.GEOM_BOX, halfExtents=[0.013, 0.004, 0.025],
+        finger = p.createVisualShape(p.GEOM_BOX, halfExtents=list(FINGER_HALF_EXTENTS),
                                      rgbaColor=[0.2, 0.25, 0.3, 1], physicsClientId=self.cid)
         self.gripper = p.createMultiBody(
             baseMass=0, baseVisualShapeIndex=palm, baseCollisionShapeIndex=-1,
             linkMasses=[0, 0], linkCollisionShapeIndices=[-1, -1],
-            linkVisualShapeIndices=[finger, finger], linkPositions=[[0, 0.005, 0.075], [0, -0.005, 0.075]],
+            linkVisualShapeIndices=[finger, finger], linkPositions=[[0, FINGER_REST_Y, FINGER_CENTER_Z],
+                                                        [0, -FINGER_REST_Y, FINGER_CENTER_Z]],
             linkOrientations=[[0, 0, 0, 1]] * 2, linkInertialFramePositions=[[0, 0, 0]] * 2,
             linkInertialFrameOrientations=[[0, 0, 0, 1]] * 2, linkParentIndices=[0, 0],
             linkJointTypes=[p.JOINT_PRISMATIC] * 2, linkJointAxis=[[0, 1, 0], [0, -1, 0]],
@@ -341,7 +350,30 @@ class RobotScene:
                                                textSize=1.2, replaceItemUniqueId=self.status_id,
                                                physicsClientId=self.cid)
 
+    def _show_candidates(self, candidates):
+        """Every PCA candidate as a jaw line across the instrument: green feasible, red rejected, amber unverified."""
+        palette = {True: [0.1, 0.75, 0.2], False: [0.9, 0.1, 0.1], None: [0.95, 0.65, 0.05]}
+        rotation = np.asarray(self.base_frame.rotation, dtype=float)
+        for item in candidates:
+            pose = item["pose_base_frame"]
+            centre = np.asarray(self.base_frame.base_to_world(pose["position_xyz_m"]), dtype=float)
+            closing = rotation @ np.asarray(pose["jaw_closing_vector"], dtype=float)
+            approach = rotation @ np.asarray(pose["approach_vector"], dtype=float)
+            half = item["local_cross_section_m"]["width_along_v2"] / 2 + 0.012
+            color, width = palette[item.get("feasible")], 5 if item.get("selected") else 2
+            lift = np.array([0.0, 0.0, 0.004])
+            end = centre + closing * half + lift
+            p.addUserDebugLine(centre - closing * half + lift, end, color, width, physicsClientId=self.cid)
+            p.addUserDebugLine(end, end + np.cross(approach, closing) * 0.012, color, width, physicsClientId=self.cid)
+            if item.get("selected"):
+                p.addUserDebugLine(centre, centre - approach * 0.07, color, width, physicsClientId=self.cid)
+            side = 1.0 if item.get("jaws_reversed") else -1.0
+            p.addUserDebugText(f"#{item['id']}", centre + closing * side * (half + 0.012) + lift, color,
+                               textSize=0.9, physicsClientId=self.cid)
+
     def show_grasp(self, report):
+        if report.get("grasp_candidates") and report.get("grasp_backend") != "graspgen":
+            self._show_candidates(report["grasp_candidates"])
         if report.get("grasp_backend") == "graspgen":
             from pipeline.graspgen.preview import gripper_lines
             for candidate in report["candidates"][:20]:
