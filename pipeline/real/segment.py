@@ -17,7 +17,8 @@ from PIL import Image
 from pipeline.common import paths
 from pipeline.common.cli import run_cli, stage_parser
 from pipeline.common.report import StageReport, stage_run
-from pipeline.common.vision import Segmenter, get_segmenter, save_mask_and_overlay, segment_image
+from pipeline.common.vision import (REAL_MIN_CONFIDENCE, Segmenter, get_segmenter, save_mask_and_overlay,
+                                    segment_image)
 
 STAGE = "real_segmentation"
 log = logging.getLogger(STAGE)
@@ -25,7 +26,8 @@ OTHERS_MIN_SCORE = 0.15
 
 
 def run(*, plan_path: Optional[str] = None, capture_path: Optional[str] = None, out_dir: Optional[str] = None,
-        report_path: Optional[str] = None, segmenter: Optional[Segmenter] = None) -> StageReport:
+        report_path: Optional[str] = None, segmenter: Optional[Segmenter] = None,
+        min_confidence: float = REAL_MIN_CONFIDENCE) -> StageReport:
     out = paths.output_dir(out_dir)
     plan_file = paths.resolve(plan_path, paths.PLAN, out)
     capture_file = paths.resolve(capture_path, paths.REAL_CAPTURE, out)
@@ -38,7 +40,7 @@ def run(*, plan_path: Optional[str] = None, capture_path: Optional[str] = None, 
         # Full instrument name first, then the simplified keyword if nothing matched.
         prompts = [plan.require("target_instrument"), plan.require("target_keyword")]
         result = segment_image(image, prompts, segmenter or get_segmenter(), require_match=True,
-                               others_min_score=OTHERS_MIN_SCORE)
+                               others_min_score=OTHERS_MIN_SCORE, min_confidence=min_confidence)
         for message in result.warnings:
             report.warn(log, message)
         mask_png, overlay_png = out / "real_segmentation_mask.png", out / "real_segmentation_overlay.png"
@@ -54,8 +56,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = stage_parser(__doc__.splitlines()[0], config=False)
     parser.add_argument("--plan", default=None)
     parser.add_argument("--capture", default=None, help="real_capture.json")
+    parser.add_argument("--min-confidence", type=float, default=REAL_MIN_CONFIDENCE,
+                        help="Fail below this SAM 3 confidence (default %(default)s)")
     return run_cli(parser, lambda a: run(plan_path=a.plan, capture_path=a.capture, out_dir=a.out_dir,
-                                         report_path=a.report), argv)
+                                         report_path=a.report, min_confidence=a.min_confidence), argv)
 
 
 if __name__ == "__main__":

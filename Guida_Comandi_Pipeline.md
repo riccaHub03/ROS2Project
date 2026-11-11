@@ -237,3 +237,22 @@ print("Artefatti generati:", rep_grasp.artifacts)
 ## 8. GraspGen (NVlabs)
 
 Il repository GraspGen è incluso, separato dalla pipeline, in `third_party/GraspGen`. Vedi [GRASPGEN.md](GRASPGEN.md).
+
+## 9. Pipeline reale: controlli di sicurezza
+
+```bash
+python3 run_pipeline_real.py --image foto.png --depth depth.npy \
+    --intrinsics FX FY CX CY --min-confidence 0.30
+```
+
+- `--depth`: depth metrica allineata all'immagine a colori (`.npy` in metri o PNG 16 bit in mm).
+  Senza, viene usato un piano costante sulla superficie del vassoio e la presa **non** è abilitata al movimento.
+- `--intrinsics`: calibrazione reale della camera (in pixel dell'immagine). Senza, vengono scalati dal YAML (nominali).
+- La segmentazione **fallisce** sotto la confidenza minima (default 0.30) o se la maschera copre più del 25% dell'immagine.
+- Il piano rifiuta istruzioni con vassoio di origine uguale alla destinazione; "dal vassoio 1 al vassoio 2" è rispettato.
+- `grasp.json` riporta `readiness`: `VALIDATED_GEOMETRY_READY_FOR_TRAJECTORY_PLAN` solo se la pinza è compatibile,
+  il punto è nella zona raggiungibile (`motion_control.workspace`), la depth è misurata, le intrinseche sono calibrate e
+  `motion_control.ee_reference_pose` è impostata. Altrimenti `NOT_READY_FOR_ROBOT_MOTION` con i motivi in `readiness_blockers`.
+- IK, collisioni e contatto **non** sono verificati (`feasibility`): vanno fatti da MoveIt/`lbr_fri_ros2_stack`.
+- `pipeline/robot_executor.py` è solo per la simulazione PyBullet e rifiuta il movimento senza `grasp_report` validato.
+

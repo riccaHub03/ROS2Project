@@ -84,10 +84,25 @@ def camera_intrinsics(config: Config) -> Intrinsics:
 
 
 def ee_reference(config: Config) -> tuple[List[float], List[float]]:
-    """Reference end-effector pose (position, downward quaternion xyzw) used for the EE frame."""
+    """End-effector pose (position, quaternion xyzw) used to express points in the EE frame.
+
+    Taken from ``motion_control.ee_reference_pose`` when configured (on the real robot: the
+    TF lbr_link_0 -> flange/TCP read at capture time). Otherwise a nominal staging pose is
+    used, which is only meaningful in simulation (see :func:`ee_reference_source`).
+    """
     motion = config.get("motion_control", {})
+    configured = motion.get("ee_reference_pose") or {}
     staging_z = motion.get("heights_z_m", {}).get("staging_z", 0.45)
-    return [0.45, 0.0, staging_z], motion.get("downward_quaternion_xyzw", [0.0, 1.0, 0.0, 0.0])
+    position = configured.get("position_xyz_m") or [0.45, 0.0, staging_z]
+    quaternion = (configured.get("quaternion_xyzw") or motion.get("downward_quaternion_xyzw")
+                  or [0.0, 1.0, 0.0, 0.0])
+    return list(position), list(quaternion)
+
+
+def ee_reference_source(config: Config) -> str:
+    """'configured' if the EE pose comes from the config, 'nominal' if it is the built-in default."""
+    configured = config.get("motion_control", {}).get("ee_reference_pose") or {}
+    return "configured" if configured.get("position_xyz_m") else "nominal"
 
 
 def round_list(values: Sequence[float], digits: int = 4) -> List[float]:

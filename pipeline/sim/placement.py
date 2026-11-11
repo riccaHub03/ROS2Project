@@ -8,8 +8,10 @@ import numpy as np
 
 # Corona orizzontale (attorno alla base del KUKA) in cui la presa dall'alto e' stata
 # verificata con IK. Margini interni rispetto ai limiti misurati (0.41 - 0.78 m).
-GRASP_R_MIN = 0.45
-GRASP_R_MAX = 0.74
+from pipeline.common.workspace import DEFAULT_R_MAX_M, DEFAULT_R_MIN_M, GRASP_MARGIN_M
+
+GRASP_R_MIN = DEFAULT_R_MIN_M + GRASP_MARGIN_M
+GRASP_R_MAX = DEFAULT_R_MAX_M - GRASP_MARGIN_M
 TRAY_WALL_MARGIN = 0.02  # m di spazio libero tra l'ingombro dello strumento e il bordo del vassoio
 MAX_ATTEMPTS = 500
 

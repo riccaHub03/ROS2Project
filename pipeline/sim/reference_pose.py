@@ -35,6 +35,7 @@ from pipeline.common.scene import Tray, get_tray, round_list
 from pipeline.config_loader import load_environment_config
 from pipeline.frame_transformer import quaternion_from_matrix
 from pipeline.mesh_loader import find_instrument_mesh
+from pipeline.sim.placement import rotated_half_extents
 
 STAGE = "sim_reference_pose"
 log = logging.getLogger(STAGE)
@@ -67,13 +68,15 @@ def place_in_tray(verts_m: np.ndarray, tray: Tray, seed: Optional[int]) -> dict:
     v1, v2, v3 = axes[:, 0], axes[:, 1], axes[:, 2]
     length, width, thickness = (float(np.ptp(verts_m @ v)) for v in (v1, v2, v3))
 
-    yaw_deg = rng.uniform(-25.0, 25.0) if seed else 15.0
+    yaw_deg = rng.uniform(-25.0, 25.0) if seed is not None else 15.0
     yaw = math.radians(yaw_deg)
     r_yaw = np.array([[math.cos(yaw), -math.sin(yaw), 0.0], [math.sin(yaw), math.cos(yaw), 0.0], [0.0, 0.0, 1.0]])
     rotation = r_yaw @ np.column_stack([v1, v2, v3]).T
 
-    margin_x = (tray.dimensions[0] - width) / 2.0 - SAFETY_MARGIN_M
-    margin_y = (tray.dimensions[1] - length) / 2.0 - SAFETY_MARGIN_M
+    # The rotation maps the main axis v1 onto +x, so the length runs along x and the width along y.
+    ext_x, ext_y = rotated_half_extents((length, width), yaw)
+    margin_x = tray.dimensions[0] / 2.0 - ext_x - SAFETY_MARGIN_M
+    margin_y = tray.dimensions[1] / 2.0 - ext_y - SAFETY_MARGIN_M
     jx = rng.uniform(-max(margin_x * 0.4, 0.01), max(margin_x * 0.4, 0.01))
     jy = rng.uniform(-max(margin_y * 0.4, 0.01), max(margin_y * 0.4, 0.01))
     x, y = tray.position[0] + jx, tray.position[1] + jy
@@ -81,10 +84,10 @@ def place_in_tray(verts_m: np.ndarray, tray: Tray, seed: Optional[int]) -> dict:
 
     half_x, half_y = tray.dimensions[0] / 2.0, tray.dimensions[1] / 2.0
     clearances = {
-        "dist_wall_neg_x": round((x - length / 2.0) - (tray.position[0] - half_x), 3),
-        "dist_wall_pos_x": round((tray.position[0] + half_x) - (x + length / 2.0), 3),
-        "dist_wall_neg_y": round((y - width / 2.0) - (tray.position[1] - half_y), 3),
-        "dist_wall_pos_y": round((tray.position[1] + half_y) - (y + width / 2.0), 3),
+        "dist_wall_neg_x": round((x - ext_x) - (tray.position[0] - half_x), 3),
+        "dist_wall_pos_x": round((tray.position[0] + half_x) - (x + ext_x), 3),
+        "dist_wall_neg_y": round((y - ext_y) - (tray.position[1] - half_y), 3),
+        "dist_wall_pos_y": round((tray.position[1] + half_y) - (y + ext_y), 3),
     }
     clearances["is_within_tray_margins"] = bool(min(clearances.values()) > MIN_WALL_CLEARANCE_M)
     return {"centroid_local": centroid, "rotation": rotation, "position": [round(x, 4), round(y, 4), round(z, 4)],

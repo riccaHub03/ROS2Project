@@ -29,6 +29,8 @@ from pipeline.common.cli import run_cli, stage_parser
 from pipeline.common.ply import read_ply, write_ply
 from pipeline.common.report import StageError, StageReport, stage_run
 from pipeline.common.scene import round_list
+from pipeline.common.workspace import GRASP_MARGIN_M, Workspace, from_config
+from pipeline.config_loader import load_environment_config
 from pipeline.frame_transformer import quaternion_from_matrix
 
 STAGE = "grasp"
@@ -147,14 +149,37 @@ def _zone_report(a: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+READY = "VALIDATED_GEOMETRY_READY_FOR_TRAJECTORY_PLAN"
+NOT_READY = "NOT_READY_FOR_ROBOT_MOTION"
+
+
+def readiness_blockers(a: Dict[str, Any], workspace: Workspace, deprojection: StageReport) -> List[str]:
+    """Everything that forbids sending this grasp to the robot (empty list = geometry cleared)."""
+    blockers: List[str] = []
+    if not a["graspable"]:
+        blockers.append(f"required jaw opening {a['required_stroke'] * 1000:.0f} mm exceeds the gripper stroke "
+                        f"{MAX_GRIPPER_STROKE_M * 1000:.0f} mm (or the grasp section is degenerate)")
+    blockers += workspace.blockers(a["grasp_centroid"], GRASP_MARGIN_M)
+    if deprojection.data.get("motion_safe") is False:
+        blockers.append("input geometry comes from a nominal depth plane and/or uncalibrated camera "
+                        f"(depth_source={deprojection.data.get('depth_source')}): measured RGB-D and calibration required")
+    if deprojection.data.get("ee_reference_source") == "nominal" and deprojection.stage.startswith("real"):
+        blockers.append("end-effector frame is the nominal config pose: set motion_control.ee_reference_pose "
+                        "from the robot TF before using end_effector_frame")
+    return blockers
+
+
 def run(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = None,
-        out_dir: Optional[str] = None, report_path: Optional[str] = None) -> StageReport:
+        config_path: Optional[str] = None, out_dir: Optional[str] = None,
+        report_path: Optional[str] = None) -> StageReport:
     out = paths.output_dir(out_dir)
     deprojection_file = paths.resolve(deprojection_path, paths.SIM_DEPROJECTION, out)
     plan_file = paths.resolve(plan_path, paths.PLAN, out)
     with stage_run(STAGE, paths.output_report(report_path, paths.GRASP, out),
-                   inputs={"deprojection": deprojection_file, "plan": plan_file}, logger=log) as report:
+                   inputs={"deprojection": deprojection_file, "plan": plan_file, "config": config_path},
+                   logger=log) as report:
         deprojection = StageReport.load(deprojection_file)
+        workspace = from_config(load_environment_config(config_path))
         if not deprojection.stage.endswith("_deprojection"):
             raise StageError(STAGE, f"{deprojection_file} is a '{deprojection.stage}' report, not a deprojection")
         source = deprojection.stage.split("_")[0]
@@ -172,6 +197,9 @@ def run(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = N
         log.info("analyzing %d points (raw: %d)", len(tool_points), len(points))
 
         a = analyze(tool_points)
+        blockers = readiness_blockers(a, workspace, deprojection)
+        for message in blockers:
+            report.warn(log, f"NOT READY: {message}")
         colors = np.zeros((len(tool_points), 3), dtype=np.uint8)
         for zone, rgb in ZONE_COLORS.items():
             colors[a["masks"][zone]] = rgb
@@ -204,21 +232,25 @@ def run(*, deprojection_path: Optional[str] = None, plan_path: Optional[str] = N
                     "parallel_jaw_suitable": a["graspable"], "required_opening_m": round(a["required_stroke"], 4),
                     "max_allowed_stroke_m": MAX_GRIPPER_STROKE_M, "safety_clearance_m": CLEARANCE_M},
             },
-            "readiness": "VALIDATED_GEOMETRY_READY_FOR_TRAJECTORY_PLAN",
+            "readiness": NOT_READY if blockers else READY,
+            "readiness_blockers": blockers,
+            "feasibility": {"workspace_checked": True, "ik_checked": False, "collision_checked": False,
+                            "contact_checked": False},
         }
         log.info("%s | L=%.1f W=%.1f T=%.1f mm | grasp %s | opening %.1f/%.1f mm -> %s", tool_name,
                  a["length"] * 1000, a["width"] * 1000, a["thickness"] * 1000, round_list(a["grasp_centroid"]),
                  a["required_stroke"] * 1000, MAX_GRIPPER_STROKE_M * 1000, "OK" if a["graspable"] else "NOT COMPATIBLE")
+        log.info("readiness: %s", report.data["readiness"])
     return report
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = stage_parser(__doc__.splitlines()[0], config=False)
+    parser = stage_parser(__doc__.splitlines()[0])
     parser.add_argument("--deprojection", default=None,
                         help="sim_deprojection.json or real_deprojection.json (default: sim)")
     parser.add_argument("--plan", default=None)
     return run_cli(parser, lambda a: run(deprojection_path=a.deprojection, plan_path=a.plan,
-                                         out_dir=a.out_dir, report_path=a.report), argv)
+                                         config_path=a.config, out_dir=a.out_dir, report_path=a.report), argv)
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ from pipeline.common.cli import run_cli, stage_parser
 from pipeline.common.ply import write_ply
 from pipeline.common.reconstruction import CameraModel, reconstruct
 from pipeline.common.report import StageReport, stage_run
-from pipeline.common.scene import round_list
+from pipeline.common.scene import ee_reference_source, round_list
 from pipeline.config_loader import load_environment_config
 
 STAGE = "real_deprojection"
@@ -49,7 +49,10 @@ def run(*, segmentation_path: Optional[str] = None, capture_path: Optional[str] 
         cloud = out / "real_deprojection_cloud.ply"
         write_ply(cloud, rec.points_world, rec.colors)
         report.artifacts = {"pointcloud_ply": str(cloud)}
-        report.data = {"num_points": int(len(rec.points_world)), "frames": rec.frames(config)}
+        report.data = {"num_points": int(len(rec.points_world)), "frames": rec.frames(config),
+                       "ee_reference_source": ee_reference_source(config),
+                       "motion_safe": bool(capture.data.get("motion_safe", False)),
+                       "depth_source": capture.data.get("depth_source")}
         log.info("%d points | base centroid %s", len(rec.points_world), round_list(rec.centroid_base))
     return report
 

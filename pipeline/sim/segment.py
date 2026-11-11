@@ -22,7 +22,7 @@ from PIL import Image
 from pipeline.common import paths
 from pipeline.common.cli import run_cli, stage_parser
 from pipeline.common.report import StageError, StageReport, stage_run
-from pipeline.common.vision import (Segmentation, Segmenter, get_segmenter, make_overlay, mask_metrics,
+from pipeline.common.vision import (LOW_CONFIDENCE, Segmentation, Segmenter, get_segmenter, make_overlay, mask_metrics,
                                     save_mask_and_overlay, segment_image)
 
 STAGE = "sim_segmentation"
@@ -45,7 +45,8 @@ def run(*, backend: str = "sam3", plan_path: Optional[str] = None, capture_path:
         if backend == "sam3":
             prompt = plan.require("target_keyword")
             log.info("segmenting '%s' (instrument: %s)", prompt, plan.require("target_instrument"))
-            result = segment_image(Image.fromarray(rgb), [prompt], segmenter or get_segmenter())
+            result = segment_image(Image.fromarray(rgb), [prompt], segmenter or get_segmenter(),
+                                   min_confidence=LOW_CONFIDENCE)
         elif backend == "ground-truth":
             result = _from_ground_truth(capture, rgb)
         else:

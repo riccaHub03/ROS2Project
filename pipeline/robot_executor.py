@@ -2,16 +2,16 @@
 Modulo 4: Controllo Cinematico e Traiettorie del Manipolatore KUKA LBR iiwa (ROS 2 Control).
 Esegue la sequenza di Pick & Place cartesiana a micro-passi interpolati,
 cattura i fotogrammi dalla telecamera simulata PyBullet e registra il video MP4 ad alta qualità.
+
+ATTENZIONE - SOLO SIMULAZIONE: i topic usati (/lbr_tutorial/*, /lbr/gripper/command, /lbr/ee_pose) sono
+quelli della piattaforma PyBullet ``lbr_pybullet_tutorial``. Il KUKA reale si comanda con
+``lbr_fri_ros2_stack`` (FRI / ros2_control / MoveIt) e con il driver della pinza del laboratorio:
+questo modulo va riscritto su quelle interfacce prima di muovere l'hardware. Non e' collegato alla
+pipeline: ``grasp.json`` va letto e validato (``readiness == VALIDATED_...``) prima di qualunque comando.
 """
 
-import os
-import sys
 import time
 import json
-import math
-import shutil
-import cv2
-import numpy as np
 
 import rclpy
 from rclpy.node import Node
@@ -147,7 +147,18 @@ class MedicalRobotExecutor(Node):
         print(f"   Timeout esecuzione per {step_name}")
         return False
 
-    def execute_pick_and_place(self, p_centroid, destination_tray="tray_1", grasp_quat=None):
+    def execute_pick_and_place(self, p_centroid, destination_tray="tray_1", grasp_quat=None, grasp_report=None):
+        """Run the sequence; ``grasp_report`` (grasp.json data) is REQUIRED to be cleared for motion."""
+        if grasp_report is None or grasp_report.get("readiness") != "VALIDATED_GEOMETRY_READY_FOR_TRAJECTORY_PLAN":
+            reasons = (grasp_report or {}).get("readiness_blockers", ["no grasp report provided"])
+            print(f"   Movimento RIFIUTATO: presa non validata ({'; '.join(reasons)})")
+            return False
+        try:
+            return self._execute_pick_and_place(p_centroid, destination_tray, grasp_quat)
+        finally:
+            self.recording_active = False
+
+    def _execute_pick_and_place(self, p_centroid, destination_tray="tray_1", grasp_quat=None):
         print("\n" + "="*65)
         print("[FASE 4/4] ESECUZIONE FLUIDA PICK & PLACE (CONTINUOUS BLENDING)")
         print("="*65)

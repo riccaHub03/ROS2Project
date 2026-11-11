@@ -24,7 +24,7 @@ from pipeline.common.cli import run_cli, stage_parser
 from pipeline.common.ply import write_ply
 from pipeline.common.reconstruction import CameraModel, reconstruct
 from pipeline.common.report import StageReport, stage_run
-from pipeline.common.scene import get_tray, round_list
+from pipeline.common.scene import ee_reference_source, get_tray, round_list
 from pipeline.config_loader import load_environment_config
 from pipeline.sim.frames_plot import render_frames_figure
 
@@ -66,7 +66,7 @@ def run(*, segmentation_path: Optional[str] = None, capture_path: Optional[str] 
                              "and no --reference-pose was given: keeping the optical centroid")
 
         truth = capture.data.get("ground_truth_pose", {}).get("position_xyz_m")
-        error_mm = float(np.linalg.norm(rec.centroid_base - np.array(truth))) * 1000.0 if truth else 0.0
+        error_mm = float(np.linalg.norm(rec.centroid_base - np.array(truth))) * 1000.0 if truth else None
 
         cloud, figure = out / "sim_deprojection_cloud.ply", out / "sim_deprojection_frames.png"
         write_ply(cloud, rec.points_world, rec.colors)
@@ -78,10 +78,12 @@ def run(*, segmentation_path: Optional[str] = None, capture_path: Optional[str] 
             "frames": rec.frames(config),
             "ground_truth_validation": {"ground_truth_xyz_m": truth,
                                         "reconstructed_xyz_m": round_list(rec.centroid_base),
-                                        "error_mm": round(error_mm, 2)},
+                                        "error_mm": None if error_mm is None else round(error_mm, 2)},
+            "ee_reference_source": ee_reference_source(config), "motion_safe": True,
         }
-        log.info("%d points | base centroid %s | error vs ground truth %.2f mm",
-                 len(rec.points_world), round_list(rec.centroid_base), error_mm)
+        log.info("%d points | base centroid %s | error vs ground truth %s",
+                 len(rec.points_world), round_list(rec.centroid_base),
+                 "n/a" if error_mm is None else f"{error_mm:.2f} mm")
     return report
 
 

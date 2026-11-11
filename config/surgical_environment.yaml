@@ -104,6 +104,18 @@ motion_control:
     approach_z: 0.32     # Quota discesa sopra lo strumento
     lift_clearance_z: 0.35 # Quota sollevamento e trasporto
   downward_quaternion_xyzw: [0.0, 1.0, 0.0, 0.0]
+  # Zona raggiungibile dal TCP con pinza verso il basso (corona attorno alla base, in m).
+  # Valori misurati con scansione IK sul modello PyBullet: RIMISURARE con URDF, montaggio e pinza reali.
+  workspace:
+    reach_r_min_m: 0.41   # raggio minimo, vale solo sotto low_z_m
+    reach_r_max_m: 0.78
+    low_z_m: 0.15
+  # Posa dell'end-effector usata per esprimere i punti nel frame EE. SUL ROBOT REALE sostituire con
+  # la TF lbr_link_0 -> flangia/TCP letta all'acquisizione; senza, il frame EE e' nominale e la presa
+  # reale viene segnata NOT_READY_FOR_ROBOT_MOTION.
+  # ee_reference_pose:
+  #   position_xyz_m: [0.45, 0.0, 0.45]
+  #   quaternion_xyzw: [0.0, 1.0, 0.0, 0.0]
   tolerances:
     goal_time_s: 0.0
     goal_joint_tolerance_rad: 0.0

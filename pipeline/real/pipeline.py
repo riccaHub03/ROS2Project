@@ -13,6 +13,7 @@ from pipeline import grasp, plan
 from pipeline.common import paths
 from pipeline.common.cli import setup_logging
 from pipeline.common.report import StageError
+from pipeline.common.vision import REAL_MIN_CONFIDENCE
 from pipeline.orchestrate import Step, execute
 from pipeline.real import capture, deproject, segment
 
@@ -24,6 +25,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--instruction", default=plan.DEFAULT_INSTRUCTION, help="Clinical command for the LLM planner")
     parser.add_argument("--image", default=None, help="Real photo of the tray with all instruments")
+    parser.add_argument("--depth", default=None, help="Metric depth aligned with --image: .npy (m) or 16-bit PNG (mm). "
+                        "Without it a nominal constant plane is used and the grasp is NOT cleared for robot motion")
+    parser.add_argument("--intrinsics", type=float, nargs=4, metavar=("FX", "FY", "CX", "CY"), default=None,
+                        help="Calibrated camera intrinsics in pixels of --image")
+    parser.add_argument("--min-confidence", type=float, default=REAL_MIN_CONFIDENCE,
+                        help="SAM 3 acceptance threshold (default %(default)s)")
     parser.add_argument("--config", default=None)
     parser.add_argument("--out-dir", default=None)
     parser.add_argument("--from-stage", choices=STAGES, default=None)
@@ -38,10 +45,10 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
     out = paths.output_dir(args.out_dir)
     return [
         Step("plan", lambda: plan.run(args.instruction, **cfg)),
-        Step("capture", lambda: capture.run(image=args.image, **cfg)),
-        Step("segment", lambda: segment.run(**common)),
+        Step("capture", lambda: capture.run(image=args.image, depth=args.depth, intrinsics=args.intrinsics, **cfg)),
+        Step("segment", lambda: segment.run(min_confidence=args.min_confidence, **common)),
         Step("deproject", lambda: deproject.run(**cfg)),
-        Step("grasp", lambda: grasp.run(deprojection_path=str(out / paths.REAL_DEPROJECTION), **common)),
+        Step("grasp", lambda: grasp.run(deprojection_path=str(out / paths.REAL_DEPROJECTION), **cfg)),
     ]
 
 

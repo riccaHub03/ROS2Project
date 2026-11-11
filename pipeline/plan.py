@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from pipeline.common import paths
 from pipeline.common.cli import run_cli, stage_parser
-from pipeline.common.report import StageReport, stage_run
+from pipeline.common.report import StageError, StageReport, stage_run
 from pipeline.common.scene import Config
 from pipeline.config_loader import load_environment_config
 
@@ -131,6 +131,43 @@ def query_ollama(instruction: str, urls: List[str], model: str) -> tuple[Optiona
     return None, None
 
 
+TRAY_MENTION = re.compile(r"(?:^|\W)(?:(\w+)\s+)?(?:vassoio|tray)\s*_?([12])\b")
+SOURCE_WORDS = {"dal", "dalla", "da", "from", "sul", "sulla", "on"}
+DESTINATION_WORDS = {"nel", "nella", "al", "alla", "in", "into", "to", "verso"}
+
+
+def parse_trays(instruction: str) -> tuple[str, str]:
+    """(source, destination) tray from phrases like 'dal vassoio 1 al vassoio 2' / 'from tray 2 to tray 1'.
+
+    A tray is the source after from/da/sul/on and the destination after to/nel/al/in; unmarked
+    mentions are assigned in order (first source, then destination). The other tray is inferred
+    when only one is named; without any mention the default is tray_2 -> tray_1.
+    """
+    source = destination = None
+    unmarked = []
+    for word, number in TRAY_MENTION.findall(instruction.lower()):
+        tray = f"tray_{number}"
+        if word in SOURCE_WORDS and source is None:
+            source = tray
+        elif word in DESTINATION_WORDS and destination is None:
+            destination = tray
+        else:
+            unmarked.append(tray)
+    for tray in unmarked:
+        if source is None:
+            source = tray
+        elif destination is None:
+            destination = tray
+    other = {"tray_1": "tray_2", "tray_2": "tray_1"}
+    if source is None and destination is None:
+        return "tray_2", "tray_1"
+    if source is None:
+        source = other[destination]
+    if destination is None:
+        destination = other[source]
+    return source, destination
+
+
 def deterministic_plan(instruction: str) -> Dict[str, str]:
     """Keyword-based fallback used offline or when no Ollama server answers."""
     text = instruction.lower()
@@ -140,9 +177,9 @@ def deterministic_plan(instruction: str) -> Dict[str, str]:
         tool, keyword = "hemostatic forceps", "forceps"
     else:
         tool, keyword = "vascular scissors", "scissors"
-    source = "tray_2" if "2" in text else "tray_1"
+    source, destination = parse_trays(instruction)
     return {"action": "pick_and_place", "target_instrument": tool, "target_keyword": keyword,
-            "source_tray": source, "destination_tray": "tray_1" if source == "tray_2" else "tray_2"}
+            "source_tray": source, "destination_tray": destination}
 
 
 # --------------------------------------------------------------------------- stage
@@ -166,13 +203,19 @@ def run(instruction: str = DEFAULT_INSTRUCTION, *, tool_hint: Optional[str] = No
             keyword = extract_keyword(instrument)
 
         config = load_environment_config(config_path)
+        source_tray = normalize_tray(parsed.get("source_tray"), "tray_2", config)
+        destination_tray = normalize_tray(parsed.get("destination_tray"), "tray_1", config)
+        action = normalize_action(parsed.get("action"))
+        if action == "pick_and_place" and source_tray == destination_tray:
+            raise StageError(STAGE, f"source and destination tray are both '{source_tray}': "
+                                    f"check the instruction {instruction!r}")
         report.data = {
             "instruction": instruction,
-            "action": normalize_action(parsed.get("action")),
+            "action": action,
             "target_instrument": instrument,
             "target_keyword": keyword,
-            "source_tray": normalize_tray(parsed.get("source_tray"), "tray_2", config),
-            "destination_tray": normalize_tray(parsed.get("destination_tray"), "tray_1", config),
+            "source_tray": source_tray,
+            "destination_tray": destination_tray,
             "planner_backend": "ollama" if url else "deterministic_parser",
         }
         log.info("plan: %s", report.data)

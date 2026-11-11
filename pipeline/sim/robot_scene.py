@@ -90,6 +90,8 @@ class RobotScene:
             p.setTimeStep(1 / 240, physicsClientId=self.cid)
             p.setPhysicsEngineParameter(numSolverIterations=100, physicsClientId=self.cid)
             if gui:
+                # PyBullet's built-in key shortcuts (W wireframe, A AABB boxes, G hide panels...) clash with ours
+                p.configureDebugVisualizer(p.COV_ENABLE_KEYBOARD_SHORTCUTS, 0, physicsClientId=self.cid)
                 p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0, physicsClientId=self.cid)
                 p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 1, physicsClientId=self.cid)
                 p.resetDebugVisualizerCamera(1.9, 48, -32, [0.45, 0, 0.30], physicsClientId=self.cid)

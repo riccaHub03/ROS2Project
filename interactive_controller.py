@@ -74,9 +74,14 @@ DEFAULT_EE_ORIENTATION = p.getQuaternionFromEuler([math.pi, 0.0, 0.0])  # Pinza 
 
 # Area raggiungibile dal KUKA con pinza verso il basso, misurata con scansione IK:
 # corona circolare attorno alla base (xy). Fuori da qui l'IK non converge.
-REACH_R_MAX = 0.78   # m, raggio massimo orizzontale del TCP
-REACH_R_MIN = 0.41   # m, raggio minimo (solo a quota di presa, vedi REACH_LOW_Z)
-REACH_LOW_Z = 0.15   # m, sotto questa quota vale anche il raggio minimo
+try:
+    from pipeline.common.workspace import DEFAULT_LOW_Z_M as REACH_LOW_Z
+    from pipeline.common.workspace import DEFAULT_R_MAX_M as REACH_R_MAX
+    from pipeline.common.workspace import DEFAULT_R_MIN_M as REACH_R_MIN
+except ImportError:  # valori misurati con la scansione IK (stessi di pipeline/common/workspace.py)
+    REACH_R_MAX = 0.78   # m, raggio massimo orizzontale del TCP
+    REACH_R_MIN = 0.41   # m, raggio minimo (solo a quota di presa, vedi REACH_LOW_Z)
+    REACH_LOW_Z = 0.15   # m, sotto questa quota vale anche il raggio minimo
 IK_OK_ERR = 0.006    # m, errore TCP accettato come soluzione IK valida
 IK_MAX_ERR = 0.02    # m, oltre questo errore il target viene rifiutato
 

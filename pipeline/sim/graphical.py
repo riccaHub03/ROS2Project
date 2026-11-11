@@ -54,7 +54,7 @@ class RunManifest:
         self.report.save(self.path)
 
 
-def _compute(vision: str, events) -> None:
+def _compute(vision: str, events, config_path: Optional[str] = None) -> None:
     """Worker process: keeps the GUI responsive while SAM 3 runs on CPU."""
     try:
         out = paths.output_dir()
@@ -73,16 +73,19 @@ def _compute(vision: str, events) -> None:
             raise RuntimeError("Mask empty or too small: cannot compute the grasp")
 
         events.put(("status", "Stage deproject: mask to robot base frame"))
-        deprojection = deproject.run(reference_pose_path=str(reference_pose))
+        deprojection = deproject.run(reference_pose_path=str(reference_pose), config_path=config_path)
         points, _ = read_ply(deprojection.artifact("pointcloud_ply"))
         if (deprojection.data["centroid_source"] == "optical" and not np.allclose(
                 points.mean(axis=0), deprojection.data["frames"]["robot_base_frame"], atol=CENTROID_TOLERANCE_M)):
             raise RuntimeError("Centroid and point cloud are inconsistent: motion cancelled")
 
         events.put(("status", "Stage grasp: PCA and grasp proposal"))
-        report = grasp.run(deprojection_path=str(out / paths.SIM_DEPROJECTION))
+        report = grasp.run(deprojection_path=str(out / paths.SIM_DEPROJECTION), config_path=config_path)
+        if report.data.get("readiness_blockers"):
+            raise RuntimeError("Grasp not cleared: " + "; ".join(report.data["readiness_blockers"]))
         report.data.update(readiness="GRASP_CANDIDATE", segmentation_backend=mask.data["segmentation_backend"],
-                           feasibility={"ik_checked": False, "collision_checked": False, "contact_checked": False})
+                           feasibility={**report.data.get("feasibility", {}), "ik_checked": False,
+                                        "collision_checked": False, "contact_checked": False})
         report.save(out / paths.GRASP)
         events.put(("result", report.data))
     except BaseException as exc:
@@ -121,7 +124,7 @@ def run_graphical_pipeline(args, instruction: str) -> int:
         manifest.update("PROCESSING", plan_report=str(out / paths.PLAN), capture_report=str(out / paths.SIM_CAPTURE))
         context = multiprocessing.get_context("spawn")
         events = context.Queue()
-        worker = context.Process(target=_compute, args=(args.vision, events), daemon=True)
+        worker = context.Process(target=_compute, args=(args.vision, events, args.config), daemon=True)
         worker.start()
         motion = grasp_data = None
         paused = done = False

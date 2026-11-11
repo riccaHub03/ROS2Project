@@ -19,6 +19,8 @@ SAM3_MODEL_ID = "facebook/sam3"
 TARGET_COLOR = np.array([0, 255, 60])      # selected instrument
 OTHERS_COLOR = np.array([0, 160, 255])     # other detected instruments
 LOW_CONFIDENCE = 0.15
+REAL_MIN_CONFIDENCE = 0.30                 # default acceptance threshold on the real robot (as sam3_ros score_th)
+MAX_MASK_FRACTION = 0.25                   # a tool never covers more than this fraction of the image
 
 
 @dataclass
@@ -123,11 +125,14 @@ class Segmentation:
 
 
 def segment_image(image: Image.Image, prompts: Sequence[str], segmenter: Segmenter, *,
-                  require_match: bool = False, others_min_score: Optional[float] = None) -> Segmentation:
+                  require_match: bool = False, others_min_score: Optional[float] = None,
+                  min_confidence: Optional[float] = None) -> Segmentation:
     """Segment the best instance for the first prompt that yields any candidates.
 
     ``require_match`` raises if no prompt matches (otherwise an empty mask is returned);
-    ``others_min_score`` also tints other candidates above that score in the overlay.
+    ``others_min_score`` also tints other candidates above that score in the overlay;
+    ``min_confidence`` makes the stage FAIL (instead of only warning) when the best instance
+    scores below it or when the mask is implausibly large for a single instrument.
     """
     rgb = np.array(image.convert("RGB"))
     instances: Optional[Instances] = None
@@ -160,6 +165,14 @@ def segment_image(image: Image.Image, prompts: Sequence[str], segmenter: Segment
         if score < LOW_CONFIDENCE:
             warnings.append(f"very low detection confidence ({score:.3f} < {LOW_CONFIDENCE}): "
                             "the instrument may not be in the scene")
+    if min_confidence is not None and instances is not None and len(instances):
+        if score < min_confidence:
+            raise StageError("segmentation", f"detection confidence {score:.3f} is below the acceptance "
+                                             f"threshold {min_confidence:.2f} for prompt '{used}': refusing to continue")
+        fraction = float(target.mean())
+        if fraction > MAX_MASK_FRACTION:
+            raise StageError("segmentation", f"mask covers {fraction:.0%} of the image (> {MAX_MASK_FRACTION:.0%}): "
+                                             "not a single instrument, refusing to continue")
     data = {"segmentation_backend": "sam3", "prompts_tried": list(prompts), "prompt_used": used,
             "num_instances": n, "confidence_score": round(score, 4), **mask_metrics(target)}
     return Segmentation((target.astype(np.uint8) * 255), make_overlay(rgb, target, others), data, warnings)

@@ -59,6 +59,24 @@ class Reconstruction:
                 "end_effector_frame": round_list(centroid_ee)}
 
 
+OUTLIER_MIN_BAND_M = 0.02      # an instrument is never taller than this above its own median depth
+OUTLIER_MAD_FACTOR = 4.0
+MIN_POINTS_FOR_FILTER = 30
+
+
+def reject_depth_outliers(pts_cam: np.ndarray, pts_world: np.ndarray, pixels: np.ndarray):
+    """Drop mask-edge pixels whose depth bleeds into the background (robust median/MAD band)."""
+    if len(pts_cam) < MIN_POINTS_FOR_FILTER:
+        return pts_cam, pts_world, pixels
+    z = pts_cam[:, 2]
+    median = np.median(z)
+    band = max(OUTLIER_MIN_BAND_M, OUTLIER_MAD_FACTOR * 1.4826 * np.median(np.abs(z - median)))
+    keep = np.abs(z - median) <= band
+    if keep.sum() < MIN_POINTS_FOR_FILTER // 2:
+        return pts_cam, pts_world, pixels
+    return pts_cam[keep], pts_world[keep], pixels[keep]
+
+
 def reconstruct(mask: np.ndarray, depth: np.ndarray, rgb: np.ndarray, camera: CameraModel,
                 config: Config) -> Reconstruction:
     if not (mask > 128).any():
@@ -67,5 +85,6 @@ def reconstruct(mask: np.ndarray, depth: np.ndarray, rgb: np.ndarray, camera: Ca
     pts_cam, pts_world, pixels = transformer.deproject_mask_to_pointcloud(mask, depth, return_pixels=True)
     if len(pts_world) == 0:
         raise StageError("reconstruction", "mask pixels have no valid depth (outside 0.1-3.0 m)")
+    pts_cam, pts_world, pixels = reject_depth_outliers(pts_cam, pts_world, pixels)
     return Reconstruction(transformer, pts_world, rgb[pixels[:, 0], pixels[:, 1]],
                           pts_cam.mean(axis=0), pts_world.mean(axis=0))
