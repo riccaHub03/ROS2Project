@@ -1,48 +1,168 @@
 # Pipeline di percezione e presa per strumenti chirurgici
 
-Simulazione 3D della percezione e della pianificazione di presa di strumenti chirurgici con un
-**KUKA LBR iiwa**: **PyBullet** per la scena, **SAM 3** per la segmentazione, un LLM locale (**Ollama**)
-per interpretare la richiesta clinica, nuvole di punti 3D e geometria di presa (PCA oppure **GraspGen**).
+Questo progetto insegna a un robot (il braccio **KUKA LBR iiwa**) a **riconoscere uno strumento chirurgico su un
+vassoio e a calcolare come afferrarlo**. Parte da una frase ("passami il bisturi"), guarda il vassoio con una camera,
+trova lo strumento nell'immagine, ne ricostruisce la forma in 3D e calcola dove e come chiudere la pinza.
+
+Funziona in tre modi:
+
+| Modo | Cosa serve | A cosa serve |
+|---|---|---|
+| **Simulazione** | solo il computer | provare tutto senza hardware: scena, robot e camera sono virtuali (PyBullet) |
+| **Immagine reale** | una foto del vassoio e la sua profondità | usare dati veri, ma senza collegare nulla |
+| **Camera dal vivo** | camera RGB-D, calibrazione, (robot) | collegare i dispositivi fisici: la pipeline legge direttamente dalla camera |
+
 L'ambiente di riferimento è **Docker su WSL2 (Ubuntu)** con ROS 2 Humble.
 
-## Avvio rapido
+> **Stato in una riga:** simulazione e pipeline reale sono pronte e provate; il **movimento del KUKA reale non è
+> ancora collegato** (la pipeline si ferma al calcolo della presa). Dettagli in
+> [Collegare i dispositivi fisici](#collegare-i-dispositivi-fisici).
 
-Prerequisiti: Windows 11 con WSL2 e WSLg, Docker raggiungibile da WSL. Tutti i comandi sono da eseguire in
-WSL, dalla radice del repository.
+## Indice
+
+- [In breve](#in-breve) · [Glossario](#glossario)
+- [Prima di cominciare](#prima-di-cominciare) · [Installazione e primo avvio](#installazione-e-primo-avvio)
+- [Cosa vuoi fare?](#cosa-vuoi-fare) · [Come funziona la pipeline](#come-funziona-la-pipeline)
+- [Collegare i dispositivi fisici](#collegare-i-dispositivi-fisici)
+- [Riferimento dei comandi](#riferimento-dei-comandi) · [Report JSON e file generati](#report-json-e-file-generati)
+- [Problemi comuni](#problemi-comuni)
+- [Documentazione](#documentazione) · [Struttura del repository](#struttura-del-repository) · [Test](#test) · [Dati non versionati](#dati-non-versionati)
+
+---
+
+## In breve
+
+```
+frase  →  piano  →  foto del vassoio  →  strumento trovato  →  forma 3D  →  punto di presa  →  braccio
+"passami   (plan)    (capture)           (segment)             (deproject)   (grasp)             (movimento)
+ il bisturi"
+```
+
+Ogni freccia è uno **stadio**: un piccolo programma che legge il risultato del precedente e scrive il proprio, in un
+file di testo chiamato **report** (formato JSON). Si possono lanciare tutti di fila o uno alla volta, e se qualcosa va
+storto basta aprire il report dello stadio che si è fermato per capire perché.
+
+Il risultato finale è `grasp.json`: contiene la posa di presa (dove mettere la pinza, con che orientamento e
+apertura) e dice se è **abilitata al movimento** oppure no, con i motivi.
+
+## Glossario
+
+Se un termine non ti è chiaro, cerca qui.
+
+| Termine | Significato |
+|---|---|
+| **Container / Docker** | una "scatola" con tutto il software già installato (ROS 2, Python, librerie). Si lavora dentro la scatola, così funziona uguale per tutti |
+| **WSL2 / WSLg** | Linux dentro Windows; WSLg permette alle finestre grafiche Linux di comparire su Windows |
+| **Pipeline** | la catena di stadi, dalla frase alla posa di presa |
+| **Stadio** | un passo della catena (`plan`, `capture`, `segment`, ...). Ognuno legge e scrive report |
+| **Report JSON** | file di testo con il risultato di uno stadio, in `data/outputs/` |
+| **PyBullet** | simulatore fisico: crea tavolo, vassoi, robot e camera virtuali |
+| **Simulazione** | tutto è virtuale, nessun dispositivo collegato |
+| **`--headless`** | senza finestra grafica |
+| **`ground-truth`** | modalità di prova: la maschera dello strumento la dà il simulatore (perfetta), senza usare l'intelligenza artificiale |
+| **SAM 3** | modello di intelligenza artificiale che "ritaglia" nell'immagine lo strumento cercato (segmentazione). È software, **non un dispositivo** |
+| **Maschera** | immagine in bianco e nero: bianco dove c'è lo strumento |
+| **Ollama / LLM** | programma che capisce la frase ("passami il bisturi") e la trasforma in un piano. Facoltativo: `--offline` usa un parser semplice |
+| **RGB-D / profondità (depth)** | immagine a colori più, per ogni pixel, la distanza dalla camera in metri |
+| **Nuvola di punti** | i punti 3D dello strumento, ottenuti da maschera + profondità |
+| **PCA** | calcolo che trova gli assi principali (lungo, largo, spesso) dello strumento: serve a decidere dove afferrarlo |
+| **GraspGen** | alternativa alla PCA: una rete neurale (su un PC con GPU NVIDIA) che propone molte prese |
+| **IK (cinematica inversa)** | dato dove voglio la pinza, calcola gli angoli dei 7 giunti del braccio |
+| **End-effector / TCP / flangia** | l'estremità del braccio dove sta la pinza |
+| **Pinza** | la "mano" del robot. Quella usata qui è dimostrativa, con apertura massima 80 mm |
+| **Frame / riferimento** | un sistema di coordinate (origine e assi). `world` = il mondo, `base` = la base del robot |
+| **TF** | in ROS 2, il "registro" che dice dove si trova ogni frame rispetto agli altri |
+| **Intrinseche** | parametri interni della camera (lunghezza focale, centro dell'immagine) |
+| **Estrinseche** | dove sta la camera nel mondo (posizione e orientamento) |
+| **Calibrazione mano-occhio** | misura che trova le estrinseche della camera rispetto al robot. Va fatta da chi monta il sistema |
+| **Frame ottico** | convenzione della camera: x a destra, y in basso, z in avanti |
+| **YAML** | file di configurazione leggibile; qui `config/surgical_environment.yaml` |
+| **STL / OBJ** | formati dei modelli 3D degli strumenti |
+| **`motion_safe`** | etichetta che dice "i dati sono abbastanza affidabili per muovere il robot" |
+| **Pre-filtro** | controllo di fattibilità approssimato (IK, limiti, collisioni) fatto in simulazione: non sostituisce i controlli di sicurezza del robot |
+
+## Prima di cominciare
+
+- Windows 11 con **WSL2 e WSLg** (per le finestre grafiche) e **Docker** raggiungibile da WSL.
+- Tutti i comandi di questo documento si eseguono in WSL (terminale Ubuntu), **dalla radice del repository**, tranne
+  dove è detto che vanno dentro il container (là la radice è `/workspace`).
+- Leggere un comando: `python3 -m pipeline.grasp --opzione valore`
+  - `python3 -m <modulo>` lancia uno stadio; `python3 file.py` lancia uno script;
+  - le parole che iniziano con `--` sono **opzioni**; ogni comando ha `--help` che le elenca tutte
+    (es. `python3 run_pipeline_sim.py --help`).
+
+## Installazione e primo avvio
+
+### Passo 1 — Scarica il progetto e prepara il container
 
 ```bash
 # 1. Clona il progetto con il submodule GraspGen
 git clone --recurse-submodules <URL-del-repository> && cd <cartella-del-repository>
 #    (se hai già clonato senza submodule: git submodule update --init)
 
-# 2. Costruisci l'immagine (ROS 2 Humble + dipendenze Python)
+# 2. Costruisci l'immagine (ROS 2 Humble + dipendenze Python): richiede tempo e connessione
 bash scripts/docker_shell.sh build
 
 # 3. Entra nel container: il repository è montato in /workspace
 bash scripts/docker_shell.sh
 ```
 
-Dentro il container:
+Il prompt cambia: sei dentro il container. Per uscire, `exit`. La volta successiva basta il comando 3.
+Se hai già un'immagine o un container con altri nomi, puoi riusarli:
+`IMAGE_NAME=<immagine> CONTAINER_NAME=<container> bash scripts/docker_shell.sh`
+(i default sono `surgical-robotics` e `surgical_ros2`).
+
+### Passo 2 — Prima prova (dentro il container)
 
 ```bash
-python3 scripts/generate_surgical_meshes.py          # mesh STL di esempio in models/surgical_instruments/
+python3 scripts/generate_surgical_meshes.py          # crea due strumenti di prova (forbici e bisturi) in models/surgical_instruments/
 python3 run_pipeline_sim.py --tool Scalpel --vision ground-truth --headless   # catena completa, senza AI né finestra
-bash scripts/run_sim_gui.sh --vision ground-truth    # stessa catena con la finestra PyBullet del KUKA
-bash scripts/run_sim_gui.sh                          # con SAM 3 (serve l'accesso ai pesi, vedi sotto)
-bash scripts/run_interactive.sh                      # controllo manuale W-S-A-D con il mouse
 ```
 
-I risultati (report JSON, immagini, nuvole di punti) finiscono in `data/outputs/`.
+Cosa dovresti vedere: una serie di righe di log, una per stadio, e alla fine
+`pipeline completed in ... (plan -> sim_capture -> sim_segmentation -> ... -> grasp)` e
+`readiness: VALIDATED_GEOMETRY_READY_FOR_TRAJECTORY_PLAN`. I risultati sono in `data/outputs/`.
+
+### Passo 3 — Guarda il robot (dentro il container)
+
+```bash
+bash scripts/run_sim_gui.sh --vision ground-truth    # catena completa con la finestra PyBullet del KUKA
+bash scripts/run_sim_gui.sh                          # con SAM 3 (serve l'accesso ai pesi, vedi sotto)
+bash scripts/run_interactive.sh                      # controllo manuale con tastiera e mouse
+```
+
+Nella finestra: `P` pausa, `R` ripete il movimento, `Q`/`Esc` chiude.
+
+I risultati (report JSON, immagini, nuvole di punti) finiscono sempre in `data/outputs/`.
 
 ### Componenti opzionali
-- **Ollama** (interpretazione della frase clinica): `ollama run qwen2.5:3b` sull'host; senza, usa `--offline`.
-- **SAM 3**: modello da Hugging Face (`transformers`); in alternativa `--vision ground-truth`.
-- **GraspGen**: server su un PC Linux con GPU NVIDIA, il client è già nell'immagine. Setup in [docs/graspgen.md](docs/graspgen.md).
-- **ROS 2**: il nodo `surgical_executor` (in `ros2/`) esegue il movimento pianificato; i repository esterni
-  (`llm_ros`, `sam3_ros`, `lbr_fri_ros2_stack`, `fri`) si scaricano con `ros2/workspace.repos`.
-  Build e uso in [docs/ros2.md](docs/ros2.md).
 
-## Come funziona
+| Componente | A cosa serve | Come averlo |
+|---|---|---|
+| **Ollama** | interpretare la frase clinica | `ollama run qwen2.5:3b` sull'host; senza, usa `--offline` |
+| **SAM 3** | segmentazione con intelligenza artificiale | modello da Hugging Face (`transformers`); in alternativa `--vision ground-truth` |
+| **GraspGen** | proporre prese con una rete neurale | server su un PC Linux con GPU NVIDIA, il client è già nell'immagine. Setup in [docs/graspgen.md](docs/graspgen.md) |
+| **ROS 2** | eseguire il movimento pianificato | il nodo `surgical_executor` (in `ros2/`); i repository esterni (`llm_ros`, `sam3_ros`, `lbr_fri_ros2_stack`, `fri`) si scaricano con `ros2/workspace.repos`. Build e uso in [docs/ros2.md](docs/ros2.md) |
+
+## Cosa vuoi fare?
+
+| Voglio... | Comando (nel container) | Dove guardare |
+|---|---|---|
+| provare tutto senza AI né finestra | `python3 run_pipeline_sim.py --tool Scalpel --offline --vision ground-truth` | `data/outputs/grasp.json` |
+| vedere il robot muoversi in simulazione | `bash scripts/run_sim_gui.sh --vision ground-truth` | la finestra; `sim_robot_motion.json` |
+| usare l'intelligenza artificiale (SAM 3) | `bash scripts/run_sim_gui.sh` | `sim_segmentation_overlay.png` |
+| dare una frase al posto del nome | `python3 run_pipeline_sim.py --instruction "Passami il bisturi dal vassoio 2 al vassoio 1"` | `plan.json` |
+| rilanciare solo una parte | `python3 run_pipeline_sim.py --tool Scalpel --from-stage deproject` | il report dello stadio |
+| fermarmi a metà per controllare | `python3 run_pipeline_sim.py --tool Scalpel --stop-after segment` | i file dello stadio |
+| pilotare il robot a mano | `bash scripts/run_interactive.sh` | la finestra |
+| usare una foto vera con la sua profondità | `python3 run_pipeline_real.py --image foto.png --depth depth.npy --intrinsics 615 615 320 240` | `real_capture_rgb.png`, `grasp.json` |
+| collegare la camera fisica | vedi [Procedura per la prima prova](#procedura-per-la-prima-prova) | `real_preflight.json` |
+| provare la camera senza averla | `python3 scripts/fake_ros2_camera.py &` poi `python3 -m pipeline.real.preflight --ee-frame fake_ee` | l'esito a schermo |
+| usare GraspGen | `... --grasp-backend graspgen --no-motion` (serve il server GPU) | `grasp_candidates.png` |
+| ripulire i file generati | `python3 -m pipeline.clean --yes` | `data/outputs/` |
+| lanciare i test | `python3 -m unittest discover -s tests` | l'esito a schermo |
+
+## Come funziona la pipeline
 
 Sei stadi indipendenti, ognuno un modulo Python che legge i report JSON dei precedenti e scrive il proprio:
 
@@ -50,15 +170,26 @@ Sei stadi indipendenti, ognuno un modulo Python che legge i report JSON dei prec
 plan → capture → segment → reference_pose → deproject → grasp   (+ movimento KUKA dimostrativo)
 ```
 
-Ogni stadio si lancia da solo (`python3 -m pipeline.sim.segment --help`) oppure in catena con
-`run_pipeline_sim.py` (`--from-stage`, `--stop-after`). Dettagli, contratto dei report e pipeline su immagine
-reale: [docs/pipeline.md](docs/pipeline.md).
+| Stadio | Cosa fa, in parole semplici |
+|---|---|
+| `plan` | capisce la frase e decide quale strumento prendere e tra quali vassoi spostarlo |
+| `capture` | "scatta la foto": immagine a colori e profondità del vassoio (in simulazione la crea PyBullet) |
+| `segment` | trova lo strumento nell'immagine e ne produce la maschera (con SAM 3, o col simulatore in modalità `ground-truth`) |
+| `reference_pose` | (solo simulazione) posa certificata con cui lo strumento è appoggiato nel vassoio |
+| `deproject` | trasforma maschera + profondità in una nuvola di punti 3D nel riferimento del robot |
+| `grasp` | calcola dove e come afferrare lo strumento, verifica che il braccio possa arrivarci e scrive `grasp.json` |
+
+Ogni stadio si lancia da solo (`python3 -m pipeline.sim.segment --help`) oppure in catena con `run_pipeline_sim.py`
+(`--from-stage`, `--stop-after`). Dettagli, contratto dei report e pipeline su immagine reale:
+[docs/pipeline.md](docs/pipeline.md).
+
+---
 
 ## Collegare i dispositivi fisici
 
 La pipeline reale può acquisire **dal vivo** da una camera RGB-D ROS 2 (`--source ros2`) e leggere dalla TF la
 posa della camera e dell'end-effector. Prima di ogni prova c'è un controllo che non muove nulla
-(`pipeline.real.preflight`). **Il movimento del KUKA reale non è ancora collegato**: vedi "Cosa manca" qui sotto.
+(`pipeline.real.preflight`). **Il movimento del KUKA reale non è ancora collegato**: vedi "Stato" qui sotto.
 
 ### Stato
 
@@ -78,6 +209,8 @@ SAM 3 **non è un dispositivo**: è il modello di segmentazione e gira come soft
 camera RGB-D, il braccio KUKA e la pinza.
 
 ### Cosa deve pubblicare l'hardware
+
+La camera e il robot devono "pubblicare" su ROS 2 queste informazioni:
 
 | Cosa | Tipo | Requisiti |
 |---|---|---|
@@ -145,8 +278,7 @@ Tutto nel container (`bash scripts/docker_shell.sh`), con ROS 2 caricato dall'en
 intrinseche da `CameraInfo`, posa della camera letta dalla TF e `camera_overhead.extrinsics.verified: true`.
 Inoltre `grasp.json` richiede una posa dell'end-effector non nominale (meglio dalla TF con `--ee-frame`, oppure
 `motion_control.ee_reference_pose`) e almeno un candidato di presa fattibile (IK, limiti di giunto, collisioni nel
-modello della cella). Altrimenti `readiness` è
-`NOT_READY_FOR_ROBOT_MOTION` e `readiness_blockers` elenca i motivi.
+modello della cella). Altrimenti `readiness` è `NOT_READY_FOR_ROBOT_MOTION` e `readiness_blockers` elenca i motivi.
 
 ### Limiti da conoscere
 
@@ -156,11 +288,13 @@ modello della cella). Altrimenti `readiness` è
 - Le immagini vengono trattate come pinhole: usare un flusso rettificato.
 - L'uso in ambito clinico richiede validazione e conformità normativa che questo codice non fornisce.
 
+---
+
 ## Riferimento dei comandi
 
-Ogni comando ha `--help` con l'elenco completo delle opzioni (`python3 -m pipeline.grasp --help`,
-`python3 run_pipeline_sim.py --help`, ...). Tutti i comandi sono da lanciare dalla radice del repository (nel
-container: `/workspace`). Gli stadi sono moduli: si lanciano con `python3 -m <modulo>`.
+Questa sezione elenca tutto: opzioni, file letti e file scritti. Ogni comando ha `--help` con l'elenco completo
+(`python3 -m pipeline.grasp --help`, `python3 run_pipeline_sim.py --help`, ...). Tutti i comandi sono da lanciare dalla
+radice del repository (nel container: `/workspace`). Gli stadi sono moduli: si lanciano con `python3 -m <modulo>`.
 
 ### Dati in ingresso
 
@@ -301,6 +435,8 @@ python3 run_pipeline_sim.py --tool Scissors --offline --vision ground-truth --gr
 
 ### Controllo manuale del robot
 
+Pilota il braccio a mano nella finestra PyBullet.
+
 ```bash
 bash scripts/run_interactive.sh
 python3 interactive_controller.py --tool Scissors --tray tray_2 --view camera --speed 0.35
@@ -345,6 +481,8 @@ python3 -m unittest tests.test_standalone -v       # ogni stadio da solo, da car
 
 Gli script di `scripts/` **non hanno `--help`**: si lanciano senza argomenti e scrivono subito i file indicati.
 
+---
+
 ## Report JSON e file generati
 
 Ogni stadio scrive un report con lo stesso schema (v2) in `data/outputs/`:
@@ -357,6 +495,10 @@ Ogni stadio scrive un report con lo stesso schema (v2) in `data/outputs/`:
   "data":      { "...contenuto dello stadio..." },
   "warnings":  [], "error": null }
 ```
+
+Come si legge: `stage` e `status` dicono chi è e se è andato bene; `inputs` sono i report da cui dipende;
+`artifacts` sono i file collegati (immagini, nuvole di punti); `data` è il risultato vero e proprio; `warnings` sono
+gli avvisi; `error` spiega il problema se lo stadio è fallito.
 
 Se uno stadio fallisce scrive comunque il report con `status: FAILED` e `error` (tipo, messaggio, traceback) ed esce
 con codice 1: gli stadi a valle rifiutano i report `FAILED` o di schema diverso. **Il primo posto dove guardare in
@@ -387,6 +529,8 @@ caso di problemi è il JSON dello stadio che si è fermato.**
 
 ### Uso da Python
 
+Se preferisci chiamare gli stadi da un tuo script invece che dal terminale:
+
 ```python
 from pipeline import plan, grasp
 from pipeline.sim import capture, segment, reference_pose, deproject
@@ -399,6 +543,27 @@ deproject.run()
 report = grasp.run()
 print(report.data["designated_grasp_geometry"], report.artifacts)
 ```
+
+---
+
+## Problemi comuni
+
+| Cosa vedi | Perché e cosa fare |
+|---|---|
+| `Immagine 'surgical-robotics' non trovata` | l'immagine Docker non è stata costruita (o ha un altro nome): `bash scripts/docker_shell.sh build`, oppure usa `IMAGE_NAME` e `CONTAINER_NAME` |
+| `Nessuna mesh trovata: aggiungi gli STL in data/inputs` | mancano i modelli 3D: `python3 scripts/generate_surgical_meshes.py` (strumenti di prova) oppure metti il dataset in `data/inputs/` |
+| `Catalog not found. Generate it with scripts/build_instruments_catalog.py` (con `--list-tools`) | il catalogo del dataset reale non è stato creato. Con le mesh di prova puoi usare comunque `--tool Scalpel` / `--tool Scissors` |
+| Il primo stadio (`plan`) impiega circa 12 secondi e dice `deterministic parser in use` | Ollama non è raggiungibile e la pipeline usa il parser semplice. Per non aspettare usa `--offline` |
+| Il preflight dice `SAM 3: pesi non in cache` | i pesi del modello non sono scaricati (il caricamento è offline). Scaricali con l'accesso Hugging Face, oppure usa `--vision ground-truth` |
+| Il preflight dice `FAIL` su camera o TF | leggi la riga `->` sotto il FAIL: indica il rimedio (driver non avviato, topic con altro nome, TF non pubblicata). I nomi si cambiano in `camera_overhead.ros2` |
+| `grasp.json` ha `NOT_READY_FOR_ROBOT_MOTION` | non è un errore: la presa non è abilitata al movimento. Guarda `readiness_blockers` (estrinseche non verificate, depth non misurata, posa EE nominale, punto fuori dalla zona raggiungibile, nessun candidato fattibile) |
+| Uno stadio dice `upstream report not found` | manca il report dello stadio precedente: lancia quello prima, oppure non usare `--from-stage` su stadi che non hai mai eseguito |
+| Uno stadio dice `FAILED` | apri il suo `.json` in `data/outputs/`: il campo `error` spiega il motivo |
+| 19 test di `test_graspgen` falliscono | il submodule è vuoto: `git submodule update --init` |
+| Compare la riga `pybullet build time: ...` | è normale: è l'avviso di caricamento di PyBullet |
+| La finestra grafica non si apre | serve WSLg (prova un'altra app grafica Linux da WSL); la GUI non funziona con `--headless` |
+
+---
 
 ## Documentazione
 
