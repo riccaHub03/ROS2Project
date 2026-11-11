@@ -14,6 +14,16 @@ La scena rimane aperta dopo il risultato. Usa i controlli PyBullet per orbitare
 e ingrandire; premi P per mettere in pausa, R per ripetere il movimento concluso,
 Q o Esc per chiudere. Il terminale riporta le fasi e gli eventuali errori.
 
+## Candidati di presa nella finestra
+
+Dopo l'analisi, la finestra disegna **tutti i candidati di presa** come una linea attraverso lo strumento (con un
+tratto che indica il verso delle ganasce): **verde** = fattibile (IK, limiti di giunto e collisioni verificati lungo
+avvicinamento, discesa, sollevamento, trasferimento e deposito), **rosso** = scartato, **ambra** = non verificato. Il
+selezionato ha la linea più spessa e un segmento che mostra l'approccio. Lo stesso confronto, con i motivi dei rifiuti,
+è in `data/outputs/grasp_candidates.png`. Se nessun candidato è fattibile il movimento non parte e il messaggio nella
+finestra riporta il motivo del migliore. Il modello è il `kuka_iiwa` di PyBullet con pinza dimostrativa: un pre-filtro,
+non una garanzia per il robot reale.
+
 ## Maschera e depth di tutti gli strumenti (predefinito)
 
 La finestra mostra **sempre lo STL** dello strumento scelto mentre PyBullet lo trasporta:

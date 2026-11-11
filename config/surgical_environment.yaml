@@ -94,6 +94,23 @@ video_rendering:
   output_filename: "medical_pick_and_place.mp4"
 
 # ---------------------------------------------------------------------
+# Validazione delle prese (stadio grasp): candidati e fattibilita' nel modello della cella
+# ---------------------------------------------------------------------
+# Ogni candidato (posizione, orientamento, apertura, approccio) percorre lo stesso percorso dell'anteprima
+# (avvicinamento, discesa, sollevamento, trasferimento, deposito) in un modello PyBullet del KUKA, di tavolo e vassoi:
+# IK, limiti dei giunti e collisioni di braccio, pinza e strumento trasportato. E' un pre-filtro cinematico, non
+# sostituisce MoveIt: vedi "limitations" in grasp.json. Parametri non elencati: default in pipeline/feasibility.py.
+grasp_validation:
+  enabled: true                 # false: solo candidati geometrici, nessuna verifica IK/collisioni
+  require_feasibility: true     # senza un candidato fattibile la presa e' NOT_READY_FOR_ROBOT_MOTION
+  positions_along_zone: 5       # candidati lungo la zona di presa (35-65% della lunghezza dello strumento)
+  both_jaw_orientations: true   # anche con le ganasce invertite di 180 gradi: cambia la soluzione IK
+  pinch_target_m: 0.006         # quanto sotto la superficie dello strumento arrivano le punte delle dita
+  collision_margin_m: 0.010     # distanza minima da tavolo, vassoi e tra i link del braccio
+  min_joint_margin_rad: 0.03    # distanza minima da ogni limite di giunto
+  robot_urdf: null              # null = kuka_iiwa di PyBullet (geometria iiwa 14); per l'iiwa 7 indicare il suo URDF
+
+# ---------------------------------------------------------------------
 # Parametri di Controllo del Moto (ROS 2 Control & Cinematica Cartesiana)
 # ---------------------------------------------------------------------
 motion_control:

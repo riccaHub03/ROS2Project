@@ -19,7 +19,7 @@ import os
 import queue
 import time
 import traceback
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pybullet as p
@@ -101,13 +101,17 @@ def _compute(vision: str, events, config_path: Optional[str] = None, grasp_optio
         options = grasp_options or {}
         events.put(("status", f"Stage grasp: {options.get('backend', 'pca')} proposal"))
         report = grasp.run(deprojection_path=str(out / paths.SIM_DEPROJECTION), config_path=config_path, **options)
+        verdict = report.data.get("feasibility", {})
+        if report.data.get("grasp_candidates"):
+            events.put(("status", f"Grasp: {verdict.get('feasible')}/{verdict.get('candidates')} candidates feasible"
+                                  f" (IK, limits, collisions); selected #{report.data.get('selected_candidate_id')}"))
         if report.data.get("readiness_blockers"):
             raise RuntimeError("Grasp not cleared: " + "; ".join(report.data["readiness_blockers"]))
         if report.data["grasp_backend"] == "pca":
             report.data["readiness"] = "GRASP_CANDIDATE"
+        unchecked = {"ik_checked": False, "collision_checked": False, "contact_checked": False}
         report.data.update(segmentation_backend=mask.data["segmentation_backend"],
-                           feasibility={**report.data.get("feasibility", {}), "ik_checked": False,
-                                        "collision_checked": False, "contact_checked": False})
+                           feasibility={**unchecked, **report.data.get("feasibility", {})})
         report.save(out / paths.GRASP)
         report.save(out / f"grasp_{report.data['grasp_backend']}.json")
         events.put(("result", report.data))

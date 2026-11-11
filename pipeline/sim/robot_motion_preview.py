@@ -6,6 +6,7 @@ import numpy as np
 import pybullet as p
 
 from pipeline.common import paths
+from pipeline.common.waypoints import pick_and_place_targets
 from pipeline.frame_transformer import RobotBaseFrame
 from pipeline.sim import constrained_differential_ik as diff_ik
 
@@ -28,35 +29,21 @@ class MotionPreview:
             data["recommended_gripper_orientation"]["quaternion_xyzw"],
         )
         quat = np.asarray(quat)
-        tray = scene.trays[scene.destination]
-        place = np.asarray(tray["position_xyz_m"], dtype=float).copy()
-        place[2] += tray["dimensions_xyz_m"][2] / 2 + 0.003 + (point[2] - scene.tool_bottom)
         self.close_width = max(0.004, data["local_cross_section_m"]["width_along_v2"])
         if self.close_width > 0.080:
             raise ValueError("Apertura richiesta fuori dal campo della pinza")
-        motion = scene.config.get("motion_control", {})
-        velocities = motion["velocities"]
+        velocities = scene.config["motion_control"]["velocities"]
         linear_speed = float(velocities["cartesian_linear_speed_m_s"])
         angular_speed = float(velocities["cartesian_angular_speed_rad_s"])
-        heights = motion.get("heights_z_m", {})
-        lift = max(heights.get("lift_clearance_z", 0.35), point[2] + 0.18)
-        approach = max(heights.get("approach_z", 0.32), point[2] + 0.12)
         built = diff_ik.build_for_scene(scene)
         self.planner, kinematics = built if built else (None, None)
         self.phases = []
         current, current_quat = scene.tcp_pose()
         seed = [p.getJointState(scene.robot, j, physicsClientId=scene.cid)[0] for j in scene.joints]
-        targets = [
-            ("Avvicinamento", [point[0], point[1], approach], None),
-            ("Discesa", point, None),
-            ("Chiusura pinza - vincolo ideale", point, "attach"),
-            ("Sollevamento", [point[0], point[1], lift], None),
-            ("Trasferimento", [place[0], place[1], lift], None),
-            ("Deposito", place, None),
-            ("Apertura pinza", place, "release"),
-            ("Risalita", [place[0], place[1], lift], None),
-            ("Rientro", scene.base_frame.base_to_world([0.48, 0, 0.40]), None),
-        ]
+        # Same targets the grasp feasibility check validated (pipeline.common.waypoints)
+        targets = [(t.label, t.position, t.event) for t in pick_and_place_targets(
+            point, destination_tray=scene.trays[scene.destination], tool_bottom_z=scene.tool_bottom,
+            motion=scene.config.get("motion_control", {}), base_frame=scene.base_frame)]
         self.waypoints = []
         for label, position, event in targets:
             position = np.asarray(position, dtype=float)
