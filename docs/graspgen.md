@@ -1,5 +1,7 @@
 # GraspGen collegato alla pipeline
 
+> **Nota sull'ambiente.** Questo documento nasce da una verifica fatta su un client Mac con `.venv`. I comandi `.venv/bin/python` equivalgono a `python3` dentro il container Docker del progetto (vedi il [README](../README.md)); `<RADICE_PROGETTO>` è la cartella del repository (`/workspace` nel container). Il server GraspGen resta su un PC Linux NVIDIA separato.
+
 Lo stadio `pipeline.grasp` legge la nuvola di `deproject`, invia XYZ al **client
 ufficiale ZMQ** e riceve le pose generate e i punteggi del discriminatore
 ufficiale. Il modello rimane integralmente nel submodule NVlabs/GraspGen,
@@ -33,7 +35,7 @@ wheel torch/CUDA differenti. Non è stata eseguita alcuna build GPU sul Mac.
 Da questa directory:
 
 ```bash
-cd /Users/alice/Desktop/Progetti/P6/ROS2Project
+cd <RADICE_PROGETTO>
 # Solo per un ambiente nuovo; per quello esistente usare .venv/bin/python.
 python3.11 -m venv .venv
 .venv/bin/python -m pip install -r requirements-core.txt -r requirements-graspgen-client.txt
@@ -59,7 +61,7 @@ Per generare una nuvola dei nostri strumenti senza SAM3/Ollama:
 
 Richiede gli STL e il catalogo già previsti dal progetto, oppure `--config`
 con `surgical_instrument.stl_path` valido. L'output è in metri nella base robot.
-Il controller manuale rimane disponibile con `bash run_interactive.sh`.
+Il controller manuale rimane disponibile con `bash scripts/run_interactive.sh`.
 
 ## Ricreare ROS2Project sul PC
 
@@ -119,7 +121,7 @@ e le proprie configurazioni. Esempio dal Mac, sostituendo host e directory:
 ```bash
 rsync -av --exclude .git --exclude .venv --exclude .cache --exclude __pycache__ \
   --exclude 'data/external/GraspGenModels' \
-  /Users/alice/Desktop/Progetti/P6/ROS2Project/ USER@PC:/PERCORSO/ROS2Project/
+  <RADICE_PROGETTO>/ USER@PC:/PERCORSO/ROS2Project/
 ```
 
 Questa copia comprende modifiche locali e dati ignorati salvo le esclusioni;
@@ -280,7 +282,7 @@ python run_pipeline_sim.py --tool Scissors --offline --vision ground-truth \
 python run_pipeline_sim.py --gui --vision ground-truth --tool Scissors \
   --grasp-backend graspgen --no-motion --out-dir data/outputs/gui_graspgen
 # Stessa interfaccia tramite lo script Mac (anche con server remoto):
-bash run_graphical.sh --vision ground-truth --grasp-backend graspgen --no-motion
+bash scripts/run_sim_gui.sh --vision ground-truth --grasp-backend graspgen --no-motion
 # Quando SAM3 e Ollama sono pronti:
 python run_pipeline_sim.py --gui --vision sam3 --tool Scissors \
   --grasp-backend graspgen --no-motion --out-dir data/outputs/sam3_graspgen

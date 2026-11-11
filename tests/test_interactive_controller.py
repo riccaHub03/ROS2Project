@@ -20,23 +20,23 @@ class TestInteractiveRobotController(unittest.TestCase):
         self.controller.close()
 
     def test_initialization(self):
-        self.assertGreaterEqual(self.controller.robot_id, 0)
-        self.assertGreaterEqual(self.controller.gripper_id, 0)
-        self.assertGreaterEqual(self.controller.table_id, 0)
+        self.assertGreaterEqual(self.controller.robot, 0)
+        self.assertGreaterEqual(self.controller.gripper, 0)
+        self.assertGreaterEqual(self.controller.table, 0)
         self.assertEqual(len(self.controller.joints), 7)
         self.assertFalse(self.controller.mouse_pointer_mode)
 
     def test_tcp_pose_and_ik_tracking(self):
-        initial_tcp_pos, _ = self.controller.get_tcp_pose()
+        initial_tcp_pos, _ = self.controller.tcp_pose()
         self.assertEqual(len(initial_tcp_pos), 3)
 
         # Il target del passo viene dal controller: lo sposto sul centro del vassoio sinistro
         target_pos = [0.60, -0.42, 0.20]
         self.controller.target_tcp_pos = np.array(target_pos, dtype=float)
         for _ in range(240):
-            self.controller.step(dt=1.0/60.0)
+            self.controller.update(dt=1.0/60.0)
 
-        actual_tcp_pos, _ = self.controller.get_tcp_pose()
+        actual_tcp_pos, _ = self.controller.tcp_pose()
         error = np.linalg.norm(np.asarray(actual_tcp_pos) - np.asarray(target_pos))
         self.assertLess(error, 0.02)
 
@@ -54,7 +54,7 @@ class TestInteractiveRobotController(unittest.TestCase):
     def test_unreachable_target_does_not_wind_up(self):
         self.controller.target_tcp_pos = np.array([0.95, -0.76, 0.09], dtype=float)
         for _ in range(30):
-            self.controller.step(dt=1.0/60.0)
+            self.controller.update(dt=1.0/60.0)
         r = float(np.hypot(*self.controller.target_tcp_pos[:2]))
         self.assertLessEqual(r, 0.78 + 1e-6)
 
@@ -73,11 +73,11 @@ class TestInteractiveRobotController(unittest.TestCase):
         tool_pos = self.controller.tool_initial_pos
         self.controller.solve_and_apply_ik(tool_pos, self.controller.target_tcp_orn)
         for _ in range(20):
-            self.controller.step(dt=1.0/60.0)
+            self.controller.update(dt=1.0/60.0)
 
         self.controller.toggle_grasp()
         self.controller.reset_home()
-        self.assertIsNone(self.controller.attachment_constraint)
+        self.assertIsNone(self.controller.attachment)
 
     def test_mouse_pointer_toggle(self):
         self.assertFalse(self.controller.mouse_pointer_mode)
@@ -85,8 +85,8 @@ class TestInteractiveRobotController(unittest.TestCase):
         self.controller.mouse_pointer_mode = True
         self.controller.mouse_world_target = np.array([0.55, -0.38, 0.08])
         for _ in range(60):
-            self.controller.step(dt=1.0/60.0)
-        actual_pos, _ = self.controller.get_tcp_pose()
+            self.controller.update(dt=1.0/60.0)
+        actual_pos, _ = self.controller.tcp_pose()
         self.assertAlmostEqual(actual_pos[0], 0.55, delta=0.08)
         self.assertAlmostEqual(actual_pos[1], -0.38, delta=0.08)
 

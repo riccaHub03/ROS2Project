@@ -1,0 +1,25 @@
+# Repository ROS 2 esterni, bloccati alle revisioni usate nel progetto.
+#   mkdir -p ROS2_workspace/src && vcs import ROS2_workspace/src < ros2/workspace.repos
+# (vcs: sudo apt install python3-vcstool). Il package del progetto (ros2/surgical_executor) NON e' qui:
+# viene compilato insieme a questi da scripts/ros2_build.sh.
+repositories:
+  llm_ros:
+    type: git
+    url: https://github.com/jackysqing-max/llm_ros.git
+    version: a9b08b893f5a3ff171e98e878dcec638d44394b2
+  sam3_ros:
+    type: git
+    url: https://github.com/jackysqing-max/sam3_ros.git
+    version: 44c623747bde368fd7a6bdb37fa2bb0dad42c6a9
+  fri:
+    type: git
+    url: https://github.com/lbr-stack/fri.git
+    version: dc7d613d42571e458dd62ea814a0a47a209487d8
+  lbr_fri_idl:
+    type: git
+    url: https://github.com/lbr-stack/lbr_fri_idl.git
+    version: e422bff2b3d70ec47853145b35645980df623a60
+  lbr_fri_ros2_stack:
+    type: git
+    url: https://github.com/lbr-stack/lbr_fri_ros2_stack.git
+    version: 52f816bd59cbd2390efc890cca0ad61389e4ccb3

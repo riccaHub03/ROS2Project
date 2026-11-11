@@ -2,7 +2,7 @@
 
 *3D Surgical Perception & Grasping Simulation Pipeline (PyBullet + SAM 3 + LLM)*
 
-**ISTRUZIONE PRELIMINARE SULLA CARTELLA:** Tutti i comandi descritti in questo documento vanno eseguiti all'interno della cartella refactorizzata: `cd /workspace/ROS2Project` (se sei nel container Docker) oppure `cd ROS2Project` (se sei in locale nel terminale WSL).
+**ISTRUZIONE PRELIMINARE SULLA CARTELLA:** Tutti i comandi descritti in questo documento vanno eseguiti all'interno della cartella refactorizzata: `cd /workspace` (nel container Docker, dove il repository è montato).
 
 ## 1. Panoramica dell'Architettura Modulare
 
@@ -187,7 +187,7 @@ python3 run_pipeline_sim.py --tool "Scissors" --gui --vision ground-truth
 
 ```bash
 # Avvio rapido tramite script dedicato:
-bash run_interactive.sh
+bash scripts/run_interactive.sh
 
 # Oppure tramite python diretto con parametri a scelta:
 python3 interactive_controller.py --tool "Scissors" --tray "tray_2" --view "camera"
@@ -255,8 +255,8 @@ print("Artefatti generati:", rep_grasp.artifacts)
 
 Il modello ufficiale in `third_party/GraspGen` è collegato tramite client/server
 allo stadio `grasp`. Usare `--grasp-backend graspgen` negli avvii sim, reale e
-grafico; PCA resta predefinito. Per setup Mac/PC, test, geometria e blocco del
-movimento con la pinza dimostrativa vedere [GRASPGEN.md](GRASPGEN.md).
+grafico; PCA resta predefinito. Per setup client/PC GPU, test, geometria e blocco del
+movimento con la pinza dimostrativa vedere [graspgen.md](graspgen.md).
 
 ## 9. Pipeline reale: controlli di sicurezza
 
@@ -275,4 +275,4 @@ python3 run_pipeline_real.py --image foto.png --depth depth.npy \
   il punto è nella zona raggiungibile (`motion_control.workspace`, centrata sulla base), la depth è misurata, intrinseche ed
   estrinseche sono verificate e `motion_control.ee_reference_pose` (nel riferimento world) è impostata. Altrimenti `NOT_READY_FOR_ROBOT_MOTION` con i motivi in `readiness_blockers`.
 - IK, collisioni e contatto **non** sono verificati (`feasibility`): vanno fatti da MoveIt/`lbr_fri_ros2_stack`.
-- `pipeline/robot_executor.py` è solo per la simulazione PyBullet e rifiuta il movimento senza `grasp_report` validato.
+- Il nodo ROS 2 `surgical_executor` (vedi [ros2.md](ros2.md)) è solo per la piattaforma di simulazione e rifiuta il movimento senza `grasp_report` validato.

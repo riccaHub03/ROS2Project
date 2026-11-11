@@ -1,5 +1,9 @@
 # =============================================================================
-# Dockerfile3 – Ambiente ROS 2 unificato (v3)
+# Ambiente ROS 2 Humble + pipeline Python (PyBullet, SAM 3, GraspGen client)
+#
+# Build (dalla radice del repository):
+#   docker build -f docker/Dockerfile -t surgical-robotics .
+# oppure: bash scripts/docker_shell.sh build
 # =============================================================================
 FROM osrf/ros:humble-desktop-full
 
@@ -45,7 +49,7 @@ RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 # ---------------------------------------------------------
 # 3. Setup Ambiente ROS e Workspace
 # ---------------------------------------------------------
-COPY entrypoint.sh /entrypoint.sh
+COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/bin/bash"]

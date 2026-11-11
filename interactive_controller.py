@@ -23,71 +23,35 @@ from __future__ import annotations
 
 import argparse
 import math
-import os
-import sys
 import time
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pybullet as p
 import pybullet_data
 
-# Tentativo di importazione OpenCV per la schermata separata del monitor chirurgico
+# OpenCV serve solo alla finestra separata del monitor endoscopico
 try:
     import cv2
 except ImportError:
     cv2 = None
 
-# Inclusione dei percorsi di progetto per importare i moduli di pipeline
-PROJECT_ROOT = Path(__file__).resolve().parent
-PARENT_ROOT = PROJECT_ROOT.parent
+from pipeline.common.workspace import DEFAULT_LOW_Z_M as REACH_LOW_Z
+from pipeline.common.workspace import DEFAULT_R_MAX_M as REACH_R_MAX
+from pipeline.common.workspace import DEFAULT_R_MIN_M as REACH_R_MIN
+from pipeline.config_loader import load_environment_config
+from pipeline.sim.robot_scene import HOME, TCP_OFFSET, RobotScene
 
-for candidate in (str(PROJECT_ROOT), str(PARENT_ROOT), "/workspace"):
-    if candidate not in sys.path:
-        sys.path.insert(0, candidate)
-
-try:
-    from pipeline.config_loader import load_environment_config
-except ImportError:
-    load_environment_config = None
-
-try:
-    from pipeline.mesh_loader import find_instrument_mesh
-except ImportError:
-    find_instrument_mesh = None
-
-try:
-    from pipeline.sim.placement import sample_tool_pose
-except Exception:
-    sample_tool_pose = None
-
-try:
-    from pipeline.sim.robot_scene import prepare_mesh
-except Exception:  # trimesh o dipendenze mancanti: si usa il fallback procedurale
-    prepare_mesh = None
-
-# Costanti cinematiche conformi al progetto
-TCP_OFFSET = (0.0, 0.0, 0.10)  # 100 mm lungo asse Z della flangia (link 6)
-HOME_JOINTS = (0.0, 0.35, 0.0, -1.3, 0.0, 1.0, 0.0)
 DEFAULT_EE_ORIENTATION = p.getQuaternionFromEuler([math.pi, 0.0, 0.0])  # Pinza rivolta verso il basso (Nadir)
-
-# Area raggiungibile dal KUKA con pinza verso il basso, misurata con scansione IK:
-# corona circolare attorno alla base (xy). Fuori da qui l'IK non converge.
-try:
-    from pipeline.common.workspace import DEFAULT_LOW_Z_M as REACH_LOW_Z
-    from pipeline.common.workspace import DEFAULT_R_MAX_M as REACH_R_MAX
-    from pipeline.common.workspace import DEFAULT_R_MIN_M as REACH_R_MIN
-except ImportError:  # valori misurati con la scansione IK (stessi di pipeline/common/workspace.py)
-    REACH_R_MAX = 0.78   # m, raggio massimo orizzontale del TCP
-    REACH_R_MIN = 0.41   # m, raggio minimo (solo a quota di presa, vedi REACH_LOW_Z)
-    REACH_LOW_Z = 0.15   # m, sotto questa quota vale anche il raggio minimo
 IK_OK_ERR = 0.006    # m, errore TCP accettato come soluzione IK valida
 IK_MAX_ERR = 0.02    # m, oltre questo errore il target viene rifiutato
 
 
-class InteractiveRobotController:
-    """Controllore interattivo multimodale per il robot chirurgico KUKA LBR iiwa."""
+class InteractiveRobotController(RobotScene):
+    """Controllo manuale del KUKA: scena, robot, strumento e IK di base vengono da ``RobotScene``."""
+
+    MOTOR_FORCE = 600           # servo piu' reattivo della pipeline automatica
+    POSITION_GAIN = 0.65
 
     VIEW_CAMERA = 0   # Vista Telecamera Overhead implementata nel progetto
     VIEW_ORBIT = 1    # Vista 3D libera orbitale per ispezione
@@ -114,123 +78,89 @@ class InteractiveRobotController:
         show_endoscope_window: bool = True,
         seed: Optional[int] = None,
     ):
-        self.gui = gui
-        self.seed = seed
         self.tool_name = tool_name
         self.active_tray = source_tray
         self.current_view = initial_view
         self.jog_speed = jog_speed
         self.turbo_multiplier = turbo_multiplier
-        self.mouse_pointer_mode = start_with_mouse_pointer  # False di default: W-S-A-D è prioritario
+        self.mouse_pointer_mode = start_with_mouse_pointer  # False di default: W-S-A-D e' prioritario
         self.running = True
 
-        # Configurazione telecamera endoscopica separata sul TCP ad alte prestazioni
-        self.show_endoscope_window = (cv2 is not None) and self.gui and show_endoscope_window
+        # Monitor endoscopico separato sul TCP (finestra OpenCV)
+        self.show_endoscope_window = (cv2 is not None) and gui and show_endoscope_window
         self.endoscope_window_name = "Monitor Chirurgico - Telecamera Endoscopica TCP"
-        self.endoscope_render_w = 256
-        self.endoscope_render_h = 192
-        self.endoscope_display_w = 576
-        self.endoscope_display_h = 432
-        self.step_count = 0
+        self.endoscope_render_w, self.endoscope_render_h = 256, 192
+        self.endoscope_display_w, self.endoscope_display_h = 576, 432
         self.endoscope_window_created = False
         self.last_cam_time = 0.0
         self.cam_interval = 1.0 / 10.0  # 10 FPS: il rendering software non deve bloccare il loop GUI
-
-        # Renderer software: l'OpenGL hardware nello stesso thread della GUI causa scatti
-        self.camera_renderer = p.ER_TINY_RENDERER
-
-        # Precalcolo maschera di vignettatura per evitare ricalcoli costosi ad ogni frame
+        self.camera_renderer = p.ER_TINY_RENDERER  # l'OpenGL hardware nello stesso thread della GUI causa scatti
         self.vignette_mask = self._precompute_vignette(self.endoscope_display_w, self.endoscope_display_h)
         self.axis_line_ids = [-1, -1, -1]
+        self.endoscope_cam_id = -1
+        self.target_gripper_width = 0.080
 
-        # Caricamento configurazione dell'ambiente
-        self.config = self._load_config(config_path)
+        # Target IK e stato dei comandi
+        self.target_tcp_pos = np.array([0.60, -0.42, 0.28], dtype=float)
+        self.target_tcp_yaw = 0.0
+        self.target_tcp_orn = np.array(DEFAULT_EE_ORIENTATION, dtype=float)
+        self.travel_z = 0.28  # Quota di navigazione orizzontale sicura
+        self.mouse_world_target = np.array([0.60, -0.42, 0.08], dtype=float)
+        self.mouse_cursor_id = -1
+        self.mouse_in_window = False
+        self.action_state: Optional[str] = None  # macchina a stati del pick & place su click sinistro
+        self.action_timer: float = 0.0
+        self.action_target_pos = np.array([0.60, -0.42, 0.09], dtype=float)
+        self.hud_text_id = self.hud_keys_id = -1
+        self.trail_points: List[np.ndarray] = []
+        self.trail_lines: List[int] = []
+        self.max_trail_points = 120
+        self.last_valid_target = self.target_tcp_pos.copy()
+        self.ik_failed_frames = 0
+        self._hud_cache: Tuple[str, str] = ("", "")
+        self.slider_last: Dict[str, float] = {}
+        self.sliders: Dict[str, int] = {}
+        self.buttons: Dict[str, int] = {}
+        self.last_button_clicks: Dict[str, int] = {}
+        self.ik_cid = None
 
-        # Connessione a PyBullet
-        conn_mode = p.GUI if self.gui else p.DIRECT
-        self.cid = p.connect(conn_mode)
-        if self.cid < 0:
-            raise RuntimeError("Impossibile connettersi al motore fisico PyBullet.")
-
-        p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.cid)
-        p.setGravity(0, 0, -9.81, physicsClientId=self.cid)
-        p.setTimeStep(1.0 / 240.0, physicsClientId=self.cid)
-        p.setPhysicsEngineParameter(numSolverIterations=100, physicsClientId=self.cid)
+        # Scena, robot e strumento: gli stessi della pipeline (RobotScene), senza render RGB-D ne' report
+        config = load_environment_config(config_path)
+        trays = config["environment"]["trays"]
+        if source_tray not in trays:
+            raise ValueError(f"Vassoio '{source_tray}' non definito nella configurazione ({', '.join(trays)})")
+        destination = next(name for name in trays if name != source_tray)
+        super().__init__(config, {"target_instrument": tool_name, "source_tray": source_tray,
+                                  "destination_tray": destination},
+                         gui=gui, seed=seed, capture=False, procedural_tool_fallback=True)
 
         if self.gui:
-            p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 1, physicsClientId=self.cid)
             p.configureDebugVisualizer(p.COV_ENABLE_GUI, 1, physicsClientId=self.cid)
             p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0, physicsClientId=self.cid)
-            # Le scorciatoie native di PyBullet usano gli stessi tasti W/A/S/D/G/J/K...:
-            # W attiva il wireframe, A i riquadri rossi AABB, G nasconde i pannelli.
-            p.configureDebugVisualizer(p.COV_ENABLE_KEYBOARD_SHORTCUTS, 0, physicsClientId=self.cid)
             p.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0, physicsClientId=self.cid)
             # Le anteprime RGB/Depth/Maschera integrate rendono la scena ad ogni frame: spente
             for flag in (p.COV_ENABLE_RGB_BUFFER_PREVIEW, p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
                          p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW):
                 p.configureDebugVisualizer(flag, 0, physicsClientId=self.cid)
 
-        # Client DIRECT separato solo cinematico: serve a verificare l'IK senza muovere il robot reale
+        # Strumento fermo finche' non viene afferrato e senza urti col braccio
+        for j in range(-1, 7):
+            p.setCollisionFilterPair(self.robot, self.tool, j, -1, 0, physicsClientId=self.cid)
+
+        # Client DIRECT separato solo cinematico: verifica l'IK senza muovere il robot (stessa posa della base)
         self.ik_cid = p.connect(p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.ik_cid)
-        self.ik_robot = p.loadURDF("kuka_iiwa/model.urdf", [0, 0, 0], useFixedBase=True, physicsClientId=self.ik_cid)
+        self.ik_robot = p.loadURDF("kuka_iiwa/model.urdf", self.base_frame.position.tolist(),
+                                   self.base_frame.quaternion, useFixedBase=True, physicsClientId=self.ik_cid)
+        self.base_yaw = p.getEulerFromQuaternion(self.base_frame.quaternion)[2]
 
-        # Stato interno del robot e degli attuatori
-        self.robot_id = -1
-        self.gripper_id = -1
-        self.endoscope_cam_id = -1
-        self.tool_id = -1
-        self.tool_mesh_file = None
-        self.attachment_constraint = None
-        self.gripper_width = 0.080  # Apertura massima 80 mm
-        self.target_gripper_width = 0.080
-
-        # Parametri cinematici del TCP e target IK
-        self.target_tcp_pos = np.array([0.60, -0.42, 0.28], dtype=float)
-        self.target_tcp_yaw = 0.0
-        self.target_tcp_orn = np.array(DEFAULT_EE_ORIENTATION, dtype=float)
-        self.travel_z = 0.28  # Quota di navigazione orizzontale sicura
-
-        # Stato del mouse
-        self.mouse_world_target = np.array([0.60, -0.42, 0.08], dtype=float)
-        self.mouse_cursor_id = -1
-        self.mouse_in_window = False
-
-        # Macchina a stati per azione Pick & Place animata su click sinistro
-        self.action_state: Optional[str] = None
-        self.action_timer: float = 0.0
-        self.action_target_pos = np.array([0.60, -0.42, 0.09], dtype=float)
-
-        # Tracciamento e debug a schermo
-        self.hud_text_id = -1
-        self.hud_keys_id = -1
-        self.trail_points: List[np.ndarray] = []
-        self.trail_lines: List[int] = []
-        self.max_trail_points = 120
-
-        self.last_valid_target = self.target_tcp_pos.copy()
-        self.ik_failed_frames = 0
-        self._hud_cache: Tuple[str, str] = ("", "")
-        self.slider_last: Dict[str, float] = {}
-
-        # Slider GUI
-        self.sliders: Dict[str, int] = {}
-        self.buttons: Dict[str, int] = {}
-        self.last_button_clicks: Dict[str, int] = {}
-
-        # Costruzione della scena
-        self._build_environment()
-        self._build_robot()
-        self._build_tool()
         self._init_mouse_cursor()
         self._init_gui_controls()
-
-        # Inizializza visuale telecamera
         self.set_camera_view(self.current_view)
         self.sync_gripper()
 
-        # Inizializza il target TCP sulla posa effettiva
-        actual_pos, actual_orn = self.get_tcp_pose()
+        # Il target TCP parte dalla posa effettiva
+        actual_pos, actual_orn = self.tcp_pose()
         self.target_tcp_pos = np.array(actual_pos, dtype=float)
         self.target_tcp_orn = np.array(actual_orn, dtype=float)
         self.last_valid_target = self.target_tcp_pos.copy()
@@ -239,133 +169,10 @@ class InteractiveRobotController:
             print(f"[Monitor] Telecamera Endoscopica TCP attiva in finestra separata: '{self.endoscope_window_name}'")
 
     # -------------------------------------------------------------------------
-    # Inizializzazione della Scena
+    # Estensioni di RobotScene
     # -------------------------------------------------------------------------
-    def _load_config(self, config_path: Optional[str]) -> dict:
-        if load_environment_config is not None:
-            try:
-                return load_environment_config(config_path)
-            except Exception as exc:
-                print(f"[Config] Avviso: fallback configurazione ({exc})")
-
-        # Configurazione minima di sicurezza coerente con surgical_environment.yaml
-        return {
-            "environment": {
-                "kuka_base": {"position_xyz_m": [0.0, 0.0, 0.0]},
-                "surgical_table": {
-                    "center_xyz_m": [0.60, 0.0, -0.05],
-                    "dimensions_xyz_m": [0.85, 1.60, 0.20],
-                    "color_rgba": [0.15, 0.35, 0.60, 1.0],
-                },
-                "trays": {
-                    "tray_1": {
-                        "name": "Vassoio Raccolta Destro (+Y)",
-                        "position_xyz_m": [0.60, 0.42, 0.07],
-                        "dimensions_xyz_m": [0.62, 0.68, 0.04],
-                        "color_rgba": [0.80, 0.82, 0.85, 1.0],
-                    },
-                    "tray_2": {
-                        "name": "Vassoio Strumenti Sinistro (-Y)",
-                        "position_xyz_m": [0.60, -0.42, 0.07],
-                        "dimensions_xyz_m": [0.62, 0.68, 0.04],
-                        "color_rgba": [0.80, 0.82, 0.85, 1.0],
-                    },
-                },
-            },
-            "camera_overhead": {
-                "auto_track_source_tray": True,
-                "height_above_tray_m": 1.08,
-                "extrinsics": {
-                    "position_robot_frame_xyz_m": [0.60, -0.42, 1.15],
-                    "target_position_xyz_m": [0.60, -0.42, 0.07],
-                },
-                "intrinsics": {"fx_px": 615.0, "fy_px": 615.0, "cx_px": 320.0, "cy_px": 240.0},
-                "width_px": 640,
-                "height_px": 480,
-            },
-        }
-
-    def _create_box(self, position, dimensions, color):
-        half = (np.asarray(dimensions, dtype=float) / 2.0).tolist()
-        col = p.createCollisionShape(p.GEOM_BOX, halfExtents=half, physicsClientId=self.cid)
-        vis = p.createVisualShape(p.GEOM_BOX, halfExtents=half, rgbaColor=color, physicsClientId=self.cid)
-        return p.createMultiBody(0, col, vis, position, physicsClientId=self.cid)
-
-    def _build_environment(self):
-        env = self.config.get("environment", {})
-
-        # Pavimento di sicurezza
-        p.loadURDF("plane.urdf", [0, 0, -0.16], physicsClientId=self.cid)
-
-        # Tavolo chirurgico sterile principale
-        table = env.get("surgical_table", {})
-        self.table_id = self._create_box(
-            table.get("center_xyz_m", [0.60, 0.0, -0.05]),
-            table.get("dimensions_xyz_m", [0.85, 1.60, 0.20]),
-            table.get("color_rgba", [0.15, 0.35, 0.60, 1.0]),
-        )
-
-        # Vassoi chirurgici
-        self.trays = env.get("trays", {})
-        self.tray_bodies = {}
-        for name, tray in self.trays.items():
-            pos = tray.get("position_xyz_m", [0.60, 0.0, 0.07])
-            dims = tray.get("dimensions_xyz_m", [0.62, 0.68, 0.04])
-            color = tray.get("color_rgba", [0.80, 0.82, 0.85, 1.0])
-            self.tray_bodies[name] = self._create_box(pos, dims, color)
-
-            if self.gui:
-                label_pos = [pos[0] - 0.22, pos[1], pos[2] + 0.06]
-                p.addUserDebugText(
-                    f"{tray.get('name', name)}",
-                    label_pos,
-                    textColorRGB=[0.1, 0.2, 0.4],
-                    textSize=1.1,
-                    physicsClientId=self.cid,
-                )
-
     def _build_robot(self):
-        self.robot_id = p.loadURDF("kuka_iiwa/model.urdf", [0, 0, 0], useFixedBase=True, physicsClientId=self.cid)
-        self.joints = list(range(7))
-        self.ee_link = 6
-        self.limits = [p.getJointInfo(self.robot_id, j, physicsClientId=self.cid)[8:10] for j in self.joints]
-
-        # Inizializza i giunti alla posa HOME
-        for j, q in zip(self.joints, HOME_JOINTS):
-            p.resetJointState(self.robot_id, j, q, physicsClientId=self.cid)
-        self._command_joints(HOME_JOINTS)
-
-        # Pinza parallela a 2 dita visuale montata sul link 6
-        palm = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=[0.032, 0.025, 0.0125],
-            visualFramePosition=[0, 0, 0.025],
-            rgbaColor=[0.18, 0.20, 0.24, 1.0],
-            physicsClientId=self.cid,
-        )
-        finger = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=[0.013, 0.004, 0.025],
-            rgbaColor=[0.24, 0.28, 0.35, 1.0],
-            physicsClientId=self.cid,
-        )
-        self.gripper_id = p.createMultiBody(
-            baseMass=0,
-            baseVisualShapeIndex=palm,
-            baseCollisionShapeIndex=-1,
-            linkMasses=[0, 0],
-            linkCollisionShapeIndices=[-1, -1],
-            linkVisualShapeIndices=[finger, finger],
-            linkPositions=[[0, 0.005, 0.075], [0, -0.005, 0.075]],
-            linkOrientations=[[0, 0, 0, 1]] * 2,
-            linkInertialFramePositions=[[0, 0, 0]] * 2,
-            linkInertialFrameOrientations=[[0, 0, 0, 1]] * 2,
-            linkParentIndices=[0, 0],
-            linkJointTypes=[p.JOINT_PRISMATIC] * 2,
-            linkJointAxis=[[0, 1, 0], [0, -1, 0]],
-            physicsClientId=self.cid,
-        )
-
+        super()._build_robot()
         # Miniatura fisica 3D della telecamera endoscopica montata sul polso del robot
         cam_tube = p.createVisualShape(
             p.GEOM_CYLINDER,
@@ -384,54 +191,12 @@ class InteractiveRobotController:
             physicsClientId=self.cid,
         )
 
-    def _build_tool(self):
-        """Carica lo strumento chirurgico nel vassoio attivo (con fallback robusto)."""
-        tray = self.trays.get(self.active_tray, next(iter(self.trays.values())))
-        tray_pos = tray.get("position_xyz_m", [0.60, -0.42, 0.07])
-        tray_dims = tray.get("dimensions_xyz_m", [0.62, 0.68, 0.04])
-        top_z = tray_pos[2] + tray_dims[2] / 2.0
-
-        mesh_path = None
-        if find_instrument_mesh is not None:
-            try:
-                mesh_path = find_instrument_mesh(target_keyword=self.tool_name, config=self.config)
-            except Exception:
-                mesh_path = None
-
-        col = vis = None
-        if mesh_path and os.path.exists(mesh_path) and prepare_mesh is not None:
-            try:
-                # Stessa preparazione della pipeline: scala in metri, centrata, adagiata, semplificata
-                prepared, info = prepare_mesh(mesh_path)
-                dims = [float(d) for d in info["dimensions_m"]]
-                dims = [max(d, 0.004) for d in dims]
-                col = p.createCollisionShape(p.GEOM_BOX, halfExtents=[d / 2 for d in dims], physicsClientId=self.cid)
-                vis = p.createVisualShape(p.GEOM_MESH, fileName=prepared,
-                                          rgbaColor=[0.35, 0.38, 0.42, 1.0], physicsClientId=self.cid)
-                self.tool_mesh_file = prepared
-            except Exception as exc:
-                print(f"[Strumento] Mesh non preparabile ({exc}): uso geometria procedurale")
-                col = vis = None
-
-        if col is None:
-            # Fallback procedurale: geometria realistica di strumento chirurgico
-            dims = [0.14, 0.025, 0.006]
-            col = p.createCollisionShape(p.GEOM_BOX, halfExtents=[dims[0]/2, dims[1]/2, dims[2]/2], physicsClientId=self.cid)
-            vis = p.createVisualShape(p.GEOM_BOX, halfExtents=[dims[0]/2, dims[1]/2, dims[2]/2],
-                                      rgbaColor=[0.25, 0.28, 0.32, 1.0], physicsClientId=self.cid)
-
-        x, y, yaw = tray_pos[0], tray_pos[1], 0.2
-        if sample_tool_pose is not None:
-            x, y, yaw = sample_tool_pose(tray_pos, tray_dims, dims[:2], self.seed)
-        spawn_pos = [x, y, top_z + dims[2] / 2.0 + 0.002]
-        spawn_orn = p.getQuaternionFromEuler([0, 0, yaw])
-        # Fermo finche' non viene afferrato (diventa dinamico alla presa) e senza urti col braccio:
-        # prima un link che sfiorava uno strumento grande lo scagliava fuori dal vassoio.
-        self.tool_id = p.createMultiBody(0.0, col, vis, spawn_pos, spawn_orn, physicsClientId=self.cid)
-        for j in range(-1, 7):
-            p.setCollisionFilterPair(self.robot_id, self.tool_id, j, -1, 0, physicsClientId=self.cid)
-        self.tool_initial_pos = spawn_pos
-        self.tool_initial_orn = spawn_orn
+    def sync_gripper(self):
+        """Pinza (come RobotScene) e corpo della telecamera endoscopica allineati al link 6."""
+        super().sync_gripper()
+        if self.endoscope_cam_id >= 0:
+            state = p.getLinkState(self.robot, self.ee, computeForwardKinematics=True, physicsClientId=self.cid)
+            p.resetBasePositionAndOrientation(self.endoscope_cam_id, state[4], state[5], physicsClientId=self.cid)
 
     def _init_mouse_cursor(self):
         """Crea un indicatore grafico 3D che segue il puntatore del mouse quando la modalità puntatore è attiva."""
@@ -507,7 +272,7 @@ class InteractiveRobotController:
             )
         elif self.current_view == self.VIEW_WRIST:
             # Vista Eye-in-Hand: la telecamera segue la pinza
-            tcp_pos, _ = self.get_tcp_pose()
+            tcp_pos, _ = self.tcp_pose()
             p.resetDebugVisualizerCamera(
                 cameraDistance=0.40,
                 cameraYaw=-90.0,
@@ -549,7 +314,7 @@ class InteractiveRobotController:
 
     def get_endoscope_camera_matrices(self) -> Tuple[List[float], List[float], float, float]:
         """Calcola le matrici view e projection per la telecamera endoscopica solidale all'end-point."""
-        state = p.getLinkState(self.robot_id, self.ee_link, computeForwardKinematics=True, physicsClientId=self.cid)
+        state = p.getLinkState(self.robot, self.ee, computeForwardKinematics=True, physicsClientId=self.cid)
         ee_pos = state[4]
         ee_orn = state[5]
 
@@ -669,8 +434,8 @@ class InteractiveRobotController:
             cv2.line(frame, (0, dh - 30), (dw, dh - 30), (40, 50, 60), 1)
 
             grip_str = f"PINZA: {self.gripper_width*1000:.0f} mm ({'APERTA' if self.gripper_width > 0.04 else 'CHIUSA'})"
-            tool_status = "PRESO" if self.attachment_constraint else "LIBERO"
-            status_color = (0, 255, 60) if self.attachment_constraint else (180, 180, 180)
+            tool_status = "PRESO" if self.attachment else "LIBERO"
+            status_color = (0, 255, 60) if self.attachment else (180, 180, 180)
             status_text = f"STRUMENTO ({self.tool_name}): {tool_status}"
 
             cv2.putText(frame, grip_str, (14, dh - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (200, 210, 220), 1, cv2.LINE_AA)
@@ -692,45 +457,20 @@ class InteractiveRobotController:
     # -------------------------------------------------------------------------
     # Cinematica e Movimento Robot
     # -------------------------------------------------------------------------
-    def get_tcp_pose(self) -> Tuple[List[float], List[float]]:
-        state = p.getLinkState(self.robot_id, self.ee_link, computeForwardKinematics=True, physicsClientId=self.cid)
-        return p.multiplyTransforms(state[4], state[5], TCP_OFFSET, [0, 0, 0, 1])
-
-    def _command_joints(self, joint_angles):
-        p.setJointMotorControlArray(
-            self.robot_id,
-            self.joints,
-            p.POSITION_CONTROL,
-            targetPositions=list(joint_angles),
-            forces=[600.0] * 7,
-            positionGains=[0.65] * 7,
-            velocityGains=[1.0] * 7,
-            physicsClientId=self.cid,
-        )
-
-    def sync_gripper(self):
-        """Allinea visivamente la pinza e il corpo della telecamera al link 6 del robot."""
-        state = p.getLinkState(self.robot_id, self.ee_link, computeForwardKinematics=True, physicsClientId=self.cid)
-        p.resetBasePositionAndOrientation(self.gripper_id, state[4], state[5], physicsClientId=self.cid)
-        if hasattr(self, "endoscope_cam_id") and self.endoscope_cam_id >= 0:
-            p.resetBasePositionAndOrientation(self.endoscope_cam_id, state[4], state[5], physicsClientId=self.cid)
-
-        q = max(0.0, (self.gripper_width - 0.002) / 2.0)
-        p.resetJointState(self.gripper_id, 0, q, physicsClientId=self.cid)
-        p.resetJointState(self.gripper_id, 1, q, physicsClientId=self.cid)
-
     def clamp_to_workspace(self, pos) -> np.ndarray:
         """Proietta il target nella zona realmente raggiungibile dal KUKA (corona circolare attorno alla base)."""
         pos = np.array(pos, dtype=float)
         pos[2] = np.clip(pos[2], 0.065, 0.58)
-        r = math.hypot(pos[0], pos[1])
+        base_xy = np.asarray(self.base_frame.position[:2], dtype=float)
+        rel = pos[:2] - base_xy
+        r = math.hypot(rel[0], rel[1])
         r_min = REACH_R_MIN if pos[2] < REACH_LOW_Z else 0.0
         if r < 1e-6:
-            pos[0], pos[1], r = max(r_min, 0.3), 0.0, max(r_min, 0.3)
+            rel, r = np.array([max(r_min, 0.3), 0.0]), max(r_min, 0.3)
         target_r = float(np.clip(r, r_min, REACH_R_MAX))
         if abs(target_r - r) > 1e-9:
-            pos[0] *= target_r / r
-            pos[1] *= target_r / r
+            rel = rel * (target_r / r)
+        pos[:2] = base_xy + rel
         return pos
 
     def _ik_error_and_q(self, flange_pos, target_orn, seed):
@@ -741,11 +481,11 @@ class InteractiveRobotController:
         q = list(seed)
         for _ in range(3):  # piu' passate dal punto trovato per convergere
             q = list(p.calculateInverseKinematics(
-                self.ik_robot, self.ee_link, flange_pos, target_orn,
+                self.ik_robot, self.ee, flange_pos, target_orn,
                 lowerLimits=[lim[0] for lim in self.limits],
                 upperLimits=[lim[1] for lim in self.limits],
                 jointRanges=[lim[1] - lim[0] for lim in self.limits],
-                restPoses=list(HOME_JOINTS),
+                restPoses=list(HOME),
                 jointDamping=[0.01] * 7,
                 maxNumIterations=60,
                 residualThreshold=1e-5,
@@ -754,19 +494,20 @@ class InteractiveRobotController:
             q = [max(lo, min(hi, v)) for v, (lo, hi) in zip(q, self.limits)]
             for j, v in enumerate(q):
                 p.resetJointState(self.ik_robot, j, v, physicsClientId=cid)
-        state = p.getLinkState(self.ik_robot, self.ee_link, computeForwardKinematics=True, physicsClientId=cid)
+        state = p.getLinkState(self.ik_robot, self.ee, computeForwardKinematics=True, physicsClientId=cid)
         err = float(np.linalg.norm(np.asarray(state[4]) - np.asarray(flange_pos)))
         return err, q
 
     def solve_and_apply_ik(self, target_pos, target_orn) -> bool:
         """Risolve l'IK con piu' punti di partenza e comanda i giunti solo se la soluzione e' affidabile."""
         flange_pos, _ = p.multiplyTransforms(target_pos, target_orn, [0, 0, -TCP_OFFSET[2]], [0, 0, 0, 1])
-        current = [p.getJointState(self.robot_id, j, physicsClientId=self.cid)[0] for j in self.joints]
-        base_angle = math.atan2(target_pos[1], target_pos[0])
-        mirrored = [max(self.limits[0][0], min(self.limits[0][1], base_angle))] + list(HOME_JOINTS[1:])
+        current = [p.getJointState(self.robot, j, physicsClientId=self.cid)[0] for j in self.joints]
+        base_xy = self.base_frame.position[:2]
+        base_angle = math.atan2(target_pos[1] - base_xy[1], target_pos[0] - base_xy[0]) - self.base_yaw
+        mirrored = [max(self.limits[0][0], min(self.limits[0][1], base_angle))] + list(HOME[1:])
 
         best_err, best_q = None, None
-        for seed in (current, mirrored, list(HOME_JOINTS)):
+        for seed in (current, mirrored, list(HOME)):
             err, q = self._ik_error_and_q(flange_pos, target_orn, seed)
             if best_err is None or err < best_err:
                 best_err, best_q = err, q
@@ -775,7 +516,7 @@ class InteractiveRobotController:
 
         if best_err > IK_MAX_ERR:
             return False
-        self._command_joints(best_q)
+        self.command_joints(best_q)
         return True
 
     # -------------------------------------------------------------------------
@@ -783,32 +524,32 @@ class InteractiveRobotController:
     # -------------------------------------------------------------------------
     def toggle_grasp(self, force_release=False, force_attach=False):
         """Attacca o stacca lo strumento chirurgico dalla pinza."""
-        if self.attachment_constraint is not None and not force_attach:
+        if self.attachment is not None and not force_attach:
             # Rilascio
-            p.removeConstraint(self.attachment_constraint, physicsClientId=self.cid)
-            self.attachment_constraint = None
+            p.removeConstraint(self.attachment, physicsClientId=self.cid)
+            self.attachment = None
             self.target_gripper_width = 0.080
             print("[Grasp] Strumento rilasciato.")
             return False
-        elif self.attachment_constraint is None and not force_release:
+        elif self.attachment is None and not force_release:
             # Presa
-            tcp_pos, _ = self.get_tcp_pose()
-            tool_pos, tool_orn = p.getBasePositionAndOrientation(self.tool_id, physicsClientId=self.cid)
+            tcp_pos, _ = self.tcp_pose()
+            tool_pos, tool_orn = p.getBasePositionAndOrientation(self.tool, physicsClientId=self.cid)
             dist = np.linalg.norm(np.asarray(tcp_pos) - np.asarray(tool_pos))
 
             if dist > 0.22:
                 print(f"[Grasp] Distanza eccessiva per afferrare: {dist*1000:.1f} mm. Avvicinati allo strumento.")
                 return False
 
-            state = p.getLinkState(self.robot_id, self.ee_link, computeForwardKinematics=True, physicsClientId=self.cid)
+            state = p.getLinkState(self.robot, self.ee, computeForwardKinematics=True, physicsClientId=self.cid)
             inv = p.invertTransform(state[0], state[1])
             relative = p.multiplyTransforms(*inv, tool_pos, tool_orn)
 
-            p.changeDynamics(self.tool_id, -1, mass=0.080, physicsClientId=self.cid)
-            self.attachment_constraint = p.createConstraint(
-                self.robot_id,
-                self.ee_link,
-                self.tool_id,
+            p.changeDynamics(self.tool, -1, mass=0.080, physicsClientId=self.cid)
+            self.attachment = p.createConstraint(
+                self.robot,
+                self.ee,
+                self.tool,
                 -1,
                 p.JOINT_FIXED,
                 [0, 0, 0],
@@ -818,9 +559,9 @@ class InteractiveRobotController:
                 childFrameOrientation=[0, 0, 0, 1],
                 physicsClientId=self.cid,
             )
-            p.changeConstraint(self.attachment_constraint, maxForce=600, physicsClientId=self.cid)
+            p.changeConstraint(self.attachment, maxForce=600, physicsClientId=self.cid)
             for j in range(-1, 7):
-                p.setCollisionFilterPair(self.robot_id, self.tool_id, j, -1, 0, physicsClientId=self.cid)
+                p.setCollisionFilterPair(self.robot, self.tool, j, -1, 0, physicsClientId=self.cid)
             self.target_gripper_width = 0.015
             print("[Grasp] Strumento agganciato con successo alla pinza.")
             return True
@@ -828,10 +569,10 @@ class InteractiveRobotController:
 
     def reset_home(self):
         """Ripristina la posa HOME del robot."""
-        for j, q in zip(self.joints, HOME_JOINTS):
-            p.resetJointState(self.robot_id, j, q, physicsClientId=self.cid)
-        self._command_joints(HOME_JOINTS)
-        actual_pos, actual_orn = self.get_tcp_pose()
+        for j, q in zip(self.joints, HOME):
+            p.resetJointState(self.robot, j, q, physicsClientId=self.cid)
+        self.command_joints(HOME)
+        actual_pos, actual_orn = self.tcp_pose()
         self.target_tcp_pos = np.array(actual_pos, dtype=float)
         self.target_tcp_yaw = 0.0
         self.target_tcp_orn = np.array(actual_orn, dtype=float)
@@ -949,7 +690,7 @@ class InteractiveRobotController:
             if btn_idx == 1:
                 self.mouse_pointer_mode = not self.mouse_pointer_mode
                 if self.mouse_pointer_mode:
-                    actual_pos, _ = self.get_tcp_pose()
+                    actual_pos, _ = self.tcp_pose()
                     self.mouse_world_target[:2] = actual_pos[:2]
                     print("[Rotella Mouse] MODALITÀ PUNTATORE ATTIVATA (Il robot segue il cursore)")
                 else:
@@ -963,7 +704,7 @@ class InteractiveRobotController:
                     self.action_state = "DESCEND"
                     self.action_timer = 0.0
                     self.action_target_pos = np.array([world_pt[0], world_pt[1], 0.095], dtype=float)
-                    action_type = "Deposito / Rilascio" if self.attachment_constraint else "Presa"
+                    action_type = "Deposito / Rilascio" if self.attachment else "Presa"
                     print(f"[Click Sinistro] Operazione {action_type} sul punto [{world_pt[0]:.3f}, {world_pt[1]:.3f}]")
 
             # Click Destro: Presa / Rilascio immediato
@@ -999,13 +740,13 @@ class InteractiveRobotController:
             self.target_tcp_pos[1] += (self.action_target_pos[1] - self.target_tcp_pos[1]) * min(1.0, 16.0 * dt)
             self.target_tcp_pos[2] += (self.action_target_pos[2] - self.target_tcp_pos[2]) * min(1.0, 14.0 * dt)
 
-            actual_pos, _ = self.get_tcp_pose()
+            actual_pos, _ = self.tcp_pose()
             if abs(actual_pos[2] - self.action_target_pos[2]) < 0.015 or self.action_timer > 0.8:
                 self.action_state = "ACTION"
                 self.action_timer = 0.0
 
         elif self.action_state == "ACTION":
-            if self.attachment_constraint is not None:
+            if self.attachment is not None:
                 self.toggle_grasp(force_release=True)
             else:
                 self.toggle_grasp(force_attach=True)
@@ -1016,7 +757,7 @@ class InteractiveRobotController:
 
         elif self.action_state == "ASCEND":
             self.target_tcp_pos[2] += (self.travel_z - self.target_tcp_pos[2]) * min(1.0, 14.0 * dt)
-            actual_pos, _ = self.get_tcp_pose()
+            actual_pos, _ = self.tcp_pose()
             if abs(actual_pos[2] - self.travel_z) < 0.02 or self.action_timer > 0.8:
                 self.action_state = None
                 self.action_timer = 0.0
@@ -1235,9 +976,9 @@ class InteractiveRobotController:
         if not self.gui:
             return
 
-        tcp_pos, _ = self.get_tcp_pose()
+        tcp_pos, _ = self.tcp_pose()
         view_str = self.VIEW_NAMES.get(self.current_view, "SCONOSCIUTA")
-        grasp_str = "BLOCCATO IN PINZA" if self.attachment_constraint is not None else "LIBERO"
+        grasp_str = "BLOCCATO IN PINZA" if self.attachment is not None else "LIBERO"
         grip_state = f"{self.gripper_width * 1000:.0f} mm ({'APERTA' if self.gripper_width > 0.04 else 'CHIUSA'})"
         mode_str = ">>> PUNTATORE MOUSE ATTIVO <<< (Premi Rotella / M per W-S-A-D)" if self.mouse_pointer_mode else "TASTIERA W-S-A-D (Premi Rotella / M per Puntatore)"
         monitor_str = "ATTIVO (Finestra Separata)" if self.show_endoscope_window else "DISATTIVATO"
@@ -1287,7 +1028,7 @@ class InteractiveRobotController:
         if not self.gui:
             return
 
-        tcp_pos, tcp_orn = self.get_tcp_pose()
+        tcp_pos, tcp_orn = self.tcp_pose()
         rot_mat = np.asarray(p.getMatrixFromQuaternion(tcp_orn)).reshape(3, 3)
         origin = np.asarray(tcp_pos)
         axis_len = 0.055
@@ -1309,7 +1050,7 @@ class InteractiveRobotController:
         if not self.gui:
             return
 
-        tcp_pos, _ = self.get_tcp_pose()
+        tcp_pos, _ = self.tcp_pose()
         pt = np.asarray(tcp_pos)
 
         if not self.trail_points or np.linalg.norm(pt - self.trail_points[-1]) > 0.02:
@@ -1333,7 +1074,7 @@ class InteractiveRobotController:
     # -------------------------------------------------------------------------
     # Ciclo di Controllo Principale
     # -------------------------------------------------------------------------
-    def step(self, dt: float = 1.0 / 60.0):
+    def update(self, dt: float = 1.0 / 60.0):
         """Esegue un ciclo di polling comandi, cinematica e simulazione."""
         if not p.isConnected(self.cid):
             self.running = False
@@ -1390,7 +1131,7 @@ class InteractiveRobotController:
 
         # 8. Se la vista PyBullet principale è impostata su Eye-in-Hand (polso), sincronizza la visuale
         if self.current_view == self.VIEW_WRIST:
-            tcp_pos, _ = self.get_tcp_pose()
+            tcp_pos, _ = self.tcp_pose()
             p.resetDebugVisualizerCamera(
                 cameraDistance=0.40,
                 cameraYaw=-90.0,
@@ -1450,7 +1191,7 @@ class InteractiveRobotController:
                 dt = min(0.040, max(0.005, t_frame_start - t_last))
                 t_last = t_frame_start
 
-                self.step(dt=dt)
+                self.update(dt=dt)
 
                 elapsed = time.monotonic() - t_frame_start
                 sleep_time = max(0.0, target_frame_time - elapsed)
@@ -1463,17 +1204,15 @@ class InteractiveRobotController:
             self.close()
 
     def close(self):
-        """Rilascia le risorse e chiude la simulazione."""
+        """Rilascia le risorse: finestra endoscopio, client cinematico e scena."""
         if cv2 is not None:
             try:
                 cv2.destroyAllWindows()
             except Exception:
                 pass
-        if p.isConnected(self.cid):
-            p.disconnect(self.cid)
-        ik_cid = getattr(self, "ik_cid", None)
-        if ik_cid is not None and p.isConnected(ik_cid):
-            p.disconnect(ik_cid)
+        if self.ik_cid is not None and p.isConnected(self.ik_cid):
+            p.disconnect(self.ik_cid)
+        super().close()
         print("[Simulazione] Finestre PyBullet e Monitor Chirurgico chiuse.")
 
 

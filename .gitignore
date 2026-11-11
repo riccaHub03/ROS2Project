@@ -81,7 +81,6 @@ env/
 venv/
 .venv/
 ENV/
-build/
 develop-eggs/
 dist/
 downloads/
@@ -110,7 +109,7 @@ Thumbs.db
 desktop.ini
 
 # -----------------------------------------------------------------------------
-# 10. Archivi e File di Sistema Windows
+# 8. Archivi e File di Sistema Windows
 # -----------------------------------------------------------------------------
 *.7z
 *.zip
@@ -125,7 +124,7 @@ desktop.ini
 *.log
 
 # -----------------------------------------------------------------------------
-# 11. Dati esterni (GraspGen: checkpoint, dataset, oggetti) - scaricati, non versionati
+# 9. Dati esterni (GraspGen: checkpoint, dataset, oggetti) - scaricati, non versionati
 # -----------------------------------------------------------------------------
 data/external/*
 !data/external/.gitkeep

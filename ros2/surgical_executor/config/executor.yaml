@@ -1,0 +1,12 @@
+# Parametri ROS 2 del nodo surgical_pick_and_place.
+# Tempi e quote NON stanno qui: vengono da config/surgical_environment.yaml (motion_control).
+surgical_pick_and_place:
+  ros__parameters:
+    frame_id: lbr_link_0                       # riferimento in cui la pipeline esprime la presa (base del robot)
+    path_topic: /lbr_tutorial/cartesian_path   # percorso cartesiano -> piattaforma / controllore
+    status_topic: /lbr_tutorial/status         # eventi: ready, accepted, rejected, succeeded, failed
+    gripper_topic: /lbr/gripper/command        # std_msgs/String: "grasp" | "release"
+    ee_pose_topic: /lbr/ee_pose
+    joint_states_topic: /lbr/joint_states
+    destination_tray: tray_1
+    render_video: true                         # video offline della traiettoria registrata

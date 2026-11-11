@@ -1,7 +1,0 @@
-# ── from: llm_ros (auto-detected) ──
-
-# ── from: sam3_ros (auto-detected) ──
-numpy==1.26.4
-Pillow==12.1.1
-transformers==5.2.0
-

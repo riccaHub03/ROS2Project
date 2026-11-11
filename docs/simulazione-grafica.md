@@ -1,10 +1,9 @@
-# Avvio grafico sul Mac
+# Simulazione grafica
 
-Apri `Avvia_simulazione.command` con doppio clic, oppure esegui dal Terminale:
+Dalla radice del progetto, dentro il container (vedi il [README](../README.md)):
 
 ```bash
-cd /home/ricca/progetto_ROS
-bash run_graphical.sh
+bash scripts/run_sim_gui.sh
 ```
 
 Si apre una finestra PyBullet nativa con KUKA LBR iiwa, pinza visuale, due vassoi
@@ -40,7 +39,7 @@ con `--headless` o `--exit-after-run` la run attende che finiscano prima di usci
 (un unico corpo rigido). Per saltare tutto e avere il comportamento precedente:
 
 ```bash
-bash run_graphical.sh --mode single
+bash scripts/run_sim_gui.sh --mode single
 ```
 
 ## Due modalita' esplicite
@@ -51,7 +50,7 @@ l'istruzione con Ollama. Il parser di riserva dell'LLM e' registrato nel piano J
 Per selezionare lo strumento:
 
 ```bash
-bash run_graphical.sh --tool Scissors
+bash scripts/run_sim_gui.sh --tool Scissors
 ```
 
 Servono torch, transformers, i pesi SAM3 gia' nella cache Hugging Face e,
@@ -63,7 +62,7 @@ La GUI resta reattiva mentre SAM3 lavora in un processo separato.
 Per un test rapido senza inferenza AI:
 
 ```bash
-bash run_graphical.sh --vision ground-truth
+bash scripts/run_sim_gui.sh --vision ground-truth
 ```
 
 Questa modalita' e' **diagnostica**: il piano usa il parser deterministico e la
@@ -73,8 +72,8 @@ catena geometrica e la visualizzazione; non misura LLM o SAM3.
 Altri esempi:
 
 ```bash
-bash run_graphical.sh --tool Scalpel
-bash run_graphical.sh --no-motion
+bash scripts/run_sim_gui.sh --tool Scalpel
+bash scripts/run_sim_gui.sh --no-motion
 ```
 
 ## Provare diverse posizioni della base
@@ -103,13 +102,13 @@ circa 6,9 gradi attorno a Z. Mantieni gli altri campi del file completo.
 Avvia ogni prova con:
 
 ```bash
-bash run_graphical.sh --config config/prova-base.yaml
+bash scripts/run_sim_gui.sh --config config/prova-base.yaml
 ```
 
 Per controllare rapidamente la sola catena geometrica e il movimento:
 
 ```bash
-.venv/bin/python run_pipeline_sim.py --headless --vision ground-truth --tool Scissors --config config/prova-base.yaml
+python3 run_pipeline_sim.py --headless --vision ground-truth --tool Scissors --config config/prova-base.yaml
 ```
 
 I parametri vengono letti all'avvio: dopo ogni modifica riavvia la prova.
@@ -131,7 +130,7 @@ resta accettato come alias per le configurazioni precedenti, con valori in world
 Per muovere liberamente il robot sulla scena chirurgica con la tastiera (**W-S-A-D**) e visualizzare la scena dalla telecamera:
 
 ```bash
-bash run_interactive.sh
+bash scripts/run_interactive.sh
 ```
 
 - **W / S / A / D**: movimento cartesiano continuo (avanti, indietro, sinistra, destra);
@@ -181,7 +180,7 @@ Un blocco impedisce due run grafiche contemporanee nella stessa cartella.
 Per la verifica senza finestra:
 
 ```bash
-.venv/bin/python run_pipeline_sim.py --headless --vision ground-truth --tool Scissors
+python3 run_pipeline_sim.py --headless --vision ground-truth --tool Scissors
 ```
 
 L'esecuzione senza finestra termina con codice diverso da zero se la percezione,
@@ -194,4 +193,4 @@ Gli avvii grafici accettano anche `--grasp-backend graspgen` e le opzioni
 PCA resta predefinito. Per GraspGen iniziare con `--no-motion`: vengono mostrate
 le prese nominali della Robotiq, mentre la pinza robot dimostrativa da 80 mm
 rimane incompatibile e il movimento è bloccato anche premendo R.
-Preparazione del server GPU e comandi completi in [GRASPGEN.md](GRASPGEN.md).
+Preparazione del server GPU e comandi completi in [graspgen.md](graspgen.md).

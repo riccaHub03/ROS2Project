@@ -60,7 +60,7 @@ demo ufficiale e verifica fisica. Le correzioni della ricetta Docker e il
 server wrapper sono controllati staticamente; il loro funzionamento GPU va
 confermato sull'hardware destinatario con `check-gpu`, `build` e `smoke-gpu`.
 
-Seguire l'ordine in `GRASPGEN.md`: demo ufficiale `diffusion`, stessi dati nel
+Seguire l'ordine in [graspgen.md](graspgen.md): demo ufficiale `diffusion`, stessi dati nel
 backend, nuvole dei nostri strumenti, pipeline completa con movimento spento.
 Il profilo CUDA 12.1 non copre Blackwell; serve un profilo separato verificato.
 Per la presa fisica restano necessarie pinza compatibile, calibrazione TCP e

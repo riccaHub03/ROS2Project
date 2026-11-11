@@ -73,7 +73,14 @@ def prepare_mesh(source):
 
 
 class RobotScene:
-    def __init__(self, config, plan, *, gui=False, seed=42):
+    # Guadagni del servo di posizione dei giunti (le sottoclassi interattive possono renderli piu' reattivi)
+    MOTOR_FORCE = 500
+    POSITION_GAIN = 0.3
+
+    def __init__(self, config, plan, *, gui=False, seed=42, capture=True, procedural_tool_fallback=False):
+        """``capture``: renderizza RGB-D e scrive i report sim_capture (serve alla pipeline, non al controllo manuale).
+        ``procedural_tool_fallback``: senza mesh in data/inputs usa uno strumento box invece di fallire."""
+        self.procedural_tool_fallback = procedural_tool_fallback
         self.config, self.plan, self.gui = config, plan, gui
         self.base_frame = RobotBaseFrame.from_config(config)
         self.cid = p.connect(p.GUI if gui else p.DIRECT)
@@ -101,7 +108,8 @@ class RobotScene:
             self._build_robot()
             self._build_tool(seed)
             self.sync_gripper()
-            self.capture()
+            if capture:
+                self.capture()
             if gui:
                 p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1, physicsClientId=self.cid)
         except BaseException:
@@ -118,7 +126,7 @@ class RobotScene:
         env = self.config["environment"]
         p.loadURDF("plane.urdf", [0, 0, -0.16], physicsClientId=self.cid)
         table = env["surgical_table"]
-        self.box(table["center_xyz_m"], table["dimensions_xyz_m"], table["color_rgba"])
+        self.table = self.box(table["center_xyz_m"], table["dimensions_xyz_m"], table["color_rgba"])
         self.trays = env["trays"]
         self.tray_bodies = {}
         for name, tray in self.trays.items():
@@ -162,18 +170,23 @@ class RobotScene:
 
     def _build_tool(self, seed):
         source = find_instrument_mesh(target_keyword=self.plan["target_instrument"], config=self.config)
-        if not source:
+        if source:
+            self.mesh_file, self.mesh_info = prepare_mesh(source)
+            dims = np.asarray(self.mesh_info["dimensions_m"])
+            vis = p.createVisualShape(p.GEOM_MESH, fileName=self.mesh_file,
+                                      rgbaColor=[0.28, 0.31, 0.35, 1], physicsClientId=self.cid)
+        elif self.procedural_tool_fallback:
+            dims = np.array([0.14, 0.025, 0.006])
+            vis = p.createVisualShape(p.GEOM_BOX, halfExtents=(dims / 2).tolist(),
+                                      rgbaColor=[0.25, 0.28, 0.32, 1], physicsClientId=self.cid)
+        else:
             raise FileNotFoundError("Nessuna mesh trovata: aggiungi gli STL in data/inputs")
-        self.mesh_file, self.mesh_info = prepare_mesh(source)
-        dims = np.asarray(self.mesh_info["dimensions_m"])
         tray = self.trays[self.source]
         top = tray["position_xyz_m"][2] + tray["dimensions_xyz_m"][2] / 2
         x, y, yaw = sample_tool_pose(tray["position_xyz_m"], tray["dimensions_xyz_m"], dims[:2], seed,
                                     base_xy=self.base_frame.position[:2])
         self.tool_initial_pos = [x, y, top + dims[2] / 2 + 0.001]
         self.tool_initial_orn = p.getQuaternionFromEuler([0, 0, yaw])
-        vis = p.createVisualShape(p.GEOM_MESH, fileName=self.mesh_file,
-                                  rgbaColor=[0.28, 0.31, 0.35, 1], physicsClientId=self.cid)
         col = p.createCollisionShape(p.GEOM_BOX, halfExtents=(dims / 2).tolist(), physicsClientId=self.cid)
         self.tool = p.createMultiBody(0, col, vis, self.tool_initial_pos, self.tool_initial_orn,
                                      physicsClientId=self.cid)
@@ -186,8 +199,8 @@ class RobotScene:
 
     def command_joints(self, q):
         p.setJointMotorControlArray(self.robot, self.joints, p.POSITION_CONTROL,
-                                   targetPositions=list(q), forces=[500] * 7,
-                                   positionGains=[0.3] * 7, velocityGains=[1] * 7,
+                                   targetPositions=list(q), forces=[self.MOTOR_FORCE] * 7,
+                                   positionGains=[self.POSITION_GAIN] * 7, velocityGains=[1] * 7,
                                    physicsClientId=self.cid)
 
     def tcp_pose(self):

@@ -1,0 +1,16 @@
+# Il contesto di build serve solo a requirements*.txt e docker/entrypoint.sh: escludiamo tutto il resto.
+.git
+.claude
+data
+models
+third_party
+ROS2_workspace
+build
+install
+log
+**/__pycache__
+*.stl
+*.ply
+*.npy
+*.png
+*.mp4
