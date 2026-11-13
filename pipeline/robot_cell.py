@@ -23,6 +23,8 @@ import pybullet_data
 from pipeline.sim.robot_scene import (FINGER_CENTER_Z, FINGER_HALF_EXTENTS, FINGER_REST_Y, HOME, PALM_CENTER_Z,
                                       PALM_HALF_EXTENTS, TCP_OFFSET)
 
+from pipeline.sim.gripper_geometry import for_config
+
 DEFAULT_URDF = "kuka_iiwa/model.urdf"
 PROBE_M = 0.03                 # distances beyond this are reported as "far enough"
 NEAR_FAR_PLANE = -10.0         # parking spot for bodies that are not in use
@@ -56,6 +58,7 @@ class RobotCell:
     def __init__(self, config: Dict[str, Any], base_frame, *, robot_urdf: Optional[str] = None, ee_link: int = 6,
                  position_tolerance_m: float = 0.003, angle_tolerance_rad: float = 0.035):
         self.config, self.base_frame, self.ee = config, base_frame, ee_link
+        self.gripper_geometry = for_config(config)
         self.position_tolerance, self.angle_tolerance = position_tolerance_m, angle_tolerance_rad
         self.cid = p.connect(p.DIRECT)
         if self.cid < 0:
@@ -63,6 +66,7 @@ class RobotCell:
         self.obstacles: Dict[str, int] = {}
         self._parts: Dict[str, int] = {}
         self._tool_body = -1
+        self._tool_shape = None
         self._tcp_to_tool: Optional[Tuple[List[float], List[float]]] = None
         try:
             p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.cid)
@@ -100,10 +104,16 @@ class RobotCell:
             self.obstacles[name] = self._box_body(half, position, orientation)
 
     def _build_gripper(self) -> None:
+        from pipeline.sim.gripper_geometry import ROBOTIQ_PROXY
+        self.official_gripper = None
+        if self.gripper_geometry == ROBOTIQ_PROXY:
+            from pipeline.sim.robotiq_description import RobotiqDescription
+            self.official_gripper = RobotiqDescription(self.cid)
+            return
         park = [0, 0, NEAR_FAR_PLANE]
-        self._parts["palm"] = self._box_body(PALM_HALF_EXTENTS, park, [0, 0, 0, 1])
-        self._parts["finger_a"] = self._box_body(FINGER_HALF_EXTENTS, park, [0, 0, 0, 1])
-        self._parts["finger_b"] = self._box_body(FINGER_HALF_EXTENTS, park, [0, 0, 0, 1])
+        self._parts["palm"] = self._box_body(self.gripper_geometry.palm_half, park, [0, 0, 0, 1])
+        self._parts["finger_a"] = self._box_body(self.gripper_geometry.finger_half, park, [0, 0, 0, 1])
+        self._parts["finger_b"] = self._box_body(self.gripper_geometry.finger_half, park, [0, 0, 0, 1])
 
     def close(self) -> None:
         if getattr(self, "cid", -1) >= 0 and p.isConnected(self.cid):
@@ -129,7 +139,7 @@ class RobotCell:
 
     def tcp_pose(self) -> Tuple[List[float], List[float]]:
         position, orientation = self.flange_pose()
-        tcp, _ = p.multiplyTransforms(position, orientation, TCP_OFFSET, [0, 0, 0, 1])
+        tcp, _ = p.multiplyTransforms(position, orientation, self.gripper_geometry.tcp_offset, [0, 0, 0, 1])
         return list(tcp), orientation
 
     def joint_margin(self, q: Sequence[float]) -> float:
@@ -145,7 +155,7 @@ class RobotCell:
                  seed: Sequence[float]) -> IkSolution:
         """Joint solution that puts the TCP at the pose, started from ``seed`` (the arm is left on the result)."""
         flange, _ = p.multiplyTransforms(list(tcp_position), list(orientation),
-                                         [0, 0, -TCP_OFFSET[2]], [0, 0, 0, 1])
+                                         [0, 0, -self.gripper_geometry.tcp_offset[2]], [0, 0, 0, 1])
         lower, upper = [lim[0] for lim in self.limits], [lim[1] for lim in self.limits]
         self.set_joints(seed)
         q = list(seed)
@@ -171,9 +181,12 @@ class RobotCell:
     # ------------------------------------------------------------------ gripper and carried instrument
     def _place_gripper(self, width: float) -> None:
         flange, orientation = self.flange_pose()
-        y = width / 2.0 + FINGER_REST_Y - 0.001                      # = REST + (width - 0.002) / 2
-        offsets = {"palm": [0, 0, PALM_CENTER_Z], "finger_a": [0, y, FINGER_CENTER_Z],
-                   "finger_b": [0, -y, FINGER_CENTER_Z]}
+        if self.official_gripper is not None:
+            self.official_gripper.place(flange, orientation, width)
+            return
+        y = width / 2.0 + self.gripper_geometry.finger_rest_y - 0.001                      # = REST + (width - 0.002) / 2
+        offsets = {"palm": [0, 0, self.gripper_geometry.palm_z], "finger_a": [0, y, self.gripper_geometry.finger_z],
+                   "finger_b": [0, -y, self.gripper_geometry.finger_z]}
         for part, offset in offsets.items():
             position, quaternion = p.multiplyTransforms(flange, orientation, offset, [0, 0, 0, 1])
             p.resetBasePositionAndOrientation(self._parts[part], position, quaternion, physicsClientId=self.cid)
@@ -184,12 +197,28 @@ class RobotCell:
         self.detach_tool()
         inverse = p.invertTransform(list(tcp_position), list(tcp_orientation))
         self._tcp_to_tool = p.multiplyTransforms(inverse[0], inverse[1], list(position), list(orientation))
-        self._tool_body = self._box_body(half_extents, [0, 0, NEAR_FAR_PLANE], [0, 0, 0, 1])
+        self._tool_body = self._create_tool_body(half_extents, [0, 0, NEAR_FAR_PLANE], [0, 0, 0, 1])
+
+    def configure_tool_mesh(self, filename):
+        self._tool_shape = p.createCollisionShape(p.GEOM_MESH, fileName=str(filename), physicsClientId=self.cid)
+
+    def _create_tool_body(self, half_extents, position, orientation):
+        if self._tool_shape is None:
+            return self._box_body(half_extents, position, orientation)
+        return p.createMultiBody(0, self._tool_shape, -1, list(position), list(orientation), physicsClientId=self.cid)
 
     def detach_tool(self) -> None:
         if self._tool_body >= 0:
             p.removeBody(self._tool_body, physicsClientId=self.cid)
         self._tool_body, self._tcp_to_tool = -1, None
+
+    def set_stationary_tool(self, half_extents, position, orientation):
+        """Target/released instrument obstacle; retained while the arm approaches/retreats."""
+        if self._tool_body >= 0 and self._tcp_to_tool is None:
+            p.resetBasePositionAndOrientation(self._tool_body, position, orientation, physicsClientId=self.cid)
+            return
+        self.detach_tool()
+        self._tool_body = self._create_tool_body(half_extents, position, orientation)
 
     def _place_tool(self) -> None:
         tcp, orientation = self.tcp_pose()
@@ -209,12 +238,17 @@ class RobotCell:
 
     def clearance(self, *, width: float, carried: bool = False,
                   relaxed: FrozenSet[Tuple[str, str]] = frozenset(), margin: float = 0.01,
-                  contact_margin: float = 0.0005, self_margin: float = 0.002) -> Clearance:
+                  contact_margin: float = 0.0005, self_margin: float = 0.002,
+                  check_target: bool = False, allow_finger_contact: bool = True,
+                  tool_support_contacts: FrozenSet[str] = frozenset()) -> Clearance:
         """Distances at the current joint state.
 
         ``margin``: minimum separation from table and trays for the arm, gripper and carried instrument.
         ``relaxed``: (part, obstacle) pairs allowed down to ``contact_margin`` (the fingertips just above the tray
         at grasp and release); parts are ``fingers``, ``palm`` and ``tool``. Self-collisions use ``self_margin``.
+        ``tool_support_contacts`` permits the instrument to touch ONLY the top
+        of the named support during lift/place, with 10 micrometres numerical
+        tolerance. It never applies to the arm, fingers, side walls or transit.
         """
         self._place_gripper(width)
         if carried and self._tool_body >= 0:
@@ -226,17 +260,34 @@ class RobotCell:
             nonlocal closest
             relaxed_pair = (part, obstacle) in relaxed
             required = contact_margin if relaxed_pair else margin
+            comparison_epsilon = 0.
             distance = PROBE_M if found is None else found[0]
+            if part == "tool" and obstacle in tool_support_contacts and found is not None:
+                upward = self.base_frame.rotation.T @ np.array([0., 0., 1.])
+                near = p.getClosestPoints(self._tool_body, self.obstacles[obstacle], contact_margin,
+                                          physicsClientId=self.cid)
+                if near and all(float(np.dot(point[7], upward)) >= .95 for point in near):
+                    required = -1e-5
+                    # Bullet transforms use single-precision link poses. Keep
+                    # the 10 um contact budget, allowing 0.1 um for comparison
+                    # roundoff ONLY on the declared top-support contact.
+                    comparison_epsilon = 1e-7
             if not relaxed_pair:
                 closest = min(closest, distance)
-            if distance < required:
-                violations.append(f"{label} <-> {obstacle}: {distance * 1000:.1f} mm (< {required * 1000:.1f} mm)")
+            if distance < required - comparison_epsilon:
+                violations.append(f"{label} <-> {obstacle}: {distance * 1000:.6f} mm (< {required * 1000:.6f} mm)")
 
         for name, body in self.obstacles.items():
             found = self._closest(self.robot, body, PROBE_M)
             judge(f"arm link {found[1]}" if found else "arm", "arm", name, found)
-            for part, key in (("palm", "palm"), ("fingers", "finger_a"), ("fingers", "finger_b")):
-                judge(f"gripper {part}", part, name, self._closest(self._parts[key], body, PROBE_M))
+            if self.official_gripper is not None:
+                distance, issues = self.official_gripper.obstacle_clearance(
+                    body, margin, contact_margin, ("fingers", name) in relaxed)
+                closest = min(closest, distance)
+                violations.extend(f"{issue} <-> {name}" for issue in issues)
+            else:
+                for part, key in (("palm", "palm"), ("fingers", "finger_a"), ("fingers", "finger_b")):
+                    judge(f"gripper {part}", part, name, self._closest(self._parts[key], body, PROBE_M))
             if carried and self._tool_body >= 0:
                 judge("carried instrument", "tool", name, self._closest(self._tool_body, body, PROBE_M))
 
@@ -246,7 +297,29 @@ class RobotCell:
             if found is not None and found[0] < self_margin:
                 violations.append(f"arm self-collision link {found[1]} <-> link {found[2]}: {found[0] * 1000:.1f} mm")
         for key in ("palm", "finger_a", "finger_b"):
+            if key not in self._parts:
+                continue
             found = self._closest(self._parts[key], self.robot, self_margin, lambda a, b: b <= self.ee - 2)
             if found is not None and found[0] < self_margin:
                 violations.append(f"gripper <-> arm link {found[2]}: {found[0] * 1000:.1f} mm")
+        if self.official_gripper is not None:
+            found = self._closest(self.official_gripper.body, self.robot, self_margin, lambda a, b: b <= self.ee - 2)
+            if found is not None and found[0] < self_margin:
+                violations.append(f"official gripper <-> arm link {found[2]}: {found[0]*1000:.1f} mm")
+        if check_target and self._tool_body >= 0:
+            found = self._closest(self._tool_body, self.robot, self_margin, lambda a, b: b <= self.ee)
+            if found is not None and found[0] < self_margin:
+                violations.append(f"instrument <-> arm link {found[2]}: {found[0] * 1000:.1f} mm")
+            for key in (["palm"] if allow_finger_contact else ["palm", "finger_a", "finger_b"]):
+                if key not in self._parts:
+                    continue
+                found = self._closest(self._parts[key], self._tool_body, contact_margin)
+                if found is not None and found[0] < contact_margin:
+                    violations.append(f"instrument <-> {key}: {found[0] * 1000:.1f} mm")
+            if self.official_gripper is not None:
+                distance, issues = self.official_gripper.obstacle_clearance(
+                    self._tool_body, contact_margin, 0.0 if allow_finger_contact else contact_margin,
+                    allow_finger_contact)
+                closest = min(closest, distance)
+                violations.extend(f"{issue} <-> instrument" for issue in issues)
         return Clearance(closest, violations)

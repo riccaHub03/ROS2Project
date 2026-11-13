@@ -16,10 +16,10 @@ LIFT_MIN_ABOVE_GRASP_M = 0.18         # carrying height is at least this high ab
 PLACE_CLEARANCE_M = 0.003             # tool bottom above the destination tray at release
 RETURN_BASE_XYZ = (0.48, 0.0, 0.40)   # final retreat point, expressed in the robot base frame
 
-# Labels are part of the motion report ("phase"): keep them stable.
+# Labels are shared by the GUI and new motion reports; historical reports retain their labels.
 APPROACH, DESCEND, GRASP, LIFT, TRANSFER, PLACE, RELEASE, RETREAT, RETURN = (
-    "Avvicinamento", "Discesa", "Chiusura pinza - vincolo ideale", "Sollevamento", "Trasferimento",
-    "Deposito", "Apertura pinza", "Risalita", "Rientro")
+    "Approach", "Descend", "Close gripper - ideal constraint", "Lift", "Transfer",
+    "Place", "Open gripper", "Retreat", "Return")
 
 
 @dataclass(frozen=True)

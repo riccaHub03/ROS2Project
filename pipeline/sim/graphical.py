@@ -13,6 +13,7 @@ Outputs (in addition to the stage reports): ``graphical_run.json`` (run manifest
 from __future__ import annotations
 
 import fcntl
+import copy
 import logging
 import multiprocessing
 import os
@@ -138,6 +139,7 @@ def run_graphical_pipeline(args, instruction: str) -> int:
     out = paths.output_dir()
     lock = _acquire_lock(out)
     scene = worker = events = None
+    motion = None
     overview_enabled = getattr(args, "mode", None) == "all"
     manifest = RunManifest(out / "graphical_run.json", vision=args.vision,
                            grasp_backend=args.grasp_backend,
@@ -148,10 +150,30 @@ def run_graphical_pipeline(args, instruction: str) -> int:
         diagnostic = args.vision == "ground-truth"
         log.info("diagnostic mode: deterministic parser and simulator mask" if diagnostic
                  else "pipeline with Ollama/SAM3; demonstrative PyBullet motion")
-        plan_report = plan.run(instruction, tool_hint=args.tool, offline=diagnostic, ollama_url=OLLAMA_LOCAL_URL,
+        plan_report = plan.run(instruction, tool_hint=args.tool, offline=diagnostic or args.offline, ollama_url=OLLAMA_LOCAL_URL,
                                config_path=args.config)
-        scene = RobotScene(load_environment_config(args.config), plan_report.data, gui=not args.headless,
+        environment = copy.deepcopy(load_environment_config(args.config))
+        sim_motion = getattr(args, "graspgen_sim_motion", False)
+        if sim_motion:
+            from pipeline.sim.gripper_geometry import ROBOTIQ_PROXY
+            environment["simulation_gripper"] = ROBOTIQ_PROXY.name
+            control = environment.setdefault("motion_control", {})
+            ik = control.setdefault("differential_ik", {})
+            ik.update(enabled=True, position_tolerance_m=.0005, orientation_tolerance_rad=.0025,
+                      joint_max_velocity_rad_s=[.35] * 7)
+            # Tutor platform's conservative Cartesian references; keep stricter
+            # user choices when present. Acceleration/jerk bounds stay active.
+            velocities = control.setdefault("velocities", {})
+            velocities["cartesian_linear_speed_m_s"] = min(.04, velocities.get("cartesian_linear_speed_m_s", .04))
+            velocities["cartesian_angular_speed_rad_s"] = min(.20, velocities.get("cartesian_angular_speed_rad_s", .20))
+        scene = RobotScene(environment, plan_report.data, gui=not args.headless,
                            seed=args.seed)
+
+        def prepare_motion(data):
+            if sim_motion:
+                from pipeline.sim.graspgen_motion import GraspGenMotionPreview
+                return GraspGenMotionPreview(scene, data)
+            return MotionPreview(scene, data)
         scene.status("Scene ready. R: repeat motion; P: pause; Q: quit")
         manifest.update("PROCESSING", plan_report=str(out / paths.PLAN), capture_report=str(out / paths.SIM_CAPTURE))
         context = multiprocessing.get_context("spawn")
@@ -169,6 +191,8 @@ def run_graphical_pipeline(args, instruction: str) -> int:
 
         def fail(message: str, **data: Any) -> None:
             nonlocal done, exit_code, overview_pending
+            scene.command_joints([p.getJointState(scene.robot, j, physicsClientId=scene.cid)[0]
+                                  for j in scene.joints])
             scene.status(message, error_color)
             manifest.update("FAILED", status=FAILED, error=message, **data)
             done, exit_code = True, 1
@@ -185,10 +209,15 @@ def run_graphical_pipeline(args, instruction: str) -> int:
                 if pressed("p"):
                     paused = not paused
                     scene.status("Paused" if paused else "Resumed")
+                if pressed("g") and grasp_data is not None:
+                    scene.show_all_grasp_candidates = not scene.show_all_grasp_candidates
+                    scene.show_grasp(grasp_data)
                 if pressed("r") and done and grasp_data is not None and not args.no_motion:
                     scene.restore()
                     try:
-                        motion = MotionPreview(scene, grasp_data)
+                        if motion is not None and hasattr(motion, "close"):
+                            motion.close()
+                        motion = prepare_motion(grasp_data)
                         done, exit_code = False, 0
                         manifest.update("ANIMATING", status=RUNNING)
                     except (ValueError, RuntimeError) as exc:
@@ -204,6 +233,15 @@ def run_graphical_pipeline(args, instruction: str) -> int:
                     fail(payload)
                 elif kind == "result":
                     grasp_data = payload
+                    if sim_motion:
+                        try:
+                            motion = prepare_motion(grasp_data)
+                            StageReport("grasp", data=grasp_data).save(out / "grasp_simulation_selection.json")
+                        except (ValueError, RuntimeError) as exc:
+                            scene.show_grasp(grasp_data)
+                            scene.save_overview(out / "sim_robot_grasp.png")
+                            fail(str(exc))
+                            continue
                     scene.show_grasp(grasp_data)
                     scene.save_overview(out / "sim_robot_grasp.png")
                     manifest.update(grasp_report=str(out / paths.GRASP))
@@ -213,7 +251,8 @@ def run_graphical_pipeline(args, instruction: str) -> int:
                     else:
                         scene.status("Checking waypoint IK and joint limits")
                         try:
-                            motion = MotionPreview(scene, grasp_data)
+                            if not sim_motion:
+                                motion = prepare_motion(grasp_data)
                             manifest.update("ANIMATING")
                         except (ValueError, RuntimeError) as exc:
                             fail(str(exc))
@@ -242,6 +281,9 @@ def run_graphical_pipeline(args, instruction: str) -> int:
                     try:
                         motion.tick()
                     except (ValueError, RuntimeError) as exc:
+                        if grasp_data is not None:
+                            grasp_data["simulation_execution_error"] = str(exc)
+                            scene.show_grasp(grasp_data)
                         scene.release_tool()
                         fail(str(exc), motion=motion.report())
                 if not paused:
@@ -277,6 +319,8 @@ def run_graphical_pipeline(args, instruction: str) -> int:
         manifest.update("FAILED", status=FAILED, error=f"{type(exc).__name__}: {exc}")
         raise
     finally:
+        if motion is not None and hasattr(motion, "close"):
+            motion.close()
         if worker is not None:
             if worker.is_alive():
                 worker.terminate()

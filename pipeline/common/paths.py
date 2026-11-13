@@ -44,9 +44,9 @@ def cache_dir() -> Path:
 def output_dir(override: str | os.PathLike | None = None, *, create: bool = True) -> Path:
     """Resolve the output directory: explicit argument > env var > ``data/outputs``."""
     if override:
-        path = Path(override)
+        path = Path(override).resolve()
     elif os.environ.get(OUTPUT_ENV):
-        path = Path(os.environ[OUTPUT_ENV])
+        path = Path(os.environ[OUTPUT_ENV]).resolve()
     else:
         path = project_root() / "data" / "outputs"
     if create:

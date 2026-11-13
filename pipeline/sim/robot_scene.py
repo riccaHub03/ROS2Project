@@ -21,6 +21,7 @@ from pipeline.common.scene import camera_intrinsics, camera_pose, get_tray, roun
 from pipeline.mesh_loader import find_instrument_mesh
 from pipeline.frame_transformer import RobotBaseFrame
 from pipeline.sim.placement import sample_tool_pose
+from pipeline.sim.gripper_geometry import for_config
 
 log = logging.getLogger("robot_scene")
 TCP_OFFSET = (0.0, 0.0, 0.10)
@@ -91,12 +92,15 @@ class RobotScene:
         self.procedural_tool_fallback = procedural_tool_fallback
         self.config, self.plan, self.gui = config, plan, gui
         self.base_frame = RobotBaseFrame.from_config(config)
+        self.gripper_geometry = for_config(config)
         self.cid = p.connect(p.GUI if gui else p.DIRECT)
         if self.cid < 0:
             raise RuntimeError("Impossibile aprire PyBullet")
         self.attachment = None
-        self.gripper_width = 0.080
+        self.gripper_width = self.gripper_geometry.opening
         self.markers = []
+        self.grasp_lines = []
+        self.show_all_grasp_candidates = False
         self.path_lines = []
         self.last_tcp = None
         self.step_count = 0
@@ -106,6 +110,10 @@ class RobotScene:
             p.setGravity(0, 0, -9.81, physicsClientId=self.cid)
             p.setTimeStep(1 / 240, physicsClientId=self.cid)
             p.setPhysicsEngineParameter(numSolverIterations=100, physicsClientId=self.cid)
+            if self.gripper_geometry.name == "robotiq_2f_140_official_meshes":
+                # Keep the solver's resting contact slop (1 um) below the
+                # independent support-contact rejection threshold (10 um).
+                p.setPhysicsEngineParameter(contactSlop=1e-6, physicsClientId=self.cid)
             if gui:
                 # PyBullet's built-in key shortcuts (W wireframe, A AABB boxes, G hide panels...) clash with ours
                 p.configureDebugVisualizer(p.COV_ENABLE_KEYBOARD_SHORTCUTS, 0, physicsClientId=self.cid)
@@ -161,16 +169,29 @@ class RobotScene:
         self.ee = 6
         self.limits = [p.getJointInfo(self.robot, j, physicsClientId=self.cid)[8:10] for j in self.joints]
         self.reset_robot()
-        palm = p.createVisualShape(p.GEOM_BOX, halfExtents=list(PALM_HALF_EXTENTS),
-                                   visualFramePosition=[0, 0, PALM_CENTER_Z], rgbaColor=[0.15, 0.18, 0.22, 1],
+        from pipeline.sim.gripper_geometry import ROBOTIQ_PROXY
+        self.official_gripper = None
+        if self.gripper_geometry == ROBOTIQ_PROXY:
+            from pipeline.sim.robotiq_description import RobotiqDescription
+            self.official_gripper = RobotiqDescription(self.cid)
+            self.gripper = self.official_gripper.body
+            # The gripper is a separately mounted kinematic description, not
+            # an independently falling dynamic body. Collision checks use the
+            # same mesh model in RobotCell.
+            for a in range(-1, p.getNumJoints(self.gripper, physicsClientId=self.cid)):
+                for b in range(-1, p.getNumJoints(self.robot, physicsClientId=self.cid)):
+                    p.setCollisionFilterPair(self.gripper, self.robot, a, b, 0, physicsClientId=self.cid)
+            return
+        palm = p.createVisualShape(p.GEOM_BOX, halfExtents=list(self.gripper_geometry.palm_half),
+                                   visualFramePosition=[0, 0, self.gripper_geometry.palm_z], rgbaColor=[0.15, 0.18, 0.22, 1],
                                    physicsClientId=self.cid)
-        finger = p.createVisualShape(p.GEOM_BOX, halfExtents=list(FINGER_HALF_EXTENTS),
+        finger = p.createVisualShape(p.GEOM_BOX, halfExtents=list(self.gripper_geometry.finger_half),
                                      rgbaColor=[0.2, 0.25, 0.3, 1], physicsClientId=self.cid)
         self.gripper = p.createMultiBody(
             baseMass=0, baseVisualShapeIndex=palm, baseCollisionShapeIndex=-1,
             linkMasses=[0, 0], linkCollisionShapeIndices=[-1, -1],
-            linkVisualShapeIndices=[finger, finger], linkPositions=[[0, FINGER_REST_Y, FINGER_CENTER_Z],
-                                                        [0, -FINGER_REST_Y, FINGER_CENTER_Z]],
+            linkVisualShapeIndices=[finger, finger], linkPositions=[[0, self.gripper_geometry.finger_rest_y, self.gripper_geometry.finger_z],
+                                                        [0, -self.gripper_geometry.finger_rest_y, self.gripper_geometry.finger_z]],
             linkOrientations=[[0, 0, 0, 1]] * 2, linkInertialFramePositions=[[0, 0, 0]] * 2,
             linkInertialFrameOrientations=[[0, 0, 0, 1]] * 2, linkParentIndices=[0, 0],
             linkJointTypes=[p.JOINT_PRISMATIC] * 2, linkJointAxis=[[0, 1, 0], [0, -1, 0]],
@@ -181,6 +202,7 @@ class RobotScene:
         source = find_instrument_mesh(target_keyword=self.plan["target_instrument"], config=self.config)
         if source:
             self.mesh_file, self.mesh_info = prepare_mesh(source)
+            log.info("Dataset mesh: %s", self.mesh_info["source_mesh"])
             dims = np.asarray(self.mesh_info["dimensions_m"])
             vis = p.createVisualShape(p.GEOM_MESH, fileName=self.mesh_file,
                                       rgbaColor=[0.28, 0.31, 0.35, 1], physicsClientId=self.cid)
@@ -196,9 +218,17 @@ class RobotScene:
                                     base_xy=self.base_frame.position[:2])
         self.tool_initial_pos = [x, y, top + dims[2] / 2 + 0.001]
         self.tool_initial_orn = p.getQuaternionFromEuler([0, 0, yaw])
-        col = p.createCollisionShape(p.GEOM_BOX, halfExtents=(dims / 2).tolist(), physicsClientId=self.cid)
+        if self.official_gripper is not None:
+            col = p.createCollisionShape(p.GEOM_MESH, fileName=self.mesh_file, physicsClientId=self.cid)
+        else:
+            col = p.createCollisionShape(p.GEOM_BOX, halfExtents=(dims / 2).tolist(), physicsClientId=self.cid)
         self.tool = p.createMultiBody(0, col, vis, self.tool_initial_pos, self.tool_initial_orn,
                                      physicsClientId=self.cid)
+        if self.official_gripper is not None:
+            # Ideal attachment mode: do not pretend the kinematically reset
+            # fingers exert measured contact forces on the instrument.
+            for link in range(-1, p.getNumJoints(self.gripper, physicsClientId=self.cid)):
+                p.setCollisionFilterPair(self.gripper, self.tool, link, -1, 0, physicsClientId=self.cid)
         self.tool_bottom = top + 0.001
 
     def reset_robot(self):
@@ -214,17 +244,20 @@ class RobotScene:
 
     def tcp_pose(self):
         state = p.getLinkState(self.robot, self.ee, computeForwardKinematics=True, physicsClientId=self.cid)
-        return p.multiplyTransforms(state[4], state[5], TCP_OFFSET, [0, 0, 0, 1])
+        return p.multiplyTransforms(state[4], state[5], self.gripper_geometry.tcp_offset, [0, 0, 0, 1])
 
     def sync_gripper(self):
         state = p.getLinkState(self.robot, self.ee, computeForwardKinematics=True, physicsClientId=self.cid)
+        if self.official_gripper is not None:
+            self.official_gripper.place(state[4], state[5], self.gripper_width)
+            return
         p.resetBasePositionAndOrientation(self.gripper, state[4], state[5], physicsClientId=self.cid)
         q = max(0, (self.gripper_width - 0.002) / 2)
         for j in (0, 1):
             p.resetJointState(self.gripper, j, q, physicsClientId=self.cid)
 
     def solve_ik(self, position, orientation, seed):
-        flange, _ = p.multiplyTransforms(position, orientation, [0, 0, -TCP_OFFSET[2]], [0, 0, 0, 1])
+        flange, _ = p.multiplyTransforms(position, orientation, [0, 0, -self.gripper_geometry.tcp_offset[2]], [0, 0, 0, 1])
         current = [p.getJointState(self.robot, j, physicsClientId=self.cid)[0] for j in self.joints]
         try:
             for j, q in zip(self.joints, seed):
@@ -277,7 +310,7 @@ class RobotScene:
         p.changeDynamics(self.tool, -1, mass=0, physicsClientId=self.cid)
         p.resetBasePositionAndOrientation(self.tool, self.tool_initial_pos, self.tool_initial_orn, physicsClientId=self.cid)
         p.resetBaseVelocity(self.tool, [0, 0, 0], [0, 0, 0], physicsClientId=self.cid)
-        self.gripper_width = 0.080
+        self.gripper_width = self.gripper_geometry.opening
         self.last_tcp = None
         self.reset_robot()
         self.sync_gripper()
@@ -338,6 +371,8 @@ class RobotScene:
             data={"mode": "single", "simulated_instrument": instrument, "mesh_file": self.mesh_file,
                   "source_stl_file": self.mesh_info["source_mesh"], "source_tray": self.source,
                   "ground_truth_pose": initial_pose, "camera": camera.to_dict(),
+                  "scene_object_pose_exact": {"position_xyz_m": list(self.tool_initial_pos),
+                                              "orientation_xyzw": list(self.tool_initial_orn)},
                   "robot_base_pose_world": self.base_frame.to_dict()})
         self.capture_report.save(out / paths.SIM_CAPTURE)
         StageReport(
@@ -385,25 +420,61 @@ class RobotScene:
                                textSize=0.9, physicsClientId=self.cid)
 
     def show_grasp(self, report):
+        for line_id in self.grasp_lines:
+            p.removeUserDebugItem(line_id, physicsClientId=self.cid)
+        self.grasp_lines.clear()
+        for body in self.markers:
+            p.removeBody(body, physicsClientId=self.cid)
+        self.markers.clear()
+
+        def draw_line(a, b, color, width):
+            self.grasp_lines.append(p.addUserDebugLine(a, b, color, width, physicsClientId=self.cid))
+
         if report.get("grasp_candidates") and report.get("grasp_backend") != "graspgen":
             self._show_candidates(report["grasp_candidates"])
         if report.get("grasp_backend") == "graspgen":
             from pipeline.graspgen.preview import gripper_lines
-            for candidate in report["candidates"][:20]:
+            selected = report.get("simulation_checking") or report.get("simulation_selected") or report["selected"]
+            color = ([.1, .5, 1.] if report.get("simulation_checking") else
+                     [0.1, 0.7, 0.3] if report.get("simulation_selected") else [1., .5, 0.])
+            if report.get("simulation_execution_error"):
+                color = [.85, .05, .05]
+            for candidate in (report["candidates"][:20] if self.show_all_grasp_candidates else []):
                 line = self.base_frame.base_to_world(gripper_lines(candidate["T_base_gripper"]))
                 for a, b in zip(line[:-1], line[1:]):
-                    p.addUserDebugLine(a, b, [0.1, 0.7, 0.3], 2, physicsClientId=self.cid)
-            self.status("GraspGen: nominal Robotiq poses; physical grasp UNVALIDATED")
+                    draw_line(a, b, [.65, .75, .8], 1)
+            line = self.base_frame.base_to_world(gripper_lines(selected["T_base_gripper"]))
+            for a, b in zip(line[:-1], line[1:]):
+                draw_line(a, b, color, 4)
+            label = ("checking; motion NOT cleared" if report.get("simulation_checking") else
+                     "simulation executable" if report.get("simulation_selected") else "highest score only; motion NOT cleared")
+            if selected.get("geometric_refinement"):
+                label += "; CAD refined; score of original pose"
+            if report.get("simulation_execution_error"):
+                label = "execution STOPPED; transfer incomplete"
+            tcp_world = np.asarray(selected["T_world_tcp"])[:3, 3]
+            self.grasp_lines.append(p.addUserDebugText(
+                f"GraspGen #{selected['server_index']} score={selected['score']:.3f}: {label}",
+                tcp_world + [0, 0, .08], color, textSize=1.1, physicsClientId=self.cid))
+            self.status("GraspGen: G toggles other candidates; physical grasp UNVALIDATED")
         data = report["designated_grasp_geometry"]
-        pos, quat = self.base_frame.pose_base_to_world(
-            data["grasp_centroid_base_frame_xyz_m"],
-            data["recommended_gripper_orientation"]["quaternion_xyzw"],
-        )
-        vis = p.createVisualShape(p.GEOM_SPHERE, radius=0.008, rgbaColor=[0.1, 1, 0.2, 0.9], physicsClientId=self.cid)
+        if report.get("simulation_checking") or report.get("simulation_selected"):
+            selected = report.get("simulation_checking") or report["simulation_selected"]
+            tcp = np.asarray(selected["T_base_tcp"])
+            from pipeline.frame_transformer import quaternion_from_matrix
+            pos, quat = self.base_frame.pose_base_to_world(tcp[:3, 3], quaternion_from_matrix(tcp[:3, :3]))
+        else:
+            pos, quat = self.base_frame.pose_base_to_world(
+                data["grasp_centroid_base_frame_xyz_m"],
+                data["recommended_gripper_orientation"]["quaternion_xyzw"],
+            )
+        marker_color = ([1., .5, 0., .9] if report.get("grasp_backend") == "graspgen"
+                        and not report.get("simulation_selected") else [.1, 1., .2, .9])
+        vis = p.createVisualShape(p.GEOM_SPHERE, radius=0.008, rgbaColor=marker_color, physicsClientId=self.cid)
         self.markers.append(p.createMultiBody(0, -1, vis, pos, physicsClientId=self.cid))
         rotation = np.asarray(p.getMatrixFromQuaternion(quat)).reshape(3, 3)
         for axis, color in zip(rotation.T, ([1, 0, 0], [0, 0.75, 0], [0, 0, 1])):
-            p.addUserDebugLine(pos, np.asarray(pos) + axis * 0.07, color, 3, physicsClientId=self.cid)
+            draw_line(pos, np.asarray(pos) + axis * 0.07, color, 3)
 
     def show_path(self, waypoints):
         if not self.gui:

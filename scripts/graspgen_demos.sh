@@ -95,7 +95,7 @@ case "$action" in
         docker build -f "$ROOT/docker/graspgen-runtime.Dockerfile" -t "$IMAGE" "$ROOT/docker"
         ;;
     smoke-gpu)
-        container python -c 'import torch; import pointnet2_ops._ext; from grasp_gen.grasp_server import GraspGenSampler; assert torch.cuda.is_available(); print(torch.__version__, torch.version.cuda, torch.cuda.get_device_name(0))'
+        container python -c 'import torch; assert torch.__version__.split("+")[0] == "2.1.0", torch.__version__; assert torch.version.cuda == "12.1", torch.version.cuda; import pointnet2_ops._ext; from grasp_gen.grasp_server import GraspGenSampler; assert torch.cuda.is_available(); print(torch.__version__, torch.version.cuda, torch.cuda.get_device_name(0))'
         ;;
     shell) container bash ;;
     demo-pc)

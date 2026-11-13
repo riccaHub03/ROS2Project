@@ -21,6 +21,7 @@ La traiettoria e' calcolata in anticipo (offline) e riprodotta da ``MotionPrevie
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
@@ -251,7 +252,8 @@ class ConstrainedDifferentialIK:
         return self.dq + ddq * dt
 
     # -- una fase di moto --------------------------------------------------------------------------------
-    def plan_phase(self, label: str, target_position, target_R, nominal_duration: Optional[float] = None) -> np.ndarray:
+    def plan_phase(self, label: str, target_position, target_R, nominal_duration: Optional[float] = None,
+                   deadline: Optional[float] = None) -> np.ndarray:
         """Genera i campioni q a passo ``dt`` dalla posa corrente alla posa target, ferma a inizio e fine."""
         c, dt = self.cfg, self.dt
         target_position = np.asarray(target_position, float)
@@ -271,6 +273,8 @@ class ConstrainedDifferentialIK:
         settling = False
         max_steps = int((nominal_duration * 8 + 5) / dt)
         for steps in range(1, max_steps + 1):
+            if deadline is not None and steps % 16 == 0 and time.monotonic() > deadline:
+                raise ValueError(f"{label}: candidate planning time budget exceeded")
             position, R, J = self.pose_and_jacobian(self.q)
             pinv, _ = dls_pinv(J, c.damping_max, c.singularity_threshold)
             null = null_projector(J)
@@ -472,7 +476,7 @@ def build_for_scene(scene) -> Optional[tuple[ConstrainedDifferentialIK, PyBullet
     if not config.enabled:
         return None
     kinematics = PyBulletKinematics("kuka_iiwa/model.urdf", scene.base_frame.position, scene.base_frame.quaternion,
-                                    scene.joints, scene.ee, TCP_OFFSET)
+                                    scene.joints, scene.ee, scene.gripper_geometry.tcp_offset)
     q0 = [p.getJointState(scene.robot, j, physicsClientId=scene.cid)[0] for j in scene.joints]
     limits = np.asarray(scene.limits, float)
     return ConstrainedDifferentialIK(kinematics.fk, limits[:, 0], limits[:, 1], config, q0), kinematics

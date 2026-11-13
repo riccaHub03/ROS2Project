@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from pathlib import Path
 from typing import List, Optional
 
 from pipeline import grasp, plan
@@ -48,6 +49,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--vision", choices=["sam3", "ground-truth"], default="sam3",
                         help="SAM 3, or the diagnostic ground-truth mask rendered by the simulator (skips SAM 3)")
     parser.add_argument("--no-motion", action="store_true", help="Show the grasp without moving the robot")
+    parser.add_argument("--graspgen-sim-motion", action="store_true",
+                        help="PyBullet only: nominal Robotiq proxy, checked trajectory and ideal attachment; never hardware")
     parser.add_argument("--exit-after-run", action="store_true", help="Close the window when the run ends")
     grasp.add_backend_arguments(parser)
     return parser
@@ -94,6 +97,16 @@ def build_steps(args: argparse.Namespace, instruction: str, mode: str) -> List[S
 def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.graspgen_sim_motion:
+        if args.grasp_backend != "graspgen" or not (args.gui or args.headless):
+            parser.error("--graspgen-sim-motion requires --grasp-backend graspgen and --gui or --headless")
+        if args.mode == "all" or args.from_stage or args.stop_after:
+            parser.error("--graspgen-sim-motion runs a fresh single-object scene; no --from-stage/--stop-after")
+        if not args.out_dir:
+            parser.error("--graspgen-sim-motion requires a new --out-dir to preserve previous results")
+        if any((Path(args.out_dir) / name).exists() for name in (paths.GRASP, paths.SIM_CAPTURE, "graphical_run.json")):
+            parser.error("Output already contains a run; choose a new --out-dir")
+        args.mode = "single"
     setup_logging(args.verbose)
     if args.list_tools:
         print_catalog()

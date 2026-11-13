@@ -1,0 +1,2 @@
+# Asset preparation only; not installed into the GraspGen GPU image.
+xacro==2.1.1

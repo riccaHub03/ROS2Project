@@ -47,11 +47,17 @@ def build_dockerfile(code):
     """Fix an ephemeral copy, never the official tree. Python 3.10 needs no pickle5."""
     source = (Path(code) / "docker/graspgen_cuda121.dockerfile").read_text()
     fixes = {
+        "FROM nvcr.io/nvidia/pytorch:23.07-py3 AS base":
+            "FROM nvcr.io/nvidia/pytorch:23.07-py3 AS base\n"
+            "# The retired NGC pip mirror causes DNS retries for every package.\n"
+            "ENV PIP_CONFIG_FILE=/dev/null PIP_NO_CACHE_DIR=1",
         "RUN pip install --upgrade pip": "RUN pip install 'pip<25.3' 'setuptools<78' wheel numpy==1.26.4",
         "RUN pip install torch==2.1.0 torchvision": "RUN pip install torch==2.1.0 torchvision==0.16.0 numpy==1.26.4",
         "RUN pip install imageio pickle5 opencv-python python-fcl":
             "RUN pip install imageio 'opencv-python<4.12' python-fcl",
-        "RUN pip install ./pointnet2_ops": "RUN TORCH_CUDA_ARCH_LIST='7.5;8.0;8.6;8.9;9.0' pip install --no-build-isolation ./pointnet2_ops",
+        # Ninja otherwise starts CPU-count + 2 compiler jobs, which can exhaust
+        # RAM on a 16 GB desktop while compiling CUDA for several architectures.
+        "RUN pip install ./pointnet2_ops": "RUN MAX_JOBS=1 TORCH_CUDA_ARCH_LIST='7.5;8.0;8.6;8.9;9.0' pip install --no-build-isolation ./pointnet2_ops",
         "torch-2.1.2+cu121.html": "torch-2.1.0+cu121.html",
     }
     for old, new in fixes.items():
