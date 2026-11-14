@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "stage": "sim_segmentation",
+  "status": "COMPLETED",
+  "timestamp": "2026-11-14T13:09:27.414924",
+  "duration_s": 44.423,
+  "inputs": {
+    "plan": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/plan.json",
+    "capture": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_capture.json"
+  },
+  "artifacts": {
+    "mask_png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_segmentation_mask.png",
+    "overlay_png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_segmentation_overlay.png"
+  },
+  "data": {
+    "segmentation_backend": "sam3",
+    "prompts_tried": [
+      "forceps"
+    ],
+    "prompt_used": "forceps",
+    "num_instances": 200,
+    "confidence_score": 0.8981,
+    "active_pixel_count": 919,
+    "bbox_2d_pixels": [
+      364,
+      178,
+      461,
+      264
+    ],
+    "centroid_2d_pixels": [
+      414.96,
+      224.16
+    ],
+    "model_id": "/workspace/data/external/sam3-prepared"
+  },
+  "warnings": [],
+  "error": null
+}

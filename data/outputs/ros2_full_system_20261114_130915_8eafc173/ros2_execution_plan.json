@@ -1,0 +1,196 @@
+{
+  "run_id": "ros2_full_system_20261114_130915_8eafc173",
+  "execution_scope": "pybullet_only",
+  "joint_names": [
+    "lbr_A1",
+    "lbr_A2",
+    "lbr_A3",
+    "lbr_A4",
+    "lbr_A5",
+    "lbr_A6",
+    "lbr_A7"
+  ],
+  "sample_period_s": 0.004166666666666667,
+  "trajectory_file": "graspgen_sim_joint_path.npz",
+  "trajectory_sha256": "3fb14445a909eda0166f326ba668ef017602da5533674caa54d3b68fff58f16a",
+  "phases": [
+    {
+      "index": 0,
+      "label": "Approach",
+      "kind": "arm",
+      "event": null,
+      "samples_key": "phase_0",
+      "duration_s": 12.504166666666666,
+      "start_width": 0.136,
+      "end_width": 0.136
+    },
+    {
+      "index": 1,
+      "label": "Descend",
+      "kind": "arm",
+      "event": null,
+      "samples_key": "phase_1",
+      "duration_s": 4.933333333333334,
+      "start_width": 0.136,
+      "end_width": 0.136
+    },
+    {
+      "index": 2,
+      "label": "Close gripper - ideal constraint",
+      "kind": "gripper",
+      "event": "attach",
+      "samples_key": "phase_2",
+      "duration_s": 0.6,
+      "start_width": 0.136,
+      "end_width": 0.019925781250000003
+    },
+    {
+      "index": 3,
+      "label": "Lift",
+      "kind": "arm",
+      "event": null,
+      "samples_key": "phase_3",
+      "duration_s": 8.845833333333333,
+      "start_width": 0.019925781250000003,
+      "end_width": 0.019925781250000003
+    },
+    {
+      "index": 4,
+      "label": "Transfer",
+      "kind": "arm",
+      "event": null,
+      "samples_key": "phase_4",
+      "duration_s": 15.679166666666667,
+      "start_width": 0.019925781250000003,
+      "end_width": 0.019925781250000003
+    },
+    {
+      "index": 5,
+      "label": "Place",
+      "kind": "arm",
+      "event": null,
+      "samples_key": "phase_5",
+      "duration_s": 10.770833333333334,
+      "start_width": 0.019925781250000003,
+      "end_width": 0.019925781250000003
+    },
+    {
+      "index": 6,
+      "label": "Open gripper",
+      "kind": "gripper",
+      "event": "release",
+      "samples_key": "phase_6",
+      "duration_s": 0.6,
+      "start_width": 0.019925781250000003,
+      "end_width": 0.136
+    },
+    {
+      "index": 7,
+      "label": "Retreat",
+      "kind": "arm",
+      "event": null,
+      "samples_key": "phase_7",
+      "duration_s": 5.616666666666666,
+      "start_width": 0.136,
+      "end_width": 0.136
+    },
+    {
+      "index": 8,
+      "label": "Return",
+      "kind": "arm",
+      "event": null,
+      "samples_key": "phase_8",
+      "duration_s": 10.279166666666667,
+      "start_width": 0.136,
+      "end_width": 0.136
+    }
+  ],
+  "robot_description": {
+    "model": "iiwa7_r800",
+    "urdf": "/workspace/data/external/iiwa7-prepared/iiwa7.urdf",
+    "model_sha256": "4bf620e8f56cff91ad36d3a7f16dcd9219e348c7859afe267167627e662e8888",
+    "urdf_sha256": "2638a46c24f59b4da3958c568877177f9978019477f462ee31ca64da3f9c14aa",
+    "source": {
+      "repository": "https://github.com/lbr-stack/lbr_fri_ros2_stack.git",
+      "revision": "52f816bd59cbd2390efc890cca0ad61389e4ccb3"
+    },
+    "base_link": "lbr_link_0",
+    "flange_link": "lbr_link_ee",
+    "native_joint_names": [
+      "lbr_A1",
+      "lbr_A2",
+      "lbr_A3",
+      "lbr_A4",
+      "lbr_A5",
+      "lbr_A6",
+      "lbr_A7"
+    ],
+    "command_joint_names": [
+      "lbr_A1",
+      "lbr_A2",
+      "lbr_A3",
+      "lbr_A4",
+      "lbr_A5",
+      "lbr_A6",
+      "lbr_A7"
+    ],
+    "lower_limits_rad": [
+      -2.9670597283903604,
+      -2.0943951023931953,
+      -2.9670597283903604,
+      -2.0943951023931953,
+      -2.9670597283903604,
+      -2.0943951023931953,
+      -3.0543261909900763
+    ],
+    "upper_limits_rad": [
+      2.9670597283903604,
+      2.0943951023931953,
+      2.9670597283903604,
+      2.0943951023931953,
+      2.9670597283903604,
+      2.0943951023931953,
+      3.0543261909900763
+    ],
+    "velocity_limits_rad_s": [
+      1.710422666954443,
+      1.710422666954443,
+      1.7453292519943295,
+      2.2689280275926285,
+      2.443460952792061,
+      3.141592653589793,
+      3.141592653589793
+    ],
+    "effort_limits_nm": [
+      200.0,
+      200.0,
+      200.0,
+      200.0,
+      200.0,
+      200.0,
+      200.0
+    ],
+    "home_positions_rad": [
+      0.0,
+      0.35,
+      0.0,
+      -1.3,
+      0.0,
+      1.0,
+      0.0
+    ],
+    "gripper": "robotiq_2f_140_official_meshes",
+    "tcp_offset_flange_xyz_m": [
+      0.0,
+      0.0,
+      0.195
+    ],
+    "tcp_orientation_flange_xyzw": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tcp_calibration": "nominal simulation mounting, not physically measured"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "schema_version": 2,
+  "stage": "ros2_run",
+  "status": "COMPLETED",
+  "timestamp": "2026-11-14T13:14:02.670669",
+  "duration_s": null,
+  "inputs": {},
+  "artifacts": {},
+  "data": {
+    "namespace": "/surgical_sim/run_7399af70f181",
+    "evidence": {
+      "rgbd_received_via_ros2": true,
+      "arm_actions_succeeded": 7,
+      "gripper_actions_succeeded": 2,
+      "measured_joint_messages": 4235,
+      "action_feedback_messages": 1330,
+      "placement_verified": true
+    },
+    "actions": [
+      {
+        "index": 0,
+        "kind": "arm",
+        "label": "Approach",
+        "status": "SUCCEEDED",
+        "feedback_messages": 236
+      },
+      {
+        "index": 1,
+        "kind": "arm",
+        "label": "Descend",
+        "status": "SUCCEEDED",
+        "feedback_messages": 96
+      },
+      {
+        "index": 2,
+        "kind": "gripper",
+        "label": "Close gripper - ideal constraint",
+        "status": "SUCCEEDED",
+        "feedback_messages": 11
+      },
+      {
+        "index": 3,
+        "kind": "arm",
+        "label": "Lift",
+        "status": "SUCCEEDED",
+        "feedback_messages": 174
+      },
+      {
+        "index": 4,
+        "kind": "arm",
+        "label": "Transfer",
+        "status": "SUCCEEDED",
+        "feedback_messages": 288
+      },
+      {
+        "index": 5,
+        "kind": "arm",
+        "label": "Place",
+        "status": "SUCCEEDED",
+        "feedback_messages": 211
+      },
+      {
+        "index": 6,
+        "kind": "gripper",
+        "label": "Open gripper",
+        "status": "SUCCEEDED",
+        "feedback_messages": 12
+      },
+      {
+        "index": 7,
+        "kind": "arm",
+        "label": "Retreat",
+        "status": "SUCCEEDED",
+        "feedback_messages": 110
+      },
+      {
+        "index": 8,
+        "kind": "arm",
+        "label": "Return",
+        "status": "SUCCEEDED",
+        "feedback_messages": 192
+      }
+    ],
+    "execution_scope": "pybullet_only",
+    "physical_grasp_validated": false
+  },
+  "warnings": [],
+  "error": null
+}

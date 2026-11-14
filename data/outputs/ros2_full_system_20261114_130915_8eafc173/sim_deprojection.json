@@ -1,0 +1,172 @@
+{
+  "schema_version": 2,
+  "stage": "sim_deprojection",
+  "status": "COMPLETED",
+  "timestamp": "2026-11-14T13:10:11.839068",
+  "duration_s": 0.507,
+  "inputs": {
+    "segmentation": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_segmentation.json",
+    "capture": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_capture.json",
+    "config": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/environment.yaml"
+  },
+  "artifacts": {
+    "pointcloud_ply": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_deprojection_cloud.ply",
+    "frames_png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_deprojection_frames.png"
+  },
+  "data": {
+    "pointcloud_units": "m",
+    "geometry_verified_for_motion": false,
+    "geometry_verification_note": "Simulator reconstruction; calibration/contact not validated",
+    "num_points": 919,
+    "centroid_source": "optical",
+    "coordinate_frame_id": "lbr_link_0",
+    "robot_base_pose_world": {
+      "parent_frame_id": "world",
+      "frame_id": "lbr_link_0",
+      "position_xyz_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation_rpy_rad": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "robot_description": {
+      "model": "iiwa7_r800",
+      "urdf": "/workspace/data/external/iiwa7-prepared/iiwa7.urdf",
+      "model_sha256": "4bf620e8f56cff91ad36d3a7f16dcd9219e348c7859afe267167627e662e8888",
+      "urdf_sha256": "2638a46c24f59b4da3958c568877177f9978019477f462ee31ca64da3f9c14aa",
+      "source": {
+        "repository": "https://github.com/lbr-stack/lbr_fri_ros2_stack.git",
+        "revision": "52f816bd59cbd2390efc890cca0ad61389e4ccb3"
+      },
+      "base_link": "lbr_link_0",
+      "flange_link": "lbr_link_ee",
+      "native_joint_names": [
+        "lbr_A1",
+        "lbr_A2",
+        "lbr_A3",
+        "lbr_A4",
+        "lbr_A5",
+        "lbr_A6",
+        "lbr_A7"
+      ],
+      "command_joint_names": [
+        "lbr_A1",
+        "lbr_A2",
+        "lbr_A3",
+        "lbr_A4",
+        "lbr_A5",
+        "lbr_A6",
+        "lbr_A7"
+      ],
+      "lower_limits_rad": [
+        -2.9670597283903604,
+        -2.0943951023931953,
+        -2.9670597283903604,
+        -2.0943951023931953,
+        -2.9670597283903604,
+        -2.0943951023931953,
+        -3.0543261909900763
+      ],
+      "upper_limits_rad": [
+        2.9670597283903604,
+        2.0943951023931953,
+        2.9670597283903604,
+        2.0943951023931953,
+        2.9670597283903604,
+        2.0943951023931953,
+        3.0543261909900763
+      ],
+      "velocity_limits_rad_s": [
+        1.710422666954443,
+        1.710422666954443,
+        1.7453292519943295,
+        2.2689280275926285,
+        2.443460952792061,
+        3.141592653589793,
+        3.141592653589793
+      ],
+      "effort_limits_nm": [
+        200.0,
+        200.0,
+        200.0,
+        200.0,
+        200.0,
+        200.0,
+        200.0
+      ],
+      "home_positions_rad": [
+        0.0,
+        0.35,
+        0.0,
+        -1.3,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "gripper": "robotiq_2f_140_official_meshes",
+      "tcp_offset_flange_xyz_m": [
+        0.0,
+        0.0,
+        0.195
+      ],
+      "tcp_orientation_flange_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "tcp_calibration": "nominal simulation mounting, not physically measured"
+    },
+    "frames": {
+      "camera_optical_frame": [
+        0.1622,
+        -0.027,
+        1.0505
+      ],
+      "robot_base_frame": [
+        0.573,
+        -0.2578,
+        0.0995
+      ],
+      "world_frame": [
+        0.573,
+        -0.2578,
+        0.0995
+      ],
+      "end_effector_frame": [
+        -0.123,
+        -0.2578,
+        0.3505
+      ]
+    },
+    "ground_truth_validation": {
+      "ground_truth_xyz_m": [
+        0.5749,
+        -0.2574,
+        0.0975
+      ],
+      "reconstructed_xyz_m": [
+        0.573,
+        -0.2578,
+        0.0995
+      ],
+      "frame_id": "world",
+      "error_mm": 2.84
+    },
+    "ee_reference_source": "nominal",
+    "motion_safe": true
+  },
+  "warnings": [],
+  "error": null
+}

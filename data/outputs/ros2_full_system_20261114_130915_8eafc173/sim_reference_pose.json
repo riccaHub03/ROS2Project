@@ -1,0 +1,72 @@
+{
+  "schema_version": 2,
+  "stage": "sim_reference_pose",
+  "status": "COMPLETED",
+  "timestamp": "2026-11-14T13:09:24.984719",
+  "duration_s": null,
+  "inputs": {
+    "plan": "in-memory"
+  },
+  "artifacts": {
+    "placement_png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_robot_scene.png"
+  },
+  "data": {
+    "target_instrument": "Bone Forceps",
+    "source_stl_file": "/workspace/data/inputs/Surgical Instruments/Bone Forceps/Bone Forceps 1/Leo Bone Holding Forceps 1 SmoothFusion.stl",
+    "source_tray": "tray_2",
+    "stl_dimensions_m": {
+      "length_v1": 0.20565742103490664,
+      "width_v2": 0.04718288735918846,
+      "thickness_v3": 0.013086743836092492
+    },
+    "pose": {
+      "position_xyz_m": [
+        0.5749,
+        -0.2574,
+        0.0975
+      ],
+      "orientation_xyzw": [
+        0.0,
+        0.0,
+        0.41717,
+        0.90883
+      ]
+    },
+    "pose_base_frame": {
+      "position_xyz_m": [
+        0.5749312019813965,
+        -0.2574492059675566,
+        0.09754337191804625
+      ],
+      "orientation_xyzw": [
+        0.0,
+        0.0,
+        0.4171699702580925,
+        0.9088284854222288
+      ]
+    },
+    "robot_base_pose_world": {
+      "parent_frame_id": "world",
+      "frame_id": "lbr_link_0",
+      "position_xyz_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation_rpy_rad": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "pose_source": "same_pybullet_scene_as_rgbd"
+  },
+  "warnings": [],
+  "error": null
+}

@@ -1,0 +1,336 @@
+{
+  "schema_version": 1,
+  "run_id": "ros2_full_system_20261114_130915_8eafc173",
+  "request_id": "e446ae1d41724ec1b5e617052de3f9a7",
+  "profile": "full_system",
+  "transport": "ros2",
+  "status": "COMPLETED",
+  "settings": {
+    "planner": "ollama",
+    "vision": "sam3",
+    "strict": true,
+    "scene_tool": "Bone Forceps",
+    "environment": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/environment.yaml",
+    "graspgen_config": "/workspace/config/graspgen_simulation.yaml",
+    "ollama_url": "http://127.0.0.1:11434/v1/chat/completions",
+    "llm_model": "qwen2.5:3b",
+    "llm_timeout_s": 120,
+    "sam3_model": "/workspace/data/external/sam3-prepared",
+    "profile": "full_system",
+    "motion_speed": 1.0
+  },
+  "instruction": "Pick up the Bone Forceps from tray 2 and place it in tray 1.",
+  "seed": 42,
+  "namespace": "/surgical_sim/run_7399af70f181",
+  "started_at": "2026-11-14T13:09:15.053562+00:00",
+  "preflight": [
+    {
+      "name": "ros2_runtime",
+      "ok": true,
+      "detail": {
+        "distro": "humble",
+        "python": "3.10.12"
+      }
+    },
+    {
+      "name": "simulation_dependencies",
+      "ok": true,
+      "detail": "Simulation and client imports available"
+    },
+    {
+      "name": "scene_assets",
+      "ok": true,
+      "detail": {
+        "mesh": "/workspace/data/inputs/Surgical Instruments/Bone Forceps/Bone Forceps 1/Leo Bone Holding Forceps 1 SmoothFusion.stl",
+        "gripper": "robotiq_2f_140_official_meshes",
+        "robot": {
+          "model": "iiwa7_r800",
+          "urdf": "/workspace/data/external/iiwa7-prepared/iiwa7.urdf",
+          "model_sha256": "4bf620e8f56cff91ad36d3a7f16dcd9219e348c7859afe267167627e662e8888",
+          "urdf_sha256": "2638a46c24f59b4da3958c568877177f9978019477f462ee31ca64da3f9c14aa",
+          "source": {
+            "repository": "https://github.com/lbr-stack/lbr_fri_ros2_stack.git",
+            "revision": "52f816bd59cbd2390efc890cca0ad61389e4ccb3"
+          },
+          "base_link": "lbr_link_0",
+          "flange_link": "lbr_link_ee",
+          "native_joint_names": [
+            "lbr_A1",
+            "lbr_A2",
+            "lbr_A3",
+            "lbr_A4",
+            "lbr_A5",
+            "lbr_A6",
+            "lbr_A7"
+          ],
+          "command_joint_names": [
+            "lbr_A1",
+            "lbr_A2",
+            "lbr_A3",
+            "lbr_A4",
+            "lbr_A5",
+            "lbr_A6",
+            "lbr_A7"
+          ],
+          "lower_limits_rad": [
+            -2.9670597283903604,
+            -2.0943951023931953,
+            -2.9670597283903604,
+            -2.0943951023931953,
+            -2.9670597283903604,
+            -2.0943951023931953,
+            -3.0543261909900763
+          ],
+          "upper_limits_rad": [
+            2.9670597283903604,
+            2.0943951023931953,
+            2.9670597283903604,
+            2.0943951023931953,
+            2.9670597283903604,
+            2.0943951023931953,
+            3.0543261909900763
+          ],
+          "velocity_limits_rad_s": [
+            1.710422666954443,
+            1.710422666954443,
+            1.7453292519943295,
+            2.2689280275926285,
+            2.443460952792061,
+            3.141592653589793,
+            3.141592653589793
+          ],
+          "effort_limits_nm": [
+            200.0,
+            200.0,
+            200.0,
+            200.0,
+            200.0,
+            200.0,
+            200.0
+          ],
+          "home_positions_rad": [
+            0.0,
+            0.35,
+            0.0,
+            -1.3,
+            0.0,
+            1.0,
+            0.0
+          ],
+          "gripper": "robotiq_2f_140_official_meshes",
+          "tcp_offset_flange_xyz_m": [
+            0.0,
+            0.0,
+            0.195
+          ],
+          "tcp_orientation_flange_xyzw": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "tcp_calibration": "nominal simulation mounting, not physically measured"
+        }
+      }
+    },
+    {
+      "name": "ollama",
+      "ok": true,
+      "detail": {
+        "model": "qwen2.5:3b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      }
+    },
+    {
+      "name": "sam3",
+      "ok": true,
+      "detail": {
+        "model": "/workspace/data/external/sam3-prepared",
+        "device": "cpu",
+        "validation": "cache and imports; actual load/inference at segmentation"
+      }
+    },
+    {
+      "name": "graspgen",
+      "ok": true,
+      "detail": {
+        "gripper_name": "robotiq_2f_140",
+        "model_name": "diffusion-discriminator",
+        "gripper_config": "/models/checkpoints/graspgen_robotiq_2f_140.yml",
+        "ros2project": {
+          "config": "/models/checkpoints/graspgen_robotiq_2f_140.yml",
+          "config_sha256": "93804f423ec02def08add164d83379212204ddc33779cd273ffffdacf94f67f3",
+          "gripper": "robotiq_2f_140",
+          "backbones": {
+            "diffusion": "pointnet",
+            "discriminator": "pointnet"
+          },
+          "generator_checkpoint": "/models/checkpoints/graspgen_robotiq_2f_140_gen.pth",
+          "generator_sha256": "fe8497108e39d8fc50be06cd7df22a2f680e0495e713d24c3104616f291e00dd",
+          "discriminator_checkpoint": "/models/checkpoints/graspgen_robotiq_2f_140_dis.pth",
+          "discriminator_sha256": "52f68d3cd3decb71499e084fdb88808d174419a72cd9ef38f821083a4409895d",
+          "revision": "2dd8852e1be60f5f9d277fafcc621835cdf59110",
+          "planner": "diffusion"
+        }
+      }
+    }
+  ],
+  "source_commit": "933bf449c8994f163388aff54f31b045def98164",
+  "source_worktree_dirty": true,
+  "robot_description": {
+    "model": "iiwa7_r800",
+    "urdf": "/workspace/data/external/iiwa7-prepared/iiwa7.urdf",
+    "model_sha256": "4bf620e8f56cff91ad36d3a7f16dcd9219e348c7859afe267167627e662e8888",
+    "urdf_sha256": "2638a46c24f59b4da3958c568877177f9978019477f462ee31ca64da3f9c14aa",
+    "source": {
+      "repository": "https://github.com/lbr-stack/lbr_fri_ros2_stack.git",
+      "revision": "52f816bd59cbd2390efc890cca0ad61389e4ccb3"
+    },
+    "base_link": "lbr_link_0",
+    "flange_link": "lbr_link_ee",
+    "native_joint_names": [
+      "lbr_A1",
+      "lbr_A2",
+      "lbr_A3",
+      "lbr_A4",
+      "lbr_A5",
+      "lbr_A6",
+      "lbr_A7"
+    ],
+    "command_joint_names": [
+      "lbr_A1",
+      "lbr_A2",
+      "lbr_A3",
+      "lbr_A4",
+      "lbr_A5",
+      "lbr_A6",
+      "lbr_A7"
+    ],
+    "lower_limits_rad": [
+      -2.9670597283903604,
+      -2.0943951023931953,
+      -2.9670597283903604,
+      -2.0943951023931953,
+      -2.9670597283903604,
+      -2.0943951023931953,
+      -3.0543261909900763
+    ],
+    "upper_limits_rad": [
+      2.9670597283903604,
+      2.0943951023931953,
+      2.9670597283903604,
+      2.0943951023931953,
+      2.9670597283903604,
+      2.0943951023931953,
+      3.0543261909900763
+    ],
+    "velocity_limits_rad_s": [
+      1.710422666954443,
+      1.710422666954443,
+      1.7453292519943295,
+      2.2689280275926285,
+      2.443460952792061,
+      3.141592653589793,
+      3.141592653589793
+    ],
+    "effort_limits_nm": [
+      200.0,
+      200.0,
+      200.0,
+      200.0,
+      200.0,
+      200.0,
+      200.0
+    ],
+    "home_positions_rad": [
+      0.0,
+      0.35,
+      0.0,
+      -1.3,
+      0.0,
+      1.0,
+      0.0
+    ],
+    "gripper": "robotiq_2f_140_official_meshes",
+    "tcp_offset_flange_xyz_m": [
+      0.0,
+      0.0,
+      0.195
+    ],
+    "tcp_orientation_flange_xyzw": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tcp_calibration": "nominal simulation mounting, not physically measured"
+  },
+  "validation_mode": "live",
+  "environment_sha256": "eb431a3a76763f61a885c2b471b8c80e6015b076fea7abfb3c6d66bd25fe938f",
+  "finished_at": "2026-11-14T13:14:02.944709+00:00",
+  "evidence": {
+    "task_llm_used": true,
+    "segmentation_sam3_used": true,
+    "graspgen_used": true,
+    "motion_checks_passed": true,
+    "placement_verified": true,
+    "physical_grasp_validated": false,
+    "ros2_rgbd_used": true,
+    "ros2_arm_actions_used": true,
+    "ros2_gripper_actions_used": true,
+    "ros2_feedback_received": true
+  },
+  "error": null,
+  "actual_backends": {
+    "planner": "ollama",
+    "planner_model": "qwen2.5:3b",
+    "segmentation": "sam3",
+    "sam3_model": "/workspace/data/external/sam3-prepared",
+    "grasp": "graspgen"
+  },
+  "stages": {
+    "plan.json": "COMPLETED",
+    "sim_capture.json": "COMPLETED",
+    "sim_segmentation.json": "COMPLETED",
+    "sim_deprojection.json": "COMPLETED",
+    "grasp_graspgen.json": "COMPLETED",
+    "graspgen_sim_motion_validation.json": "COMPLETED",
+    "sim_robot_motion.json": "COMPLETED"
+  },
+  "artifacts": {
+    "environment.yaml": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/environment.yaml",
+    "grasp.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/grasp.json",
+    "grasp_graspgen.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/grasp_graspgen.json",
+    "grasp_graspgen_candidates.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/grasp_graspgen_candidates.json",
+    "grasp_graspgen_input_centered.npy": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/grasp_graspgen_input_centered.npy",
+    "grasp_graspgen_input_centered.ply": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/grasp_graspgen_input_centered.ply",
+    "grasp_graspgen_overview.png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/grasp_graspgen_overview.png",
+    "grasp_simulation_selection.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/grasp_simulation_selection.json",
+    "graspgen_sim_joint_path.npz": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/graspgen_sim_joint_path.npz",
+    "graspgen_sim_motion_validation.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/graspgen_sim_motion_validation.json",
+    "plan.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/plan.json",
+    "ros2_execution_plan.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/ros2_execution_plan.json",
+    "ros2_measured_joint_states.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/ros2_measured_joint_states.json",
+    "ros2_request.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/ros2_request.json",
+    "ros2_run.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/ros2_run.json",
+    "ros2_simulation.log": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/ros2_simulation.log",
+    "run_manifest.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/run_manifest.json",
+    "runtime_versions.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/runtime_versions.json",
+    "sim_capture.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_capture.json",
+    "sim_capture_depth.npy": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_capture_depth.npy",
+    "sim_capture_depth_vis.png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_capture_depth_vis.png",
+    "sim_capture_rgb.png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_capture_rgb.png",
+    "sim_capture_truth_mask.png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_capture_truth_mask.png",
+    "sim_deprojection.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_deprojection.json",
+    "sim_deprojection_cloud.ply": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_deprojection_cloud.ply",
+    "sim_deprojection_frames.png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_deprojection_frames.png",
+    "sim_reference_pose.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_reference_pose.json",
+    "sim_robot_grasp.png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_robot_grasp.png",
+    "sim_robot_motion.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_robot_motion.json",
+    "sim_robot_result.png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_robot_result.png",
+    "sim_robot_scene.png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_robot_scene.png",
+    "sim_segmentation.json": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_segmentation.json",
+    "sim_segmentation_mask.png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_segmentation_mask.png",
+    "sim_segmentation_overlay.png": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_segmentation_overlay.png"
+  }
+}

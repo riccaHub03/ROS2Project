@@ -1,0 +1,24 @@
+{
+  "schema_version": 2,
+  "stage": "plan",
+  "status": "COMPLETED",
+  "timestamp": "2026-11-14T13:09:15.548277",
+  "duration_s": 8.212,
+  "inputs": {
+    "config": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/environment.yaml"
+  },
+  "artifacts": {},
+  "data": {
+    "instruction": "Pick up the Bone Forceps from tray 2 and place it in tray 1.",
+    "action": "pick_and_place",
+    "target_instrument": "Bone Forceps",
+    "target_keyword": "forceps",
+    "source_tray": "tray_2",
+    "destination_tray": "tray_1",
+    "planner_backend": "ollama",
+    "planner_model": "qwen2.5:3b",
+    "planner_endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "warnings": [],
+  "error": null
+}

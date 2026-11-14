@@ -1,0 +1,1536 @@
+{
+  "schema_version": 2,
+  "stage": "graspgen_sim_motion_validation",
+  "status": "COMPLETED",
+  "timestamp": "2026-11-14T13:12:50.747525",
+  "duration_s": null,
+  "inputs": {},
+  "artifacts": {},
+  "data": {
+    "allowed": true,
+    "execution_scope": "pybullet_only",
+    "gripper_model": "robotiq_2f_140_official_meshes",
+    "run_id": "ros2_full_system_20261114_130915_8eafc173",
+    "physical_grasp_validated": false,
+    "attempts": [
+      {
+        "server_index": 0,
+        "score_rank": 1,
+        "score": 0.9409812688827515,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -15.9 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.481
+      },
+      {
+        "server_index": 1,
+        "score_rank": 2,
+        "score": 0.9389560222625732,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -13.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.676
+      },
+      {
+        "server_index": 2,
+        "score_rank": 3,
+        "score": 0.936732292175293,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -16.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.666
+      },
+      {
+        "server_index": 3,
+        "score_rank": 4,
+        "score": 0.9310123920440674,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -17.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.725
+      },
+      {
+        "server_index": 4,
+        "score_rank": 5,
+        "score": 0.930272102355957,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -15.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.704
+      },
+      {
+        "server_index": 5,
+        "score_rank": 6,
+        "score": 0.9299427270889282,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_knuckle: -2.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.72
+      },
+      {
+        "server_index": 6,
+        "score_rank": 7,
+        "score": 0.9294679164886475,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_knuckle: 9.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.71
+      },
+      {
+        "server_index": 7,
+        "score_rank": 8,
+        "score": 0.9272319674491882,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_knuckle: 2.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.677
+      },
+      {
+        "server_index": 8,
+        "score_rank": 9,
+        "score": 0.9269914627075195,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_knuckle: 4.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.69
+      },
+      {
+        "server_index": 9,
+        "score_rank": 10,
+        "score": 0.9246354103088379,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -15.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.733
+      },
+      {
+        "server_index": 10,
+        "score_rank": 11,
+        "score": 0.9230690598487854,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -17.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.726
+      },
+      {
+        "server_index": 11,
+        "score_rank": 12,
+        "score": 0.9184704422950745,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -13.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.697
+      },
+      {
+        "server_index": 12,
+        "score_rank": 13,
+        "score": 0.9179924130439758,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -15.9 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.728
+      },
+      {
+        "server_index": 13,
+        "score_rank": 14,
+        "score": 0.9169490933418274,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -8.9 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.693
+      },
+      {
+        "server_index": 14,
+        "score_rank": 15,
+        "score": 0.9116249680519104,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -10.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.732
+      },
+      {
+        "server_index": 15,
+        "score_rank": 16,
+        "score": 0.9096642732620239,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -17.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.682
+      },
+      {
+        "server_index": 16,
+        "score_rank": 17,
+        "score": 0.9078195095062256,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -64.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.707
+      },
+      {
+        "server_index": 17,
+        "score_rank": 18,
+        "score": 0.9064173698425293,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -16.7 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.693
+      },
+      {
+        "server_index": 18,
+        "score_rank": 19,
+        "score": 0.9054433107376099,
+        "reason": "No collision-free IK: Simulation path collision: arm self-collision link 4 <-> link 6: 1.3 mm",
+        "phase": "grasp-to-pregrasp Cartesian corridor",
+        "elapsed_s": 1.63
+      },
+      {
+        "server_index": 19,
+        "score_rank": 20,
+        "score": 0.9048470258712769,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_knuckle: 6.8 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.701
+      },
+      {
+        "server_index": 20,
+        "score_rank": 21,
+        "score": 0.9044740796089172,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -103.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.714
+      },
+      {
+        "server_index": 21,
+        "score_rank": 22,
+        "score": 0.9035835862159729,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -12.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.741
+      },
+      {
+        "server_index": 22,
+        "score_rank": 23,
+        "score": 0.9034743905067444,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -8.8 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.719
+      },
+      {
+        "server_index": 23,
+        "score_rank": 24,
+        "score": 0.9027340412139893,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -8.9 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.71
+      },
+      {
+        "server_index": 24,
+        "score_rank": 25,
+        "score": 0.9021846652030945,
+        "reason": "No collision-free IK: IK pose tolerance / joint limits",
+        "phase": "grasp IK (multiple seeds)",
+        "elapsed_s": 1.602
+      },
+      {
+        "server_index": 25,
+        "score_rank": 26,
+        "score": 0.9013382196426392,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_inner_finger_pad: -14.8 mm (< 0.5) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.731
+      },
+      {
+        "server_index": 26,
+        "score_rank": 27,
+        "score": 0.9009810090065002,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -22.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.714
+      },
+      {
+        "server_index": 27,
+        "score_rank": 28,
+        "score": 0.9005565643310547,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -24.2 mm (< 10.0) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.729
+      },
+      {
+        "server_index": 28,
+        "score_rank": 29,
+        "score": 0.9004942178726196,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -58.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.713
+      },
+      {
+        "server_index": 29,
+        "score_rank": 30,
+        "score": 0.8997549414634705,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -20.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.725
+      },
+      {
+        "server_index": 30,
+        "score_rank": 31,
+        "score": 0.8989381194114685,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_inner_finger_pad: -12.5 mm (< 0.5) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.741
+      },
+      {
+        "server_index": 31,
+        "score_rank": 32,
+        "score": 0.8989014029502869,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -12.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.707
+      },
+      {
+        "server_index": 32,
+        "score_rank": 33,
+        "score": 0.8980099558830261,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -13.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.649
+      },
+      {
+        "server_index": 33,
+        "score_rank": 34,
+        "score": 0.89632248878479,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -11.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.691
+      },
+      {
+        "server_index": 34,
+        "score_rank": 35,
+        "score": 0.8942857980728149,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -15.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.666
+      },
+      {
+        "server_index": 35,
+        "score_rank": 36,
+        "score": 0.8937431573867798,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -4.2 mm (< 10.0) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.662
+      },
+      {
+        "server_index": 36,
+        "score_rank": 37,
+        "score": 0.8927776217460632,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -10.8 mm (< 10.0) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.681
+      },
+      {
+        "server_index": 37,
+        "score_rank": 38,
+        "score": 0.8916988372802734,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -39.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.639
+      },
+      {
+        "server_index": 38,
+        "score_rank": 39,
+        "score": 0.8905353546142578,
+        "reason": "No collision-free IK: IK pose tolerance / joint limits",
+        "phase": "Transfer",
+        "elapsed_s": 4.146
+      },
+      {
+        "server_index": 39,
+        "score_rank": 40,
+        "score": 0.8900213837623596,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -17.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.686
+      },
+      {
+        "server_index": 40,
+        "score_rank": 41,
+        "score": 0.8893989324569702,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -15.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.68
+      },
+      {
+        "server_index": 41,
+        "score_rank": 42,
+        "score": 0.8892136812210083,
+        "reason": "No collision-free IK: Simulation path collision: arm self-collision link 4 <-> link 6: 1.4 mm",
+        "phase": "Lift",
+        "elapsed_s": 2.674
+      },
+      {
+        "server_index": 42,
+        "score_rank": 43,
+        "score": 0.8881180286407471,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -0.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.67
+      },
+      {
+        "server_index": 43,
+        "score_rank": 44,
+        "score": 0.8879945278167725,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -101.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.694
+      },
+      {
+        "server_index": 44,
+        "score_rank": 45,
+        "score": 0.8878425359725952,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: 3.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.672
+      },
+      {
+        "server_index": 45,
+        "score_rank": 46,
+        "score": 0.8863996267318726,
+        "reason": "No collision-free IK: Simulation path collision: arm self-collision link 4 <-> link 6: 1.9 mm",
+        "phase": "grasp-to-pregrasp Cartesian corridor",
+        "elapsed_s": 1.555
+      },
+      {
+        "server_index": 46,
+        "score_rank": 47,
+        "score": 0.8859633803367615,
+        "reason": "No collision-free IK: Simulation path collision: arm self-collision link 4 <-> link 6: 1.0 mm",
+        "phase": "grasp-to-pregrasp Cartesian corridor",
+        "elapsed_s": 1.59
+      },
+      {
+        "server_index": 47,
+        "score_rank": 48,
+        "score": 0.8838686943054199,
+        "reason": "No collision-free IK: Simulation path collision: arm self-collision link 4 <-> link 6: 1.4 mm",
+        "phase": "grasp-to-pregrasp Cartesian corridor",
+        "elapsed_s": 1.523
+      },
+      {
+        "server_index": 48,
+        "score_rank": 49,
+        "score": 0.8836026191711426,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -18.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.655
+      },
+      {
+        "server_index": 49,
+        "score_rank": 50,
+        "score": 0.8798828721046448,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -18.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.649
+      },
+      {
+        "server_index": 50,
+        "score_rank": 51,
+        "score": 0.8790225386619568,
+        "reason": "No collision-free IK: Simulation path collision: arm self-collision link 4 <-> link 6: 1.8 mm",
+        "phase": "grasp-to-pregrasp Cartesian corridor",
+        "elapsed_s": 1.599
+      },
+      {
+        "server_index": 51,
+        "score_rank": 52,
+        "score": 0.8778562545776367,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -17.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.773
+      },
+      {
+        "server_index": 52,
+        "score_rank": 53,
+        "score": 0.8776827454566956,
+        "reason": "No collision-free IK: Simulation path collision: arm self-collision link 4 <-> link 6: 0.7 mm",
+        "phase": "grasp-to-pregrasp Cartesian corridor",
+        "elapsed_s": 1.515
+      },
+      {
+        "server_index": 53,
+        "score_rank": 54,
+        "score": 0.8775532841682434,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -47.8 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.694
+      },
+      {
+        "server_index": 54,
+        "score_rank": 55,
+        "score": 0.8772096037864685,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -109.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.653
+      },
+      {
+        "server_index": 55,
+        "score_rank": 56,
+        "score": 0.877139687538147,
+        "reason": "No collision-free IK: IK pose tolerance / joint limits",
+        "phase": "Transfer",
+        "elapsed_s": 3.28
+      },
+      {
+        "server_index": 56,
+        "score_rank": 57,
+        "score": 0.8767082691192627,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -13.9 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.707
+      },
+      {
+        "server_index": 57,
+        "score_rank": 58,
+        "score": 0.875248372554779,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_knuckle: -1.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.627
+      },
+      {
+        "server_index": 58,
+        "score_rank": 59,
+        "score": 0.8738228678703308,
+        "reason": "No collision-free IK: IK pose tolerance / joint limits",
+        "phase": "Transfer",
+        "elapsed_s": 3.511
+      },
+      {
+        "server_index": 59,
+        "score_rank": 60,
+        "score": 0.8707408905029297,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -3.8 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.69
+      },
+      {
+        "server_index": 60,
+        "score_rank": 61,
+        "score": 0.8701471090316772,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_knuckle: 1.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.682
+      },
+      {
+        "server_index": 61,
+        "score_rank": 62,
+        "score": 0.8687027096748352,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -2.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.66
+      },
+      {
+        "server_index": 62,
+        "score_rank": 63,
+        "score": 0.868593156337738,
+        "reason": "No collision-free IK: Simulation path collision: arm self-collision link 4 <-> link 6: 1.3 mm",
+        "phase": "grasp-to-pregrasp Cartesian corridor",
+        "elapsed_s": 1.562
+      },
+      {
+        "server_index": 63,
+        "score_rank": 64,
+        "score": 0.8660192489624023,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -20.7 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.619
+      },
+      {
+        "server_index": 64,
+        "score_rank": 65,
+        "score": 0.865999698638916,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -112.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.68
+      },
+      {
+        "server_index": 65,
+        "score_rank": 66,
+        "score": 0.8641952276229858,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -18.8 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.656
+      },
+      {
+        "server_index": 66,
+        "score_rank": 67,
+        "score": 0.8639634251594543,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -13.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.649
+      },
+      {
+        "server_index": 67,
+        "score_rank": 68,
+        "score": 0.8633267283439636,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -92.6 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.697
+      },
+      {
+        "server_index": 68,
+        "score_rank": 69,
+        "score": 0.8625093102455139,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -108.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.645
+      },
+      {
+        "server_index": 69,
+        "score_rank": 70,
+        "score": 0.8622411489486694,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: 2.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.723
+      },
+      {
+        "server_index": 70,
+        "score_rank": 71,
+        "score": 0.8602315187454224,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -105.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.701
+      },
+      {
+        "server_index": 71,
+        "score_rank": 72,
+        "score": 0.8566316962242126,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -14.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.675
+      },
+      {
+        "server_index": 72,
+        "score_rank": 73,
+        "score": 0.8564016819000244,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -20.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.681
+      },
+      {
+        "server_index": 73,
+        "score_rank": 74,
+        "score": 0.8562689423561096,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -25.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.671
+      },
+      {
+        "server_index": 74,
+        "score_rank": 75,
+        "score": 0.8555908799171448,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -12.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.649
+      },
+      {
+        "server_index": 75,
+        "score_rank": 76,
+        "score": 0.8549060225486755,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -18.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.644
+      },
+      {
+        "server_index": 76,
+        "score_rank": 77,
+        "score": 0.8540171384811401,
+        "reason": "No collision-free IK: IK pose tolerance / joint limits",
+        "phase": "Transfer",
+        "elapsed_s": 3.922
+      },
+      {
+        "server_index": 77,
+        "score_rank": 78,
+        "score": 0.8518558740615845,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_knuckle: 9.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.7
+      },
+      {
+        "server_index": 78,
+        "score_rank": 79,
+        "score": 0.8470239043235779,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -14.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.685
+      },
+      {
+        "server_index": 79,
+        "score_rank": 80,
+        "score": 0.8470191955566406,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -98.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.711
+      },
+      {
+        "server_index": 80,
+        "score_rank": 81,
+        "score": 0.8462145924568176,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_knuckle: 3.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.665
+      },
+      {
+        "server_index": 81,
+        "score_rank": 82,
+        "score": 0.8459541201591492,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -7.9 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.676
+      },
+      {
+        "server_index": 82,
+        "score_rank": 83,
+        "score": 0.8447303175926208,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -5.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.658
+      },
+      {
+        "server_index": 83,
+        "score_rank": 84,
+        "score": 0.8428029417991638,
+        "reason": "No collision-free IK: IK pose tolerance / joint limits",
+        "phase": "grasp IK (multiple seeds)",
+        "elapsed_s": 1.47
+      },
+      {
+        "server_index": 84,
+        "score_rank": 85,
+        "score": 0.8415685296058655,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -59.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.664
+      },
+      {
+        "server_index": 85,
+        "score_rank": 86,
+        "score": 0.8408352732658386,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_inner_finger_pad: -5.5 mm (< 0.5) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.659
+      },
+      {
+        "server_index": 86,
+        "score_rank": 87,
+        "score": 0.8401849269866943,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -108.7 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.671
+      },
+      {
+        "server_index": 87,
+        "score_rank": 88,
+        "score": 0.8378397822380066,
+        "reason": "No collision-free bilateral closing geometry: Pads do not reach target within opening range",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.713
+      },
+      {
+        "server_index": 88,
+        "score_rank": 89,
+        "score": 0.8335641026496887,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -15.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.666
+      },
+      {
+        "server_index": 89,
+        "score_rank": 90,
+        "score": 0.8333221077919006,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -52.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.682
+      },
+      {
+        "server_index": 90,
+        "score_rank": 91,
+        "score": 0.8291860222816467,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_knuckle: -4.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.717
+      },
+      {
+        "server_index": 91,
+        "score_rank": 92,
+        "score": 0.8269504904747009,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -14.7 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.667
+      },
+      {
+        "server_index": 92,
+        "score_rank": 93,
+        "score": 0.8264251947402954,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -14.9 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.655
+      },
+      {
+        "server_index": 93,
+        "score_rank": 94,
+        "score": 0.8224908709526062,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_knuckle: 5.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.665
+      },
+      {
+        "server_index": 94,
+        "score_rank": 95,
+        "score": 0.8203822374343872,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -7.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.708
+      },
+      {
+        "server_index": 95,
+        "score_rank": 96,
+        "score": 0.8169910907745361,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -17.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.667
+      },
+      {
+        "server_index": 96,
+        "score_rank": 97,
+        "score": 0.816564679145813,
+        "reason": "No collision-free bilateral closing geometry: Bilateral contact requires >15 mm closing-axis correction",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.766
+      },
+      {
+        "server_index": 97,
+        "score_rank": 98,
+        "score": 0.8152710199356079,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_inner_finger_pad: 0.1 mm (< 0.5) <-> tray_2 at opening 0.10600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.679
+      },
+      {
+        "server_index": 98,
+        "score_rank": 99,
+        "score": 0.8095967173576355,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -82.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.674
+      },
+      {
+        "server_index": 99,
+        "score_rank": 100,
+        "score": 0.8071200251579285,
+        "reason": "No collision-free bilateral closing geometry: Pads do not reach target within opening range",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.737
+      },
+      {
+        "server_index": 100,
+        "score_rank": 101,
+        "score": 0.8004283905029297,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_knuckle: 2.6 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.68
+      },
+      {
+        "server_index": 101,
+        "score_rank": 102,
+        "score": 0.7949435710906982,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -14.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.659
+      },
+      {
+        "server_index": 102,
+        "score_rank": 103,
+        "score": 0.7946172952651978,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -22.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.689
+      },
+      {
+        "server_index": 103,
+        "score_rank": 104,
+        "score": 0.7935564517974854,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -16.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.749
+      },
+      {
+        "server_index": 104,
+        "score_rank": 105,
+        "score": 0.7933303117752075,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -13.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.709
+      },
+      {
+        "server_index": 105,
+        "score_rank": 106,
+        "score": 0.7930376529693604,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -22.2 mm (< 10.0) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.703
+      },
+      {
+        "server_index": 106,
+        "score_rank": 107,
+        "score": 0.7905421257019043,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -13.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.647
+      },
+      {
+        "server_index": 107,
+        "score_rank": 108,
+        "score": 0.785632312297821,
+        "reason": "No collision-free IK: IK pose tolerance / joint limits",
+        "phase": "Transfer",
+        "elapsed_s": 3.836
+      },
+      {
+        "server_index": 108,
+        "score_rank": 109,
+        "score": 0.7848935723304749,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -54.6 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.666
+      },
+      {
+        "server_index": 109,
+        "score_rank": 110,
+        "score": 0.7817563414573669,
+        "reason": "No collision-free IK: IK pose tolerance / joint limits",
+        "phase": "grasp IK (multiple seeds)",
+        "elapsed_s": 1.55
+      },
+      {
+        "server_index": 110,
+        "score_rank": 111,
+        "score": 0.7798159718513489,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -4.6 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.707
+      },
+      {
+        "server_index": 111,
+        "score_rank": 112,
+        "score": 0.7784486413002014,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -12.4 mm (< 10.0) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.669
+      },
+      {
+        "server_index": 112,
+        "score_rank": 113,
+        "score": 0.7752277255058289,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -25.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.643
+      },
+      {
+        "server_index": 113,
+        "score_rank": 114,
+        "score": 0.7626376152038574,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -22.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.616
+      },
+      {
+        "server_index": 114,
+        "score_rank": 115,
+        "score": 0.7609539031982422,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -76.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.684
+      },
+      {
+        "server_index": 115,
+        "score_rank": 116,
+        "score": 0.7593526840209961,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -15.8 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.703
+      },
+      {
+        "server_index": 116,
+        "score_rank": 117,
+        "score": 0.7588394284248352,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -67.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.675
+      },
+      {
+        "server_index": 117,
+        "score_rank": 118,
+        "score": 0.7560492753982544,
+        "reason": "No collision-free bilateral closing geometry: Bilateral contact requires >15 mm closing-axis correction",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.78
+      },
+      {
+        "server_index": 118,
+        "score_rank": 119,
+        "score": 0.7557478547096252,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_knuckle: 3.7 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.673
+      },
+      {
+        "server_index": 119,
+        "score_rank": 120,
+        "score": 0.7528448104858398,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: 4.9 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.646
+      },
+      {
+        "server_index": 120,
+        "score_rank": 121,
+        "score": 0.7507996559143066,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -16.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.675
+      },
+      {
+        "server_index": 121,
+        "score_rank": 122,
+        "score": 0.7496632933616638,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: 3.7 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.698
+      },
+      {
+        "server_index": 122,
+        "score_rank": 123,
+        "score": 0.7481014132499695,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: 7.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.672
+      },
+      {
+        "server_index": 123,
+        "score_rank": 124,
+        "score": 0.7475175261497498,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -106.9 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.66
+      },
+      {
+        "server_index": 124,
+        "score_rank": 125,
+        "score": 0.7434240579605103,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -21.9 mm (< 10.0) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.676
+      },
+      {
+        "server_index": 125,
+        "score_rank": 126,
+        "score": 0.734324038028717,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -21.5 mm (< 10.0) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.652
+      },
+      {
+        "server_index": 126,
+        "score_rank": 127,
+        "score": 0.7328980565071106,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_knuckle: 0.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.665
+      },
+      {
+        "server_index": 127,
+        "score_rank": 128,
+        "score": 0.726947546005249,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -96.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.694
+      },
+      {
+        "server_index": 128,
+        "score_rank": 129,
+        "score": 0.7252593040466309,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -12.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.749
+      },
+      {
+        "server_index": 129,
+        "score_rank": 130,
+        "score": 0.7221189141273499,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -3.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.628
+      },
+      {
+        "server_index": 130,
+        "score_rank": 131,
+        "score": 0.7184145450592041,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -64.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.654
+      },
+      {
+        "server_index": 131,
+        "score_rank": 132,
+        "score": 0.7171512246131897,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_knuckle: 7.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.695
+      },
+      {
+        "server_index": 132,
+        "score_rank": 133,
+        "score": 0.7166751623153687,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -15.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.667
+      },
+      {
+        "server_index": 133,
+        "score_rank": 134,
+        "score": 0.7136051654815674,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -105.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.667
+      },
+      {
+        "server_index": 134,
+        "score_rank": 135,
+        "score": 0.7115863561630249,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_knuckle: 8.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.668
+      },
+      {
+        "server_index": 135,
+        "score_rank": 136,
+        "score": 0.709485650062561,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_outer_finger: -14.6 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.702
+      },
+      {
+        "server_index": 136,
+        "score_rank": 137,
+        "score": 0.7062174081802368,
+        "reason": "No collision-free bilateral closing geometry: official gripper left_inner_finger_pad: 0.5 mm (< 0.5) <-> tray_2 at opening 0.06400 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.705
+      },
+      {
+        "server_index": 137,
+        "score_rank": 138,
+        "score": 0.6981823444366455,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -14.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.679
+      },
+      {
+        "server_index": 138,
+        "score_rank": 139,
+        "score": 0.695121705532074,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -8.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.663
+      },
+      {
+        "server_index": 139,
+        "score_rank": 140,
+        "score": 0.6896815896034241,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -107.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.655
+      },
+      {
+        "server_index": 140,
+        "score_rank": 141,
+        "score": 0.6881821751594543,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -16.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.686
+      },
+      {
+        "server_index": 141,
+        "score_rank": 142,
+        "score": 0.6862939596176147,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -15.9 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.683
+      },
+      {
+        "server_index": 142,
+        "score_rank": 143,
+        "score": 0.6745569705963135,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -96.9 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.658
+      },
+      {
+        "server_index": 143,
+        "score_rank": 144,
+        "score": 0.6744820475578308,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -80.6 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.678
+      },
+      {
+        "server_index": 144,
+        "score_rank": 145,
+        "score": 0.6708685159683228,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: 3.4 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.657
+      },
+      {
+        "server_index": 145,
+        "score_rank": 146,
+        "score": 0.6651983857154846,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -92.1 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.64
+      },
+      {
+        "server_index": 146,
+        "score_rank": 147,
+        "score": 0.6611948013305664,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -142.5 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.662
+      },
+      {
+        "server_index": 147,
+        "score_rank": 148,
+        "score": 0.6516224145889282,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -0.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.713
+      },
+      {
+        "server_index": 148,
+        "score_rank": 149,
+        "score": 0.6496496200561523,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -11.6 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.66
+      },
+      {
+        "server_index": 149,
+        "score_rank": 150,
+        "score": 0.6488889455795288,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -92.6 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.648
+      },
+      {
+        "server_index": 150,
+        "score_rank": 151,
+        "score": 0.6445044279098511,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -86.2 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.649
+      },
+      {
+        "server_index": 151,
+        "score_rank": 152,
+        "score": 0.6158811450004578,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -28.0 mm (< 10.0) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.654
+      },
+      {
+        "server_index": 152,
+        "score_rank": 153,
+        "score": 0.6025074124336243,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -57.6 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.7
+      },
+      {
+        "server_index": 153,
+        "score_rank": 154,
+        "score": 0.5848445892333984,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -24.3 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.644
+      },
+      {
+        "server_index": 154,
+        "score_rank": 155,
+        "score": 0.5780439376831055,
+        "reason": "No collision-free IK: Joint position outside planning margin (0.05 rad)",
+        "phase": "Retreat",
+        "elapsed_s": 7.905
+      },
+      {
+        "server_index": 155,
+        "score_rank": 156,
+        "score": 0.5714461803436279,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -0.2 mm (< 10.0) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.709
+      },
+      {
+        "server_index": 156,
+        "score_rank": 157,
+        "score": 0.568767249584198,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -57.7 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.657
+      },
+      {
+        "server_index": 157,
+        "score_rank": 158,
+        "score": 0.5685554146766663,
+        "reason": "No collision-free IK: Joint position outside planning margin (0.05 rad)",
+        "phase": "Retreat",
+        "elapsed_s": 7.799
+      },
+      {
+        "server_index": 158,
+        "score_rank": 159,
+        "score": 0.5673409104347229,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -40.7 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.672
+      },
+      {
+        "server_index": 159,
+        "score_rank": 160,
+        "score": 0.5659934878349304,
+        "reason": "No collision-free bilateral closing geometry: official gripper robotiq_140_base_link: -148.0 mm (< 10.0) <-> table at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.655
+      },
+      {
+        "server_index": 160,
+        "score_rank": 161,
+        "score": 0.5360764861106873,
+        "reason": "No collision-free bilateral closing geometry: official gripper right_outer_finger: -7.9 mm (< 10.0) <-> tray_2 at opening 0.13600 m",
+        "phase": "bilateral pad geometry and closing sweep",
+        "elapsed_s": 0.638
+      }
+    ],
+    "capture_report": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/sim_capture.json",
+    "input_cloud_sha256": "d26d7fd87b1c8a9ee2103126259bda307fa2746e43402e0c9fde0a5b8eb68057",
+    "source_stl": "/workspace/data/inputs/Surgical Instruments/Bone Forceps/Bone Forceps 1/Leo Bone Holding Forceps 1 SmoothFusion.stl",
+    "base_frame": {
+      "parent_frame_id": "world",
+      "frame_id": "lbr_link_0",
+      "position_xyz_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation_rpy_rad": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "candidate_count": 200,
+    "status": "PLANNED_NOT_EXECUTED",
+    "planning_elapsed_s": 157.331,
+    "rejections_by_phase": {
+      "bilateral pad geometry and closing sweep": 143,
+      "grasp-to-pregrasp Cartesian corridor": 7,
+      "grasp IK (multiple seeds)": 3,
+      "Transfer": 5,
+      "Lift": 1,
+      "Retreat": 2
+    },
+    "selected_server_index": 161,
+    "selected_score": 0.49488410353660583,
+    "estimated_closing_width_m": 0.019925781250000003,
+    "geometric_refinement": {
+      "method": "bounded_upward_and_closing_axis_CAD_refinement",
+      "original_T_base_gripper": [
+        [
+          0.7014926671981812,
+          -0.5656068921089172,
+          0.43358609080314636,
+          0.5304102328040453
+        ],
+        [
+          -0.7126174569129944,
+          -0.5488408803939819,
+          0.4369785487651825,
+          -0.28934108924647245
+        ],
+        [
+          -0.009188325144350529,
+          -0.6155182719230652,
+          -0.7880692481994629,
+          0.24617610476213875
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "translation_base_m": [
+        0.0026642825508175205,
+        -0.002706534714674136,
+        0.03996510256557473
+      ],
+      "upward_m": 0.04,
+      "closing_axis_shift_m": 0.0037980191032628676,
+      "opposing_pad_gaps_m": [
+        0.00020014068455583532,
+        0.00021103100434418601
+      ],
+      "closing_width_m": 0.019925781250000003,
+      "model_rescored": false,
+      "physical_grasp_validated": false,
+      "attempts": [
+        {
+          "upward_m": 0.0,
+          "reason": "official gripper left_inner_finger_pad: -17.2 mm (< 0.5) <-> tray_2 at opening 0.13600 m"
+        },
+        {
+          "upward_m": 0.005,
+          "reason": "official gripper left_inner_finger_pad: -12.2 mm (< 0.5) <-> tray_2 at opening 0.13600 m"
+        },
+        {
+          "upward_m": 0.01,
+          "reason": "official gripper left_inner_finger_pad: -7.2 mm (< 0.5) <-> tray_2 at opening 0.13600 m"
+        },
+        {
+          "upward_m": 0.015,
+          "reason": "official gripper left_inner_finger_pad: -2.2 mm (< 0.5) <-> tray_2 at opening 0.13600 m"
+        },
+        {
+          "upward_m": 0.02,
+          "reason": "official gripper left_inner_finger_pad: 0.0 mm (< 0.5) <-> tray_2 at opening 0.12700 m"
+        },
+        {
+          "upward_m": 0.025,
+          "reason": "official gripper left_inner_finger_pad: 0.4 mm (< 0.5) <-> tray_2 at opening 0.10900 m"
+        },
+        {
+          "upward_m": 0.03,
+          "reason": "official gripper left_inner_finger_pad: 0.2 mm (< 0.5) <-> tray_2 at opening 0.08200 m"
+        },
+        {
+          "upward_m": 0.035,
+          "reason": "official gripper right_inner_finger_pad: 0.4 mm (< 0.5) <-> tray_2 at opening 0.04300 m"
+        }
+      ]
+    },
+    "score_semantics": "Original model score; refined pose was not rescored",
+    "robotiq_description_revision": "5b7f9189cb26197a4f6850937a1ee4ce667a3577",
+    "robot_description": {
+      "model": "iiwa7_r800",
+      "urdf": "/workspace/data/external/iiwa7-prepared/iiwa7.urdf",
+      "model_sha256": "4bf620e8f56cff91ad36d3a7f16dcd9219e348c7859afe267167627e662e8888",
+      "urdf_sha256": "2638a46c24f59b4da3958c568877177f9978019477f462ee31ca64da3f9c14aa",
+      "source": {
+        "repository": "https://github.com/lbr-stack/lbr_fri_ros2_stack.git",
+        "revision": "52f816bd59cbd2390efc890cca0ad61389e4ccb3"
+      },
+      "base_link": "lbr_link_0",
+      "flange_link": "lbr_link_ee",
+      "native_joint_names": [
+        "lbr_A1",
+        "lbr_A2",
+        "lbr_A3",
+        "lbr_A4",
+        "lbr_A5",
+        "lbr_A6",
+        "lbr_A7"
+      ],
+      "command_joint_names": [
+        "lbr_A1",
+        "lbr_A2",
+        "lbr_A3",
+        "lbr_A4",
+        "lbr_A5",
+        "lbr_A6",
+        "lbr_A7"
+      ],
+      "lower_limits_rad": [
+        -2.9670597283903604,
+        -2.0943951023931953,
+        -2.9670597283903604,
+        -2.0943951023931953,
+        -2.9670597283903604,
+        -2.0943951023931953,
+        -3.0543261909900763
+      ],
+      "upper_limits_rad": [
+        2.9670597283903604,
+        2.0943951023931953,
+        2.9670597283903604,
+        2.0943951023931953,
+        2.9670597283903604,
+        2.0943951023931953,
+        3.0543261909900763
+      ],
+      "velocity_limits_rad_s": [
+        1.710422666954443,
+        1.710422666954443,
+        1.7453292519943295,
+        2.2689280275926285,
+        2.443460952792061,
+        3.141592653589793,
+        3.141592653589793
+      ],
+      "effort_limits_nm": [
+        200.0,
+        200.0,
+        200.0,
+        200.0,
+        200.0,
+        200.0,
+        200.0
+      ],
+      "home_positions_rad": [
+        0.0,
+        0.35,
+        0.0,
+        -1.3,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "gripper": "robotiq_2f_140_official_meshes",
+      "tcp_offset_flange_xyz_m": [
+        0.0,
+        0.0,
+        0.195
+      ],
+      "tcp_orientation_flange_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "tcp_calibration": "nominal simulation mounting, not physically measured"
+    },
+    "robotiq_urdf_sha256": "0e66f5f70b4ca86e681d9766b8232349c69a5f1462d821f8e2245994638aa4da",
+    "checks": {
+      "ik": true,
+      "joint_limits": true,
+      "sampled_path_collisions": true,
+      "physical_contact": false
+    },
+    "collision_sample_period_s": 0.016666666666666666,
+    "support_contact_policy": {
+      "lift": "tray_2",
+      "place_release": "tray_1",
+      "minimum_upward_normal_dot": 0.95,
+      "numerical_slop_m": 1e-05,
+      "comparison_epsilon_m": 1e-07,
+      "scene_solver_contact_slop_m": 1e-06
+    },
+    "limitations": [
+      "Official Robotiq link meshes; convex instrument mesh approximation",
+      "Finger joints driven kinematically by URDF mimic relationships",
+      "Ideal fixed constraint, no friction/contact grasp validation",
+      "Only configured table/trays and robot self collisions",
+      "Surgical functional zones not checked"
+    ],
+    "trajectory_npz": "/workspace/data/outputs/ros2_full_system_20261114_130915_8eafc173/graspgen_sim_joint_path.npz"
+  },
+  "warnings": [],
+  "error": null
+}

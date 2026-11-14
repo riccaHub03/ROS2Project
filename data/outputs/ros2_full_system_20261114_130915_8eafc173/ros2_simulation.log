@@ -1,0 +1,671 @@
+pybullet build time: Jan 29 2025 23:16:28
+startThreads creating 1 threads.
+starting thread 0
+started thread 0 
+argc=2
+argv[0] = --unused
+argv[1] = --start_demo_name=Physics Server
+ExampleBrowserThreadFunc started
+X11 functions dynamically loaded using dlopen/dlsym OK!
+X11 functions dynamically loaded using dlopen/dlsym OK!
+MESA: error: Failed to query drm device.
+libGL error: glx: failed to create dri3 screen
+libGL error: failed to load driver: iris
+libGL error: failed to open /dev/dri/card1: No such file or directory
+libGL error: failed to load driver: iris
+Creating context
+Created GL 3.3 context
+Direct GLX rendering context obtained
+Making context current
+GL_VENDOR=Mesa
+GL_RENDERER=llvmpipe (LLVM 15.0.7, 256 bits)
+GL_VERSION=4.5 (Core Profile) Mesa 23.2.1-1ubuntu3.1~22.04.4
+GL_SHADING_LANGUAGE_VERSION=4.50
+pthread_getconcurrency()=0
+Version = 4.5 (Core Profile) Mesa 23.2.1-1ubuntu3.1~22.04.4
+Vendor = Mesa
+Renderer = llvmpipe (LLVM 15.0.7, 256 bits)
+b3Printf: Selected demo: Physics Server
+startThreads creating 1 threads.
+starting thread 0
+started thread 0 
+MotionThreadFunc thread started
+b3Printf: b3Warning[examples/Importers/ImportURDFDemo/BulletUrdfImporter.cpp,126]:
+
+b3Printf: No inertial data for link, using mass=1, localinertiadiagonal = 1,1,1, identity local inertial frame
+b3Printf: b3Warning[examples/Importers/ImportURDFDemo/BulletUrdfImporter.cpp,126]:
+
+b3Printf: graspgen_base
+b3Printf: b3Warning[examples/Importers/ImportURDFDemo/BulletUrdfImporter.cpp,126]:
+
+b3Printf: No inertial data for link, using mass=1, localinertiadiagonal = 1,1,1, identity local inertial frame
+b3Printf: b3Warning[examples/Importers/ImportURDFDemo/BulletUrdfImporter.cpp,126]:
+
+b3Printf: robotiq_base_link
+b3Printf: b3Warning[examples/Importers/ImportURDFDemo/BulletUrdfImporter.cpp,126]:
+
+b3Printf: No inertial data for link, using mass=1, localinertiadiagonal = 1,1,1, identity local inertial frame
+b3Printf: b3Warning[examples/Importers/ImportURDFDemo/BulletUrdfImporter.cpp,126]:
+
+b3Printf: graspgen_tcp
+ven = Mesa
+ven = Mesa
+b3Printf: b3Warning[examples/Importers/ImportURDFDemo/BulletUrdfImporter.cpp,126]:
+
+b3Printf: No inertial data for link, using mass=1, localinertiadiagonal = 1,1,1, identity local inertial frame
+b3Printf: b3Warning[examples/Importers/ImportURDFDemo/BulletUrdfImporter.cpp,126]:
+
+b3Printf: graspgen_base
+b3Printf: b3Warning[examples/Importers/ImportURDFDemo/BulletUrdfImporter.cpp,126]:
+
+b3Printf: No inertial data for link, using mass=1, localinertiadiagonal = 1,1,1, identity local inertial frame
+b3Printf: b3Warning[examples/Importers/ImportURDFDemo/BulletUrdfImporter.cpp,126]:
+
+b3Printf: robotiq_base_link
+b3Printf: b3Warning[examples/Importers/ImportURDFDemo/BulletUrdfImporter.cpp,126]:
+
+b3Printf: No inertial data for link, using mass=1, localinertiadiagonal = 1,1,1, identity local inertial frame
+b3Printf: b3Warning[examples/Importers/ImportURDFDemo/BulletUrdfImporter.cpp,126]:
+
+b3Printf: graspgen_tcp
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 1/200; score=0.941: geometry (1s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 2/200; score=0.939: geometry (1s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 3/200; score=0.937: geometry (2s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 4/200; score=0.931: geometry (3s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 5/200; score=0.930: geometry (3s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 6/200; score=0.930: geometry (4s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 7/200; score=0.929: geometry (5s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 8/200; score=0.927: geometry (5s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 9/200; score=0.927: geometry (6s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 10/200; score=0.925: geometry (7s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 11/200; score=0.923: geometry (8s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 12/200; score=0.918: geometry (8s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 13/200; score=0.918: geometry (9s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 14/200; score=0.917: geometry (10s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 15/200; score=0.912: geometry (10s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 16/200; score=0.910: geometry (11s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 17/200; score=0.908: geometry (12s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 18/200; score=0.906: geometry (13s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 19/200; score=0.905: geometry (13s); Q cancels
+GraspGen 19/200; score=0.905: bilateral pad geometry and closing sweep (13s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 19/200; score=0.905: grasp IK (multiple seeds) (14s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 20/200; score=0.905: geometry (15s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 21/200; score=0.904: geometry (16s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 22/200; score=0.904: geometry (16s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 23/200; score=0.903: geometry (17s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 24/200; score=0.903: geometry (18s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 25/200; score=0.902: geometry (19s); Q cancels
+GraspGen 25/200; score=0.902: bilateral pad geometry and closing sweep (19s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 25/200; score=0.902: grasp IK (multiple seeds) (19s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 26/200; score=0.901: geometry (20s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 27/200; score=0.901: geometry (21s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 28/200; score=0.901: geometry (22s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 29/200; score=0.900: geometry (22s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 30/200; score=0.900: geometry (23s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 31/200; score=0.899: geometry (24s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 32/200; score=0.899: geometry (24s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 33/200; score=0.898: geometry (25s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 34/200; score=0.896: geometry (26s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 35/200; score=0.894: geometry (26s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 36/200; score=0.894: geometry (27s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 37/200; score=0.893: geometry (28s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 38/200; score=0.892: geometry (28s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 39/200; score=0.891: geometry (29s); Q cancels
+GraspGen 39/200; score=0.891: bilateral pad geometry and closing sweep (29s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 39/200; score=0.891: grasp IK (multiple seeds) (30s); Q cancels
+GraspGen 39/200; score=0.891: Approach (30s); Q cancels
+GraspGen 39/200; score=0.891: Approach (30s); Q cancels
+GraspGen 39/200; score=0.891: Approach (30s); Q cancels
+GraspGen 39/200; score=0.891: Approach (31s); Q cancels
+GraspGen 39/200; score=0.891: Approach (31s); Q cancels
+GraspGen 39/200; score=0.891: Approach (31s); Q cancels
+GraspGen 39/200; score=0.891: Approach (31s); Q cancels
+GraspGen 39/200; score=0.891: Descend (31s); Q cancels
+GraspGen 39/200; score=0.891: Descend (31s); Q cancels
+GraspGen 39/200; score=0.891: Descend (32s); Q cancels
+GraspGen 39/200; score=0.891: Lift (32s); Q cancels
+GraspGen 39/200; score=0.891: Lift (32s); Q cancels
+GraspGen 39/200; score=0.891: Lift (32s); Q cancels
+GraspGen 39/200; score=0.891: Lift (32s); Q cancels
+GraspGen 39/200; score=0.891: Lift (32s); Q cancels
+GraspGen 39/200; score=0.891: Lift (32s); Q cancels
+GraspGen 39/200; score=0.891: Transfer (33s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 40/200; score=0.890: geometry (33s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 41/200; score=0.889: geometry (34s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 42/200; score=0.889: geometry (35s); Q cancels
+GraspGen 42/200; score=0.889: bilateral pad geometry and closing sweep (35s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 42/200; score=0.889: grasp IK (multiple seeds) (35s); Q cancels
+GraspGen 42/200; score=0.889: Approach (36s); Q cancels
+GraspGen 42/200; score=0.889: Approach (36s); Q cancels
+GraspGen 42/200; score=0.889: Approach (36s); Q cancels
+GraspGen 42/200; score=0.889: Approach (36s); Q cancels
+GraspGen 42/200; score=0.889: Descend (36s); Q cancels
+GraspGen 42/200; score=0.889: Descend (36s); Q cancels
+GraspGen 42/200; score=0.889: Lift (37s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 43/200; score=0.888: geometry (37s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 44/200; score=0.888: geometry (38s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 45/200; score=0.888: geometry (39s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 46/200; score=0.886: geometry (39s); Q cancels
+GraspGen 46/200; score=0.886: bilateral pad geometry and closing sweep (39s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 46/200; score=0.886: grasp IK (multiple seeds) (40s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 47/200; score=0.886: geometry (41s); Q cancels
+GraspGen 47/200; score=0.886: bilateral pad geometry and closing sweep (41s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 47/200; score=0.886: grasp IK (multiple seeds) (42s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 48/200; score=0.884: geometry (43s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 48/200; score=0.884: grasp IK (multiple seeds) (43s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 49/200; score=0.884: geometry (44s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 50/200; score=0.880: geometry (45s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 51/200; score=0.879: geometry (45s); Q cancels
+GraspGen 51/200; score=0.879: bilateral pad geometry and closing sweep (45s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 51/200; score=0.879: grasp IK (multiple seeds) (46s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 52/200; score=0.878: geometry (47s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 53/200; score=0.878: geometry (48s); Q cancels
+GraspGen 53/200; score=0.878: bilateral pad geometry and closing sweep (48s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 53/200; score=0.878: grasp IK (multiple seeds) (48s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 54/200; score=0.878: geometry (49s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 55/200; score=0.877: geometry (50s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 56/200; score=0.877: geometry (51s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 56/200; score=0.877: grasp IK (multiple seeds) (51s); Q cancels
+GraspGen 56/200; score=0.877: Approach (52s); Q cancels
+GraspGen 56/200; score=0.877: Approach (52s); Q cancels
+GraspGen 56/200; score=0.877: Approach (52s); Q cancels
+GraspGen 56/200; score=0.877: Descend (52s); Q cancels
+GraspGen 56/200; score=0.877: Descend (52s); Q cancels
+GraspGen 56/200; score=0.877: Lift (52s); Q cancels
+GraspGen 56/200; score=0.877: Lift (52s); Q cancels
+GraspGen 56/200; score=0.877: Lift (53s); Q cancels
+GraspGen 56/200; score=0.877: Lift (53s); Q cancels
+GraspGen 56/200; score=0.877: Lift (53s); Q cancels
+GraspGen 56/200; score=0.877: Lift (53s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 57/200; score=0.877: geometry (54s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 58/200; score=0.875: geometry (55s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 59/200; score=0.874: geometry (55s); Q cancels
+GraspGen 59/200; score=0.874: bilateral pad geometry and closing sweep (55s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 59/200; score=0.874: grasp IK (multiple seeds) (56s); Q cancels
+GraspGen 59/200; score=0.874: Approach (56s); Q cancels
+GraspGen 59/200; score=0.874: Approach (56s); Q cancels
+GraspGen 59/200; score=0.874: Approach (56s); Q cancels
+GraspGen 59/200; score=0.874: Descend (57s); Q cancels
+GraspGen 59/200; score=0.874: Descend (57s); Q cancels
+GraspGen 59/200; score=0.874: Descend (57s); Q cancels
+GraspGen 59/200; score=0.874: Lift (57s); Q cancels
+GraspGen 59/200; score=0.874: Lift (57s); Q cancels
+GraspGen 59/200; score=0.874: Lift (57s); Q cancels
+GraspGen 59/200; score=0.874: Lift (58s); Q cancels
+GraspGen 59/200; score=0.874: Lift (58s); Q cancels
+GraspGen 59/200; score=0.874: Lift (58s); Q cancels
+GraspGen 59/200; score=0.874: Lift (58s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 60/200; score=0.871: geometry (59s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 61/200; score=0.870: geometry (59s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 62/200; score=0.869: geometry (60s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 63/200; score=0.869: geometry (61s); Q cancels
+GraspGen 63/200; score=0.869: bilateral pad geometry and closing sweep (61s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 63/200; score=0.869: grasp IK (multiple seeds) (62s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 64/200; score=0.866: geometry (62s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 65/200; score=0.866: geometry (63s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 66/200; score=0.864: geometry (64s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 67/200; score=0.864: geometry (64s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 68/200; score=0.863: geometry (65s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 69/200; score=0.863: geometry (66s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 70/200; score=0.862: geometry (66s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 71/200; score=0.860: geometry (67s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 72/200; score=0.857: geometry (68s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 73/200; score=0.856: geometry (68s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 74/200; score=0.856: geometry (69s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 75/200; score=0.856: geometry (70s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 76/200; score=0.855: geometry (70s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 77/200; score=0.854: geometry (71s); Q cancels
+GraspGen 77/200; score=0.854: bilateral pad geometry and closing sweep (71s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 77/200; score=0.854: grasp IK (multiple seeds) (72s); Q cancels
+GraspGen 77/200; score=0.854: Approach (72s); Q cancels
+GraspGen 77/200; score=0.854: Approach (72s); Q cancels
+GraspGen 77/200; score=0.854: Approach (72s); Q cancels
+GraspGen 77/200; score=0.854: Approach (72s); Q cancels
+GraspGen 77/200; score=0.854: Approach (73s); Q cancels
+GraspGen 77/200; score=0.854: Approach (73s); Q cancels
+GraspGen 77/200; score=0.854: Approach (73s); Q cancels
+GraspGen 77/200; score=0.854: Descend (73s); Q cancels
+GraspGen 77/200; score=0.854: Descend (73s); Q cancels
+GraspGen 77/200; score=0.854: Lift (73s); Q cancels
+GraspGen 77/200; score=0.854: Lift (73s); Q cancels
+GraspGen 77/200; score=0.854: Lift (74s); Q cancels
+GraspGen 77/200; score=0.854: Lift (74s); Q cancels
+GraspGen 77/200; score=0.854: Lift (74s); Q cancels
+GraspGen 77/200; score=0.854: Lift (74s); Q cancels
+GraspGen 77/200; score=0.854: Transfer (74s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 78/200; score=0.852: geometry (75s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 79/200; score=0.847: geometry (76s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 80/200; score=0.847: geometry (76s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 81/200; score=0.846: geometry (77s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 82/200; score=0.846: geometry (78s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 83/200; score=0.845: geometry (78s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 84/200; score=0.843: geometry (79s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 84/200; score=0.843: grasp IK (multiple seeds) (80s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 85/200; score=0.842: geometry (80s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 86/200; score=0.841: geometry (81s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 87/200; score=0.840: geometry (82s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 88/200; score=0.838: geometry (82s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 89/200; score=0.834: geometry (83s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 90/200; score=0.833: geometry (84s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 91/200; score=0.829: geometry (85s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 92/200; score=0.827: geometry (85s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 93/200; score=0.826: geometry (86s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 94/200; score=0.822: geometry (87s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 95/200; score=0.820: geometry (87s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 96/200; score=0.817: geometry (88s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 97/200; score=0.817: geometry (89s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 98/200; score=0.815: geometry (89s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 99/200; score=0.810: geometry (90s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 100/200; score=0.807: geometry (91s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 101/200; score=0.800: geometry (91s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 102/200; score=0.795: geometry (92s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 103/200; score=0.795: geometry (93s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 104/200; score=0.794: geometry (94s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 105/200; score=0.793: geometry (94s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 106/200; score=0.793: geometry (95s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 107/200; score=0.791: geometry (96s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 108/200; score=0.786: geometry (96s); Q cancels
+GraspGen 108/200; score=0.786: bilateral pad geometry and closing sweep (96s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 108/200; score=0.786: grasp IK (multiple seeds) (97s); Q cancels
+GraspGen 108/200; score=0.786: Approach (97s); Q cancels
+GraspGen 108/200; score=0.786: Approach (97s); Q cancels
+GraspGen 108/200; score=0.786: Approach (98s); Q cancels
+GraspGen 108/200; score=0.786: Approach (98s); Q cancels
+GraspGen 108/200; score=0.786: Approach (98s); Q cancels
+GraspGen 108/200; score=0.786: Approach (98s); Q cancels
+GraspGen 108/200; score=0.786: Descend (98s); Q cancels
+GraspGen 108/200; score=0.786: Descend (98s); Q cancels
+GraspGen 108/200; score=0.786: Close gripper - ideal constraint (99s); Q cancels
+GraspGen 108/200; score=0.786: Lift (99s); Q cancels
+GraspGen 108/200; score=0.786: Lift (99s); Q cancels
+GraspGen 108/200; score=0.786: Lift (99s); Q cancels
+GraspGen 108/200; score=0.786: Lift (99s); Q cancels
+GraspGen 108/200; score=0.786: Lift (99s); Q cancels
+GraspGen 108/200; score=0.786: Lift (99s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 109/200; score=0.785: geometry (100s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 110/200; score=0.782: geometry (101s); Q cancels
+GraspGen 110/200; score=0.782: bilateral pad geometry and closing sweep (101s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 110/200; score=0.782: grasp IK (multiple seeds) (102s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 111/200; score=0.780: geometry (102s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 112/200; score=0.778: geometry (103s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 113/200; score=0.775: geometry (104s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 114/200; score=0.763: geometry (104s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 115/200; score=0.761: geometry (105s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 116/200; score=0.759: geometry (106s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 117/200; score=0.759: geometry (106s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 118/200; score=0.756: geometry (107s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 119/200; score=0.756: geometry (108s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 120/200; score=0.753: geometry (109s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 121/200; score=0.751: geometry (109s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 122/200; score=0.750: geometry (110s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 123/200; score=0.748: geometry (111s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 124/200; score=0.748: geometry (111s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 125/200; score=0.743: geometry (112s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 126/200; score=0.734: geometry (113s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 127/200; score=0.733: geometry (113s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 128/200; score=0.727: geometry (114s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 129/200; score=0.725: geometry (115s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 130/200; score=0.722: geometry (115s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 131/200; score=0.718: geometry (116s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 132/200; score=0.717: geometry (117s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 133/200; score=0.717: geometry (117s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 134/200; score=0.714: geometry (118s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 135/200; score=0.712: geometry (119s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 136/200; score=0.709: geometry (119s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 137/200; score=0.706: geometry (120s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 138/200; score=0.698: geometry (121s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 139/200; score=0.695: geometry (121s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 140/200; score=0.690: geometry (122s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 141/200; score=0.688: geometry (123s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 142/200; score=0.686: geometry (123s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 143/200; score=0.675: geometry (124s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 144/200; score=0.674: geometry (125s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 145/200; score=0.671: geometry (125s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 146/200; score=0.665: geometry (126s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 147/200; score=0.661: geometry (127s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 148/200; score=0.652: geometry (127s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 149/200; score=0.650: geometry (128s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 150/200; score=0.649: geometry (129s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 151/200; score=0.645: geometry (129s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 152/200; score=0.616: geometry (130s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 153/200; score=0.603: geometry (131s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 154/200; score=0.585: geometry (131s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 155/200; score=0.578: geometry (132s); Q cancels
+GraspGen 155/200; score=0.578: bilateral pad geometry and closing sweep (132s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 155/200; score=0.578: grasp IK (multiple seeds) (133s); Q cancels
+GraspGen 155/200; score=0.578: Approach (133s); Q cancels
+GraspGen 155/200; score=0.578: Approach (133s); Q cancels
+GraspGen 155/200; score=0.578: Approach (133s); Q cancels
+GraspGen 155/200; score=0.578: Approach (134s); Q cancels
+GraspGen 155/200; score=0.578: Approach (134s); Q cancels
+GraspGen 155/200; score=0.578: Descend (134s); Q cancels
+GraspGen 155/200; score=0.578: Descend (134s); Q cancels
+GraspGen 155/200; score=0.578: Lift (134s); Q cancels
+GraspGen 155/200; score=0.578: Lift (134s); Q cancels
+GraspGen 155/200; score=0.578: Lift (134s); Q cancels
+GraspGen 155/200; score=0.578: Lift (135s); Q cancels
+GraspGen 155/200; score=0.578: Lift (135s); Q cancels
+GraspGen 155/200; score=0.578: Lift (135s); Q cancels
+GraspGen 155/200; score=0.578: Lift (135s); Q cancels
+GraspGen 155/200; score=0.578: Lift (135s); Q cancels
+GraspGen 155/200; score=0.578: Transfer (135s); Q cancels
+GraspGen 155/200; score=0.578: Transfer (136s); Q cancels
+GraspGen 155/200; score=0.578: Transfer (136s); Q cancels
+GraspGen 155/200; score=0.578: Transfer (136s); Q cancels
+GraspGen 155/200; score=0.578: Transfer (136s); Q cancels
+GraspGen 155/200; score=0.578: Transfer (136s); Q cancels
+GraspGen 155/200; score=0.578: Transfer (136s); Q cancels
+GraspGen 155/200; score=0.578: Transfer (136s); Q cancels
+GraspGen 155/200; score=0.578: Transfer (137s); Q cancels
+GraspGen 155/200; score=0.578: Transfer (137s); Q cancels
+GraspGen 155/200; score=0.578: Transfer (137s); Q cancels
+GraspGen 155/200; score=0.578: Transfer (137s); Q cancels
+GraspGen 155/200; score=0.578: Place (137s); Q cancels
+GraspGen 155/200; score=0.578: Place (137s); Q cancels
+GraspGen 155/200; score=0.578: Place (137s); Q cancels
+GraspGen 155/200; score=0.578: Place (138s); Q cancels
+GraspGen 155/200; score=0.578: Place (138s); Q cancels
+GraspGen 155/200; score=0.578: Place (138s); Q cancels
+GraspGen 155/200; score=0.578: Place (138s); Q cancels
+GraspGen 155/200; score=0.578: Place (138s); Q cancels
+GraspGen 155/200; score=0.578: Place (138s); Q cancels
+GraspGen 155/200; score=0.578: Place (139s); Q cancels
+GraspGen 155/200; score=0.578: Place (139s); Q cancels
+GraspGen 155/200; score=0.578: Place (139s); Q cancels
+GraspGen 155/200; score=0.578: Place (139s); Q cancels
+GraspGen 155/200; score=0.578: Place (139s); Q cancels
+GraspGen 155/200; score=0.578: Retreat (139s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 156/200; score=0.571: geometry (140s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 157/200; score=0.569: geometry (141s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 158/200; score=0.569: geometry (141s); Q cancels
+GraspGen 158/200; score=0.569: bilateral pad geometry and closing sweep (142s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 158/200; score=0.569: grasp IK (multiple seeds) (142s); Q cancels
+GraspGen 158/200; score=0.569: Approach (142s); Q cancels
+GraspGen 158/200; score=0.569: Approach (143s); Q cancels
+GraspGen 158/200; score=0.569: Approach (143s); Q cancels
+GraspGen 158/200; score=0.569: Approach (143s); Q cancels
+GraspGen 158/200; score=0.569: Approach (143s); Q cancels
+GraspGen 158/200; score=0.569: Descend (143s); Q cancels
+GraspGen 158/200; score=0.569: Close gripper - ideal constraint (143s); Q cancels
+GraspGen 158/200; score=0.569: Lift (143s); Q cancels
+GraspGen 158/200; score=0.569: Lift (144s); Q cancels
+GraspGen 158/200; score=0.569: Lift (144s); Q cancels
+GraspGen 158/200; score=0.569: Lift (144s); Q cancels
+GraspGen 158/200; score=0.569: Lift (144s); Q cancels
+GraspGen 158/200; score=0.569: Lift (144s); Q cancels
+GraspGen 158/200; score=0.569: Lift (144s); Q cancels
+GraspGen 158/200; score=0.569: Lift (145s); Q cancels
+GraspGen 158/200; score=0.569: Transfer (145s); Q cancels
+GraspGen 158/200; score=0.569: Transfer (145s); Q cancels
+GraspGen 158/200; score=0.569: Transfer (145s); Q cancels
+GraspGen 158/200; score=0.569: Transfer (145s); Q cancels
+GraspGen 158/200; score=0.569: Transfer (145s); Q cancels
+GraspGen 158/200; score=0.569: Transfer (145s); Q cancels
+GraspGen 158/200; score=0.569: Transfer (146s); Q cancels
+GraspGen 158/200; score=0.569: Transfer (146s); Q cancels
+GraspGen 158/200; score=0.569: Transfer (146s); Q cancels
+GraspGen 158/200; score=0.569: Transfer (146s); Q cancels
+GraspGen 158/200; score=0.569: Transfer (146s); Q cancels
+GraspGen 158/200; score=0.569: Transfer (146s); Q cancels
+GraspGen 158/200; score=0.569: Place (146s); Q cancels
+GraspGen 158/200; score=0.569: Place (147s); Q cancels
+GraspGen 158/200; score=0.569: Place (147s); Q cancels
+GraspGen 158/200; score=0.569: Place (147s); Q cancels
+GraspGen 158/200; score=0.569: Place (147s); Q cancels
+GraspGen 158/200; score=0.569: Place (147s); Q cancels
+GraspGen 158/200; score=0.569: Place (147s); Q cancels
+GraspGen 158/200; score=0.569: Place (148s); Q cancels
+GraspGen 158/200; score=0.569: Place (148s); Q cancels
+GraspGen 158/200; score=0.569: Place (148s); Q cancels
+GraspGen 158/200; score=0.569: Place (148s); Q cancels
+GraspGen 158/200; score=0.569: Place (148s); Q cancels
+GraspGen 158/200; score=0.569: Place (148s); Q cancels
+GraspGen 158/200; score=0.569: Open gripper (148s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 159/200; score=0.567: geometry (149s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 160/200; score=0.566: geometry (150s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 161/200; score=0.536: geometry (150s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 162/200; score=0.495: geometry (151s); Q cancels
+GraspGen 162/200; score=0.495: bilateral pad geometry and closing sweep (151s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+GraspGen 162/200; score=0.495: grasp IK (multiple seeds) (152s); Q cancels
+GraspGen 162/200; score=0.495: Approach (152s); Q cancels
+GraspGen 162/200; score=0.495: Approach (152s); Q cancels
+GraspGen 162/200; score=0.495: Approach (152s); Q cancels
+GraspGen 162/200; score=0.495: Approach (153s); Q cancels
+GraspGen 162/200; score=0.495: Approach (153s); Q cancels
+GraspGen 162/200; score=0.495: Descend (153s); Q cancels
+GraspGen 162/200; score=0.495: Lift (153s); Q cancels
+GraspGen 162/200; score=0.495: Lift (153s); Q cancels
+GraspGen 162/200; score=0.495: Lift (153s); Q cancels
+GraspGen 162/200; score=0.495: Lift (154s); Q cancels
+GraspGen 162/200; score=0.495: Lift (154s); Q cancels
+GraspGen 162/200; score=0.495: Lift (154s); Q cancels
+GraspGen 162/200; score=0.495: Transfer (154s); Q cancels
+GraspGen 162/200; score=0.495: Transfer (154s); Q cancels
+GraspGen 162/200; score=0.495: Transfer (154s); Q cancels
+GraspGen 162/200; score=0.495: Transfer (154s); Q cancels
+GraspGen 162/200; score=0.495: Transfer (155s); Q cancels
+GraspGen 162/200; score=0.495: Transfer (155s); Q cancels
+GraspGen 162/200; score=0.495: Transfer (155s); Q cancels
+GraspGen 162/200; score=0.495: Transfer (155s); Q cancels
+GraspGen 162/200; score=0.495: Transfer (155s); Q cancels
+GraspGen 162/200; score=0.495: Place (155s); Q cancels
+GraspGen 162/200; score=0.495: Place (155s); Q cancels
+GraspGen 162/200; score=0.495: Place (156s); Q cancels
+GraspGen 162/200; score=0.495: Place (156s); Q cancels
+GraspGen 162/200; score=0.495: Place (156s); Q cancels
+GraspGen 162/200; score=0.495: Place (156s); Q cancels
+GraspGen 162/200; score=0.495: Retreat (156s); Q cancels
+GraspGen 162/200; score=0.495: Retreat (156s); Q cancels
+GraspGen 162/200; score=0.495: Retreat (157s); Q cancels
+GraspGen 162/200; score=0.495: Return (157s); Q cancels
+GraspGen 162/200; score=0.495: Return (157s); Q cancels
+GraspGen 162/200; score=0.495: Return (157s); Q cancels
+GraspGen 162/200; score=0.495: Return (157s); Q cancels
+GraspGen: G toggles other candidates; physical grasp UNVALIDATED
+Approach
+Descend
+Close gripper - ideal constraint
+Lift
+Transfer
+Place
+Open gripper
+Retreat
+Return
+numActiveThreads = 0
+stopping threads
+destroy semaphore
+semaphore destroyed
+Thread with taskId 0 exiting
+Thread TERMINATED
+destroy main semaphore
+main semaphore destroyed
+finished
+numActiveThreads = 0
+btShutDownExampleBrowser stopping threads
+Thread with taskId 0 exiting
+Thread TERMINATED
+destroy semaphore
+semaphore destroyed
+destroy main semaphore
+main semaphore destroyed

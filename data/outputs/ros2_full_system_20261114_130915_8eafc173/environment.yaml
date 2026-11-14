@@ -1,0 +1,238 @@
+environment:
+  room:
+    description: Blocco Operatorio Robotizzato
+    dimensions_xyz_m:
+    - 4.0
+    - 4.0
+    - 2.8
+  kuka_base:
+    description: Base fissa del manipolatore KUKA LBR iiwa
+    frame_id: lbr_link_0
+    position_xyz_m:
+    - 0.0
+    - 0.0
+    - 0.0
+    orientation_rpy_rad:
+    - 0.0
+    - 0.0
+    - 0.0
+  surgical_table:
+    description: Tavolo operatorio principale
+    center_xyz_m:
+    - 0.6
+    - 0.0
+    - -0.05
+    dimensions_xyz_m:
+    - 0.85
+    - 1.6
+    - 0.2
+    surface_z_m: 0.05
+    color_rgba:
+    - 0.15
+    - 0.35
+    - 0.6
+    - 1.0
+  trays:
+    tray_1:
+      name: Vassoio Raccolta e Decontaminazione Destro
+      alias:
+      - tray_1
+      - vassoio_1
+      - tray 1
+      - right tray
+      position_xyz_m:
+      - 0.6
+      - 0.42
+      - 0.07
+      dimensions_xyz_m:
+      - 0.62
+      - 0.68
+      - 0.04
+      color_rgba:
+      - 0.8
+      - 0.82
+      - 0.85
+      - 1.0
+    tray_2:
+      name: Vassoio Strumenti Sterili Sinistro
+      alias:
+      - tray_2
+      - vassoio_2
+      - tray 2
+      - left tray
+      position_xyz_m:
+      - 0.6
+      - -0.42
+      - 0.07
+      dimensions_xyz_m:
+      - 0.62
+      - 0.68
+      - 0.04
+      color_rgba:
+      - 0.8
+      - 0.82
+      - 0.85
+      - 1.0
+  surgeon:
+    description: Postazione Chirurgo / Operatore sterile (campo opposto)
+    position_xyz_m:
+    - 1.1
+    - 0.0
+    - 0.0
+    safety_clearance_radius_m: 0.4
+camera_overhead:
+  auto_track_source_tray: true
+  height_above_tray_m: 1.08
+  extrinsics:
+    position_world_frame_xyz_m:
+    - 0.6
+    - -0.42
+    - 1.15
+    target_position_xyz_m:
+    - 0.6
+    - -0.42
+    - 0.07
+    verified: false
+    orientation_view: nadir_top_down
+  intrinsics:
+    fx_px: 615.0
+    fy_px: 615.0
+    cx_px: 320.0
+    cy_px: 240.0
+  width_px: 640
+  height_px: 480
+  publish_hz: 10.0
+  depth_format: 32FC1
+  ros2:
+    color_topic: /camera/color/image_raw
+    depth_topic: /camera/aligned_depth_to_color/image_raw
+    camera_info_topic: /camera/color/camera_info
+    world_frame: world
+    camera_frame: null
+    ee_frame: null
+    timeout_s: 10.0
+    depth_frames: 5
+    max_sync_s: 0.2
+    tf_timeout_s: 3.0
+surgical_instrument:
+  description: Riferimento STL strumento chirurgico per stima grasp e simulazione
+    fisica
+  stl_path: /workspace/data/inputs/Surgical Instruments/Bone Forceps/Bone Forceps
+    1/Leo Bone Holding Forceps 1 SmoothFusion.stl
+  mesh_scale:
+  - 1.0
+  - 1.0
+  - 1.0
+  mass_kg: 0.08
+  initial_position_xyz_m:
+  - 0.6
+  - -0.42
+  - 0.095
+  initial_orientation_rpy_deg:
+  - 0.0
+  - 0.0
+  - 0.0
+  gripper_topic: /lbr/gripper/command
+video_rendering:
+  mode: offline_post_processing
+  resolution:
+    width_px: 1280
+    height_px: 720
+  framerate_hz: 30.0
+  camera_view:
+    target_xyz_m:
+    - 0.45
+    - 0.0
+    - 0.25
+    distance_m: 1.35
+    yaw_deg: 48.0
+    pitch_deg: -28.0
+  output_filename: medical_pick_and_place.mp4
+grasp_validation:
+  enabled: true
+  require_feasibility: true
+  positions_along_zone: 5
+  both_jaw_orientations: true
+  pinch_target_m: 0.006
+  collision_margin_m: 0.01
+  min_joint_margin_rad: 0.03
+  robot_urdf: null
+motion_control:
+  velocities:
+    cartesian_linear_speed_m_s: 0.04
+    cartesian_angular_speed_rad_s: 0.2
+  differential_ik:
+    enabled: true
+    joint_max_velocity_rad_s:
+    - 0.35
+    - 0.35
+    - 0.35
+    - 0.35
+    - 0.35
+    - 0.35
+    - 0.35
+    velocity_safety_factor: 0.6
+    joint_max_acceleration_rad_s2: 4.0
+    joint_max_jerk_rad_s3: 40.0
+    position_margin_rad: 0.05
+    damping:
+      max: 0.05
+      singularity_threshold: 0.05
+    nullspace_gain: 1.0
+    feedback_gain: 5.0
+    plot: true
+    position_tolerance_m: 0.0005
+    orientation_tolerance_rad: 0.0025
+  heights_z_m:
+    staging_z: 0.45
+    approach_z: 0.32
+    lift_clearance_z: 0.35
+  downward_quaternion_xyzw:
+  - 0.0
+  - 1.0
+  - 0.0
+  - 0.0
+  workspace:
+    reach_r_min_m: 0.41
+    reach_r_max_m: 0.78
+    low_z_m: 0.15
+  timeouts:
+    step_timeout_sec: 30.0
+    bringup_wait_sec: 25.0
+    accept_timeout_sec: 10.0
+    gripper_settle_sec: 0.8
+  simulation_speed_factor: 1.0
+robot:
+  urdf: /workspace/data/external/iiwa7-prepared/iiwa7.urdf
+  metadata: /workspace/data/external/iiwa7-prepared/description.json
+  base_link: lbr_link_0
+  flange_link: lbr_link_ee
+  native_joint_names:
+  - lbr_A1
+  - lbr_A2
+  - lbr_A3
+  - lbr_A4
+  - lbr_A5
+  - lbr_A6
+  - lbr_A7
+  command_joint_names:
+  - lbr_A1
+  - lbr_A2
+  - lbr_A3
+  - lbr_A4
+  - lbr_A5
+  - lbr_A6
+  - lbr_A7
+  home_positions_rad:
+  - 0.0
+  - 0.35
+  - 0.0
+  - -1.3
+  - 0.0
+  - 1.0
+  - 0.0
+  source:
+    repository: https://github.com/lbr-stack/lbr_fri_ros2_stack.git
+    revision: 52f816bd59cbd2390efc890cca0ad61389e4ccb3
+  model: iiwa7_r800
+simulation_gripper: robotiq_2f_140_official_meshes
