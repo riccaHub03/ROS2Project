@@ -1,5 +1,9 @@
 # Il contesto di build serve solo a requirements*.txt e docker/entrypoint.sh: escludiamo tutto il resto.
 .git
+.venv
+.cache
+.local
+surgical-instruments-collection
 .claude
 data
 models

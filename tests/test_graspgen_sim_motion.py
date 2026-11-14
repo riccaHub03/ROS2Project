@@ -50,8 +50,9 @@ class SimulationIsolationTests(unittest.TestCase):
         path = Path(__file__).resolve().parents[1] / "data/external/robotiq-prepared/description.json"
         if not path.is_file():
             self.skipTest("Prepare the official Robotiq assets first")
-        metadata = json.loads(path.read_text())
-        model = ET.parse(metadata["urdf"]).getroot()
+        from pipeline.sim.robotiq_description import prepared_description
+        metadata, urdf = prepared_description()
+        model = ET.parse(urdf).getroot()
         self.assertIsNotNone(model.find("link[@name='graspgen_tcp']"))
         self.assertEqual(len(model.findall("joint/mimic")), 5)
         widths = metadata["opening_widths_m"]

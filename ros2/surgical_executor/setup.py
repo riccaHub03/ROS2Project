@@ -19,6 +19,7 @@ setup(
     entry_points={
         "console_scripts": [
             "pick_and_place = surgical_executor.executor_node:main",
+            "full_system = pipeline.ros2.cli:main",
         ],
     },
 )

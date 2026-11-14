@@ -119,7 +119,7 @@ camera_overhead:
 surgical_instrument:
   description: Riferimento STL strumento chirurgico per stima grasp e simulazione
     fisica
-  stl_path: /home/alice/Projects/ROS2Project/data/inputs/Surgical Instruments/Bone
+  stl_path: data/inputs/Surgical Instruments/Bone
     Forceps/Bone Forceps 1/Leo Bone Holding Forceps 1 SmoothFusion.stl
   mesh_scale:
   - 1.0

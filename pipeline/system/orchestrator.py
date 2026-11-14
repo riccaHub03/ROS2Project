@@ -20,7 +20,8 @@ def finalize(out, manifest, code, error=None):
     plan = _report(out, "plan.json")
     seg = _report(out, "sim_segmentation.json")
     grasp = _report(out, "grasp_graspgen.json")
-    graphical = _report(out, "graphical_run.json")
+    ros2 = manifest.get("transport") == "ros2"
+    graphical = _report(out, "ros2_run.json" if ros2 else "graphical_run.json")
     motion = _report(out, "sim_robot_motion.json")
     pd, sd, gd, md = (report.get("data", {}) for report in (plan, seg, grasp, motion))
     evidence = dict(task_llm_used=pd.get("planner_backend") == "ollama",
@@ -34,6 +35,15 @@ def finalize(out, manifest, code, error=None):
     complete = complete and all(evidence[k] for k in ("graspgen_used", "motion_checks_passed", "placement_verified"))
     if manifest["profile"] == "full_system":
         complete = complete and evidence["task_llm_used"] and evidence["segmentation_sam3_used"]
+    if ros2:
+        transport = graphical.get("data", {}).get("evidence", {})
+        evidence.update(ros2_rgbd_used=transport.get("rgbd_received_via_ros2") is True,
+                        ros2_arm_actions_used=transport.get("arm_actions_succeeded") == 7,
+                        ros2_gripper_actions_used=transport.get("gripper_actions_succeeded") == 2,
+                        ros2_feedback_received=transport.get("measured_joint_messages", 0) > 0
+                                               and transport.get("action_feedback_messages", 0) > 0)
+        complete = complete and all(evidence[k] for k in ("ros2_rgbd_used", "ros2_arm_actions_used",
+                                                         "ros2_gripper_actions_used", "ros2_feedback_received"))
     cancelled = graphical.get("status") == "CANCELLED" or code == 130
     status = "COMPLETED" if complete else "CANCELLED" if cancelled else "FAILED"
     if status == "FAILED" and not error and not graphical.get("error"):
@@ -51,6 +61,8 @@ def finalize(out, manifest, code, error=None):
     summary = [f"# {manifest['profile']} — {out.name}", "", f"Status: **{status}**", "",
                "Scope: PyBullet single-object simulation; ideal fixed-constraint grasp.", "",
                "| Evidence | Value |", "|---|---|"]
+    if manifest.get("validation_mode", "live") != "live":
+        summary[4:4] = [f"Validation mode: **{manifest['validation_mode']}** (no fresh AI inference).", ""]
     summary += [f"| {key} | {value} |" for key, value in evidence.items()]
     if manifest["error"]:
         summary += ["", f"Error: {manifest['error']}"]

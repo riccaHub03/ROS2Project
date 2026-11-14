@@ -7,6 +7,7 @@ from pathlib import Path
 import hashlib
 import json
 import math
+import os
 import shutil
 import subprocess
 import tempfile
@@ -71,7 +72,7 @@ def prepare():
         name = name.replace("package://robotiq_description/", str(description) + "/")
         if not Path(name).is_file():
             raise FileNotFoundError(name)
-        mesh.set("filename", name)
+        mesh.set("filename", os.path.relpath(name, out))
     urdf = out / "robotiq_2f_140.urdf"
     ET.indent(xml)
     ET.ElementTree(xml).write(urdf, encoding="unicode", xml_declaration=True)
@@ -109,7 +110,7 @@ def prepare():
     if not all(a > b for a, b in zip(widths[:-1], widths[1:])):
         raise ValueError("Official pad opening is not monotonic over the configured joint range")
     metadata = {"source_url": "https://github.com/robotiq/robotiq-ros", "revision": revision,
-                "urdf": str(urdf), "urdf_sha256": hashlib.sha256(urdf.read_bytes()).hexdigest(),
+                "urdf": urdf.name, "urdf_sha256": hashlib.sha256(urdf.read_bytes()).hexdigest(),
                 "geometry": "official collision meshes used for collision and visualization",
                 "root_frame": "graspgen_base", "tcp_frame": "graspgen_tcp",
                 "T_grasp_tcp": [[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 1, .195], [0, 0, 0, 1]],

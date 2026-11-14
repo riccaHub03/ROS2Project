@@ -1,5 +1,9 @@
 # ROS 2
 
+Il nuovo percorso completo LLM/SAM3/GraspGen è in [full-system-ros2.md](full-system-ros2.md).
+Usa action articolari e della pinza sulla scena chirurgica. Il nodo `pick_and_place` descritto sotto
+mantiene il precedente percorso cartesiano; non va usato per ripianificare una traiettoria GraspGen già verificata.
+
 ## Cosa c'è nel repository
 
 | Percorso | Contenuto |

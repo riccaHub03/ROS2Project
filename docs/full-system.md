@@ -1,5 +1,8 @@
 # Full system: LLM → SAM3 → GraspGen → PyBullet
 
+Questa pagina descrive il launcher nativo. Il percorso con trasporto ed esecuzione ROS 2 è disponibile
+in [full-system-ros2.md](full-system-ros2.md), con un runtime e un launcher separati.
+
 Due profili indipendenti, con lo stesso modulo di presa e movimento:
 
 - `graspgen_only`: parser deterministico, maschera PyBullet, GraspGen e percorso verificato.

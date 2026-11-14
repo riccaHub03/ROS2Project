@@ -42,8 +42,9 @@ class GraspGenMotionPreview(MotionPreview):
     and score. No centroid/PCA replacement or claim of physical force closure.
     """
 
-    def __init__(self, scene, report):
+    def __init__(self, scene, report, *, cancel_requested=lambda: False):
         self.scene = scene
+        self.cancel_requested = cancel_requested
         self._display_report = report
         self._runtime_error = None
         self.planner = self.cell = None
@@ -154,6 +155,8 @@ class GraspGenMotionPreview(MotionPreview):
             paths.output_dir() / "graspgen_sim_motion_validation.json")
 
     def _heartbeat(self):
+        if self.cancel_requested():
+            raise PlanningCancelled("Planning cancelled; robot held stationary")
         now = time.monotonic()
         if now-self.started > 180:
             raise PlanningCancelled("Total planning budget 180 s exceeded; untested candidates are not rejected grasps")

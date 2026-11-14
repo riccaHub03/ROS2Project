@@ -14,17 +14,24 @@ ROOT = Path(__file__).resolve().parents[2]
 REVISION = "5b7f9189cb26197a4f6850937a1ee4ce667a3577"
 
 
+def prepared_description():
+    source = ROOT / "data/external/robotiq-prepared/description.json"
+    if not source.is_file():
+        raise ValueError("Prepare the official gripper: python3 scripts/prepare_robotiq_description.py")
+    metadata = json.loads(source.read_text())
+    urdf = Path(metadata["urdf"])
+    if not urdf.is_absolute():
+        urdf = source.parent / urdf
+    if (metadata["revision"] != REVISION or
+            hashlib.sha256(urdf.read_bytes()).hexdigest() != metadata["urdf_sha256"]):
+        raise ValueError("Prepared Robotiq description changed; re-prepare the pinned source")
+    return metadata, urdf
+
+
 class RobotiqDescription:
     def __init__(self, cid):
         self.cid = cid
-        source = ROOT / "data/external/robotiq-prepared/description.json"
-        if not source.is_file():
-            raise ValueError("Prepare the official gripper: .venv/bin/python scripts/prepare_robotiq_description.py")
-        self.metadata = json.loads(source.read_text())
-        urdf = Path(self.metadata["urdf"])
-        if (self.metadata["revision"] != REVISION or
-                hashlib.sha256(urdf.read_bytes()).hexdigest() != self.metadata["urdf_sha256"]):
-            raise ValueError("Prepared Robotiq description changed; re-prepare the pinned source")
+        self.metadata, urdf = prepared_description()
         self.body = p.loadURDF(str(urdf), useFixedBase=True, physicsClientId=cid)
         self.links = {-1: "graspgen_base"}
         self.controls = []

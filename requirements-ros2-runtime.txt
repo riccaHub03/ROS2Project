@@ -1,0 +1,11 @@
+# Humble uses Python 3.10. Keep its interpreter and NumPy ABI compatible.
+numpy==1.26.4
+scipy>=1.11,<1.16
+matplotlib>=3.8,<3.11
+Pillow>=10,<13
+PyYAML>=6,<7
+pybullet==3.2.7
+trimesh>=4,<6
+fast-simplification>=0.1,<0.3
+xacro==2.1.1
+-r requirements-graspgen-client.txt

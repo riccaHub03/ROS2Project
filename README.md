@@ -1,5 +1,9 @@
 # Pipeline di percezione e presa per strumenti chirurgici
 
+Per eseguire **LLM → SAM3 → GraspGen → movimento PyBullet attraverso ROS 2**, con RGB-D via DDS,
+action braccio/pinza e feedback misurato, usare la [guida full system ROS 2](docs/full-system-ros2.md).
+Avvio sul PC Linux/WSL2: `bash scripts/run_ros2_system.sh --gui` dopo la preparazione descritta nella guida.
+
 Questo progetto insegna a un robot (il braccio **KUKA LBR iiwa**) a **riconoscere uno strumento chirurgico su un
 vassoio e a calcolare come afferrarlo**. Parte da una frase ("passami il bisturi"), guarda il vassoio con una camera,
 trova lo strumento nell'immagine, ne ricostruisce la forma in 3D e calcola dove e come chiudere la pinza.

@@ -5,7 +5,10 @@
 # Dopo la build apri un nuovo terminale nel container (l'entrypoint carica ROS2_workspace/install).
 set -euo pipefail
 PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+# ROS setup scripts intentionally read optional, unset environment variables.
+set +u
 source /opt/ros/humble/setup.bash
+set -u
 mkdir -p "$PROJECT_DIR/ROS2_workspace"
 cd "$PROJECT_DIR/ROS2_workspace"
 

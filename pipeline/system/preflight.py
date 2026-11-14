@@ -23,11 +23,8 @@ def check(settings):
         mesh = Path(env["surgical_instrument"]["stl_path"])
         if not mesh.is_file():
             raise FileNotFoundError(mesh)
-        import hashlib
-        from pipeline.sim.robotiq_description import ROOT, REVISION
-        metadata = json.loads((ROOT / "data/external/robotiq-prepared/description.json").read_text())
-        if metadata["revision"] != REVISION or hashlib.sha256(Path(metadata["urdf"]).read_bytes()).hexdigest() != metadata["urdf_sha256"]:
-            raise RuntimeError("Prepared Robotiq model differs from its pinned description")
+        from pipeline.sim.robotiq_description import prepared_description
+        prepared_description()
         # Import the same nominal gripper description used by the motion adapter.
         from pipeline.sim.gripper_geometry import ROBOTIQ_PROXY
         return {"mesh": str(mesh), "gripper": ROBOTIQ_PROXY.name}
