@@ -20,6 +20,8 @@ def check(settings):
     def assets():
         from pipeline.config_loader import load_environment_config
         env = load_environment_config(settings["environment"])
+        from pipeline.robot_model import RobotModel
+        robot = RobotModel.from_config(env)
         mesh = Path(env["surgical_instrument"]["stl_path"])
         if not mesh.is_file():
             raise FileNotFoundError(mesh)
@@ -27,7 +29,7 @@ def check(settings):
         prepared_description()
         # Import the same nominal gripper description used by the motion adapter.
         from pipeline.sim.gripper_geometry import ROBOTIQ_PROXY
-        return {"mesh": str(mesh), "gripper": ROBOTIQ_PROXY.name}
+        return {"mesh": str(mesh), "gripper": ROBOTIQ_PROXY.name, "robot": robot.report(ROBOTIQ_PROXY)}
 
     def dependencies():
         for name in ("pybullet", "trimesh", "scipy", "zmq", "msgpack", "matplotlib"):

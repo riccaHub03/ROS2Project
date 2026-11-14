@@ -63,6 +63,8 @@ class GraspGenMotionPreview(MotionPreview):
             self.tool_half = np.asarray(scene.mesh_info["dimensions_m"]) / 2
             self.cell = RobotCell(scene.config, scene.base_frame,
                                   position_tolerance_m=.001, angle_tolerance_rad=.005)
+            if self.cell.robot_model.model_sha256 != scene.robot_model.model_sha256:
+                raise ValueError("Scene and validator robot descriptions differ")
             self.cell.configure_tool_mesh(scene.mesh_file)
             self.start_q = np.asarray([p.getJointState(scene.robot, j, physicsClientId=scene.cid)[0]
                                        for j in scene.joints])
@@ -99,6 +101,7 @@ class GraspGenMotionPreview(MotionPreview):
                                        geometric_refinement=self.executed_candidate["geometric_refinement"],
                                        score_semantics="Original model score; refined pose was not rescored",
                                        robotiq_description_revision=self.cell.official_gripper.metadata["revision"],
+                                       robot_description=self.cell.robot_model.report(scene.gripper_geometry),
                                        robotiq_urdf_sha256=self.cell.official_gripper.metadata["urdf_sha256"],
                                        checks={"ik": True, "joint_limits": True,
                                                "sampled_path_collisions": True, "physical_contact": False},
@@ -182,6 +185,9 @@ class GraspGenMotionPreview(MotionPreview):
             raise ValueError("Report base frame differs from the live scene")
         dep = StageReport.load(paths.output_dir() / paths.SIM_DEPROJECTION, expect_stage="sim_deprojection")
         capture = StageReport.load(paths.output_dir() / paths.SIM_CAPTURE, expect_stage="sim_capture")
+        description = capture.data.get("robot_description", {})
+        if description.get("model_sha256") != scene.robot_model.model_sha256:
+            raise ValueError("Capture robot description differs from the live scene; capture and replan again")
         if not dep.data.get("motion_safe") or dep.data.get("centroid_source") != "optical":
             raise ValueError("Requires optical simulator depth without centroid fallback")
         cloud = paths.output_dir() / "sim_deprojection_cloud.ply"

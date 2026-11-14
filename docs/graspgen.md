@@ -39,6 +39,7 @@ cd <RADICE_PROGETTO>
 # Solo per un ambiente nuovo; per quello esistente usare .venv/bin/python.
 python3.11 -m venv .venv
 .venv/bin/python -m pip install -r requirements-core.txt -r requirements-graspgen-client.txt
+.venv/bin/python -m pipeline.robot_assets
 bash scripts/graspgen_demos.sh init
 bash scripts/graspgen_demos.sh check
 export MPLCONFIGDIR="$PWD/.cache/matplotlib"
@@ -73,6 +74,7 @@ contiene binari macOS. Sul PC, dalla directory ROS2Project:
 python3.11 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements-core.txt -r requirements-graspgen-client.txt
+.venv/bin/python -m pipeline.robot_assets
 bash scripts/graspgen_demos.sh init
 bash scripts/graspgen_demos.sh check
 ```

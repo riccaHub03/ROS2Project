@@ -80,6 +80,7 @@ def run(*, segmentation_path: Optional[str] = None, capture_path: Optional[str] 
             "num_points": int(len(rec.points_base)), "centroid_source": source,
             "coordinate_frame_id": rec.transformer.base_frame.frame_id,
             "robot_base_pose_world": rec.transformer.base_frame.to_dict(),
+            "robot_description": capture.data.get("robot_description"),
             "frames": rec.frames(config),
             "ground_truth_validation": {"ground_truth_xyz_m": truth,
                                         "reconstructed_xyz_m": round_list(rec.centroid_world),

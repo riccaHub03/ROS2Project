@@ -3,6 +3,7 @@
 Per eseguire **LLM → SAM3 → GraspGen → movimento PyBullet attraverso ROS 2**, con RGB-D via DDS,
 action braccio/pinza e feedback misurato, usare la [guida full system ROS 2](docs/full-system-ros2.md).
 Avvio sul PC Linux/WSL2: `bash scripts/run_ros2_system.sh --gui` dopo la preparazione descritta nella guida.
+Scena, FK/IK e validatore usano lo stesso **iiwa 7 R800**: [modello e preparazione](docs/robot-model.md).
 
 Questo progetto insegna a un robot (il braccio **KUKA LBR iiwa**) a **riconoscere uno strumento chirurgico su un
 vassoio e a calcolare come afferrarlo**. Parte da una frase ("passami il bisturi"), guarda il vassoio con una camera,
@@ -119,6 +120,7 @@ Se hai già un'immagine o un container con altri nomi, puoi riusarli:
 ### Passo 2 — Prima prova (dentro il container)
 
 ```bash
+python3 -m pipeline.robot_assets                     # prepara l'iiwa 7 ufficiale alla revisione fissata
 python3 scripts/generate_surgical_meshes.py          # crea due strumenti di prova (forbici e bisturi) in models/surgical_instruments/
 python3 run_pipeline_sim.py --tool Scalpel --vision ground-truth --headless   # catena completa, senza AI né finestra
 ```
@@ -286,8 +288,8 @@ modello della cella). Altrimenti `readiness` è `NOT_READY_FOR_ROBOT_MOTION` e `
 
 ### Limiti da conoscere
 
-- La verifica di IK e collisioni è un pre-filtro su un modello PyBullet con la geometria dell'iiwa 14 e una pinza
-  dimostrativa: non sostituisce MoveIt né i controlli di sicurezza del robot.
+- La verifica di IK e collisioni usa l'iiwa 7 ufficiale condiviso con la scena e la geometria della pinza
+  selezionata nella configurazione: non sostituisce MoveIt né i controlli di sicurezza del robot.
 - La calibrazione mano-occhio la esegue chi monta il sistema. Una posa nominale o sbagliata sposta tutte le prese.
 - Le immagini vengono trattate come pinhole: usare un flusso rettificato.
 - L'uso in ambito clinico richiede validazione e conformità normativa che questo codice non fornisce.

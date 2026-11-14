@@ -40,7 +40,7 @@ from pipeline.common.workspace import DEFAULT_LOW_Z_M as REACH_LOW_Z
 from pipeline.common.workspace import DEFAULT_R_MAX_M as REACH_R_MAX
 from pipeline.common.workspace import DEFAULT_R_MIN_M as REACH_R_MIN
 from pipeline.config_loader import load_environment_config
-from pipeline.sim.robot_scene import HOME, TCP_OFFSET, RobotScene
+from pipeline.sim.robot_scene import RobotScene
 
 DEFAULT_EE_ORIENTATION = p.getQuaternionFromEuler([math.pi, 0.0, 0.0])  # Pinza rivolta verso il basso (Nadir)
 IK_OK_ERR = 0.006    # m, errore TCP accettato come soluzione IK valida
@@ -144,14 +144,14 @@ class InteractiveRobotController(RobotScene):
                 p.configureDebugVisualizer(flag, 0, physicsClientId=self.cid)
 
         # Strumento fermo finche' non viene afferrato e senza urti col braccio
-        for j in range(-1, 7):
+        for j in range(-1, p.getNumJoints(self.robot, physicsClientId=self.cid)):
             p.setCollisionFilterPair(self.robot, self.tool, j, -1, 0, physicsClientId=self.cid)
 
         # Client DIRECT separato solo cinematico: verifica l'IK senza muovere il robot (stessa posa della base)
         self.ik_cid = p.connect(p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.ik_cid)
-        self.ik_robot = p.loadURDF("kuka_iiwa/model.urdf", self.base_frame.position.tolist(),
-                                   self.base_frame.quaternion, useFixedBase=True, physicsClientId=self.ik_cid)
+        self.ik_robot, self.ik_joints, self.ik_ee = self.robot_model.load(
+            self.ik_cid, self.base_frame.position, self.base_frame.quaternion)
         self.base_yaw = p.getEulerFromQuaternion(self.base_frame.quaternion)[2]
 
         self._init_mouse_cursor()
@@ -476,38 +476,39 @@ class InteractiveRobotController(RobotScene):
     def _ik_error_and_q(self, flange_pos, target_orn, seed):
         """IK sul client cinematico separato: ritorna (errore TCP in m, giunti)."""
         cid = self.ik_cid
-        for j, q in enumerate(seed):
+        for j, q in zip(self.ik_joints, seed):
             p.resetJointState(self.ik_robot, j, q, physicsClientId=cid)
         q = list(seed)
         for _ in range(3):  # piu' passate dal punto trovato per convergere
             q = list(p.calculateInverseKinematics(
-                self.ik_robot, self.ee, flange_pos, target_orn,
+                self.ik_robot, self.ik_ee, flange_pos, target_orn,
                 lowerLimits=[lim[0] for lim in self.limits],
                 upperLimits=[lim[1] for lim in self.limits],
                 jointRanges=[lim[1] - lim[0] for lim in self.limits],
-                restPoses=list(HOME),
+                restPoses=list(self.home),
                 jointDamping=[0.01] * 7,
                 maxNumIterations=60,
                 residualThreshold=1e-5,
                 physicsClientId=cid,
             )[:7])
             q = [max(lo, min(hi, v)) for v, (lo, hi) in zip(q, self.limits)]
-            for j, v in enumerate(q):
+            for j, v in zip(self.ik_joints, q):
                 p.resetJointState(self.ik_robot, j, v, physicsClientId=cid)
-        state = p.getLinkState(self.ik_robot, self.ee, computeForwardKinematics=True, physicsClientId=cid)
+        state = p.getLinkState(self.ik_robot, self.ik_ee, computeForwardKinematics=True, physicsClientId=cid)
         err = float(np.linalg.norm(np.asarray(state[4]) - np.asarray(flange_pos)))
         return err, q
 
     def solve_and_apply_ik(self, target_pos, target_orn) -> bool:
         """Risolve l'IK con piu' punti di partenza e comanda i giunti solo se la soluzione e' affidabile."""
-        flange_pos, _ = p.multiplyTransforms(target_pos, target_orn, [0, 0, -TCP_OFFSET[2]], [0, 0, 0, 1])
+        flange_pos, _ = p.multiplyTransforms(target_pos, target_orn,
+                                             [0, 0, -self.gripper_geometry.tcp_offset[2]], [0, 0, 0, 1])
         current = [p.getJointState(self.robot, j, physicsClientId=self.cid)[0] for j in self.joints]
         base_xy = self.base_frame.position[:2]
         base_angle = math.atan2(target_pos[1] - base_xy[1], target_pos[0] - base_xy[0]) - self.base_yaw
-        mirrored = [max(self.limits[0][0], min(self.limits[0][1], base_angle))] + list(HOME[1:])
+        mirrored = [max(self.limits[0][0], min(self.limits[0][1], base_angle))] + list(self.home[1:])
 
         best_err, best_q = None, None
-        for seed in (current, mirrored, list(HOME)):
+        for seed in (current, mirrored, list(self.home)):
             err, q = self._ik_error_and_q(flange_pos, target_orn, seed)
             if best_err is None or err < best_err:
                 best_err, best_q = err, q
@@ -560,7 +561,7 @@ class InteractiveRobotController(RobotScene):
                 physicsClientId=self.cid,
             )
             p.changeConstraint(self.attachment, maxForce=600, physicsClientId=self.cid)
-            for j in range(-1, 7):
+            for j in range(-1, p.getNumJoints(self.robot, physicsClientId=self.cid)):
                 p.setCollisionFilterPair(self.robot, self.tool, j, -1, 0, physicsClientId=self.cid)
             self.target_gripper_width = 0.015
             print("[Grasp] Strumento agganciato con successo alla pinza.")
@@ -569,9 +570,9 @@ class InteractiveRobotController(RobotScene):
 
     def reset_home(self):
         """Ripristina la posa HOME del robot."""
-        for j, q in zip(self.joints, HOME):
+        for j, q in zip(self.joints, self.home):
             p.resetJointState(self.robot, j, q, physicsClientId=self.cid)
-        self.command_joints(HOME)
+        self.command_joints(self.home)
         actual_pos, actual_orn = self.tcp_pose()
         self.target_tcp_pos = np.array(actual_pos, dtype=float)
         self.target_tcp_yaw = 0.0

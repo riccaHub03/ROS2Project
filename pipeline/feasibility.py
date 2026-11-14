@@ -48,11 +48,11 @@ DEFAULT_PARAMS: Dict[str, Any] = {
     "ik_angle_tolerance_rad": 0.035,
     "max_approach_tilt_deg": 30.0,
     "max_instrument_tilt_deg": 45.0,    # a top-down pinch needs an instrument that lies (roughly) flat
-    "robot_urdf": None,                 # default: PyBullet kuka_iiwa (LBR iiwa 14 geometry); set the iiwa 7 URDF
+    "robot_urdf": None,                 # legacy override must match the shared robot description
 }
 LIMITATIONS = [
     "Kinematic pre-filter in a PyBullet model of the cell: it does not replace MoveIt / the robot controller.",
-    "Default arm model is PyBullet's kuka_iiwa (LBR iiwa 14 geometry), not the iiwa 7 of the laboratory.",
+    "Robot geometry and joint limits follow the shared configured URDF; hardware calibration remains unverified.",
     "Gripper and carried instrument are boxes; the demonstrative gripper is NOT the laboratory gripper.",
     "Only table and trays from the configuration are obstacles (solid blocks); other instruments are not modelled.",
     "Physical grasp stability (friction, forces, slip) is not evaluated.",
@@ -327,7 +327,6 @@ def describe(cand: Candidate) -> Dict[str, Any]:
 def evaluate(candidates: List[Candidate], ctx: ValidationContext) -> FeasibilityResult:
     """Validate every candidate in the robot cell and rank them (feasible first, then by score)."""
     from pipeline.robot_cell import RobotCell
-    from pipeline.sim.robot_scene import HOME
 
     params = ctx.params
     started = time.perf_counter()
@@ -340,7 +339,7 @@ def evaluate(candidates: List[Candidate], ctx: ValidationContext) -> Feasibility
             contact, orientation = check_contact(cand, ctx), check_orientation(cand, ctx)
             entry["contact"], entry["orientation"] = contact, orientation
             if contact["passed"] and orientation["passed"]:
-                path = check_path(cell, cand, ctx, HOME)
+                path = check_path(cell, cand, ctx, cell.home)
             else:
                 path = {"passed": False, "skipped": True, "failure": None, "samples": 0}
             entry["kinematics"] = {k: v for k, v in path.items() if k not in ("min_clearance_mm",)}
@@ -371,7 +370,7 @@ def evaluate(candidates: List[Candidate], ctx: ValidationContext) -> Feasibility
                "selected_id": selected["id"] if selected else None,
                "duration_s": round(time.perf_counter() - started, 3),
                "parameters": {k: v for k, v in params.items() if k != "robot_urdf"},
-               "robot_model": params["robot_urdf"] or "pybullet kuka_iiwa (LBR iiwa 14 geometry)",
+               "robot_model": cell.robot_model.report(cell.gripper_geometry),
                "limitations": LIMITATIONS}
     return FeasibilityResult(entries, selected["id"] if selected else None, summary)
 

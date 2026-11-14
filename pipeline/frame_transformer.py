@@ -5,7 +5,7 @@ Gestisce il passaggio matematico e TF2 tra:
   1. Camera Optical Frame (Z avanti lungo la linea di vista, X destra, Y basso)
   2. Camera Link (montaggio fisico della telecamera)
   3. World e base robot (lbr_link_0), distinti quando la base e' spostata
-  4. End-Effector / TCP Frame (lbr_iiwa_link_7 / workbench_tcp)
+  4. Flangia / TCP (lbr_link_ee / workbench_tcp), distinti tramite il montaggio della pinza
 """
 
 import math

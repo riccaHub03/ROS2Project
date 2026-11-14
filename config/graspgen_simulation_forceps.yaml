@@ -165,14 +165,7 @@ motion_control:
     cartesian_angular_speed_rad_s: 0.8
   differential_ik:
     enabled: false
-    joint_max_velocity_rad_s:
-    - 1.485
-    - 1.485
-    - 1.745
-    - 1.309
-    - 2.269
-    - 2.356
-    - 2.356
+    joint_max_velocity_rad_s: null  # derived from the shared robot URDF
     velocity_safety_factor: 0.6
     joint_max_acceleration_rad_s2: 4.0
     joint_max_jerk_rad_s3: 40.0

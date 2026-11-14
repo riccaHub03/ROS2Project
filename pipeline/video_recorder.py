@@ -50,16 +50,15 @@ def render_offline_video(trajectory_log=None, p_tool_initial=None, p_tray_final=
     p.setGravity(0, 0, -9.81, physicsClientId=client)
     p.loadURDF("plane.urdf", physicsClientId=client)
 
-    # Carica il robot KUKA LBR iiwa
-    robot_urdf = Path(pybullet_data.getDataPath()) / "kuka_iiwa" / "model.urdf"
-    robot = p.loadURDF(str(robot_urdf), useFixedBase=True, physicsClientId=client)
-    joint_indices = [i for i in range(p.getNumJoints(robot, physicsClientId=client))
-                     if p.getJointInfo(robot, i, physicsClientId=client)[2] in (p.JOINT_REVOLUTE, p.JOINT_PRISMATIC)]
-
-    # Elementi sala operatoria caricati dinamicamente da config
     if config is None:
         from pipeline.config_loader import load_environment_config
         config = load_environment_config()
+    from pipeline.robot_model import RobotModel
+    from pipeline.frame_transformer import RobotBaseFrame
+    model, base = RobotModel.from_config(config), RobotBaseFrame.from_config(config)
+    robot, joint_indices, flange_link = model.load(client, base.position, base.quaternion)
+
+    # Elementi sala operatoria caricati dinamicamente da config
     
     env_cfg = config.get("environment", {})
     table_cfg = env_cfg.get("surgical_table", {})
@@ -122,7 +121,7 @@ def render_offline_video(trajectory_log=None, p_tool_initial=None, p_tray_final=
 
     print(f"Rendering in corso ({num_frames} frames a {fps} FPS)...")
     last_idx = 0
-    flange_index = 6 # End effector link 7
+    flange_index = flange_link
 
     for frame_idx in range(num_frames):
         target_t = frame_idx / fps
@@ -143,8 +142,10 @@ def render_offline_video(trajectory_log=None, p_tool_initial=None, p_tray_final=
             ee_state = p.getLinkState(robot, flange_index, computeForwardKinematics=True, physicsClientId=client)
             ee_pos = ee_state[4]
             ee_orn = ee_state[5]
-            # Offset verso il basso della pinza
-            p.resetBasePositionAndOrientation(tool_body, [ee_pos[0], ee_pos[1], ee_pos[2] - 0.03], ee_orn, physicsClientId=client)
+            from pipeline.sim.gripper_geometry import for_config
+            tcp, tcp_orn = p.multiplyTransforms(ee_pos, ee_orn, for_config(config).tcp_offset, [0, 0, 0, 1])
+            # Illustrative tool origin at the shared TCP, not a contact experiment.
+            p.resetBasePositionAndOrientation(tool_body, tcp, tcp_orn, physicsClientId=client)
         elif last_idx > len(times) // 2 and p_tray_final:
             # Deposita lo strumento stabilmente nel vassoio
             p.resetBasePositionAndOrientation(tool_body, [p_tray_final[0], p_tray_final[1], 0.092], [0, 0, 0, 1], physicsClientId=client)

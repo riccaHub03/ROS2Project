@@ -22,10 +22,11 @@ from pipeline.mesh_loader import find_instrument_mesh
 from pipeline.frame_transformer import RobotBaseFrame
 from pipeline.sim.placement import sample_tool_pose
 from pipeline.sim.gripper_geometry import for_config
+from pipeline.robot_model import DEFAULT_HOME, RobotModel
 
 log = logging.getLogger("robot_scene")
 TCP_OFFSET = (0.0, 0.0, 0.10)
-HOME = (0.0, 0.35, 0.0, -1.3, 0.0, 1.0, 0.0)
+HOME = DEFAULT_HOME  # Compatibility import; live scenes use their configured self.home.
 # Demonstrative parallel gripper (flange frame, metres). The robot cell model used for the grasp feasibility
 # check builds its collision boxes from the same numbers: replace both with the laboratory gripper.
 PALM_HALF_EXTENTS = (0.032, 0.025, 0.0125)
@@ -161,13 +162,12 @@ class RobotScene:
                                    textSize=1.1, physicsClientId=self.cid)
 
     def _build_robot(self):
-        self.robot = p.loadURDF(
-            "kuka_iiwa/model.urdf", basePosition=self.base_frame.position.tolist(),
-            baseOrientation=self.base_frame.quaternion, useFixedBase=True, physicsClientId=self.cid,
-        )
-        self.joints = list(range(7))
-        self.ee = 6
-        self.limits = [p.getJointInfo(self.robot, j, physicsClientId=self.cid)[8:10] for j in self.joints]
+        self.robot_model = RobotModel.from_config(self.config)
+        self.robot, self.joints, self.ee = self.robot_model.load(
+            self.cid, self.base_frame.position, self.base_frame.quaternion)
+        self.home = self.robot_model.home
+        self.limits = list(zip(self.robot_model.lower, self.robot_model.upper))
+        self.effort_limits = self.robot_model.effort
         self.reset_robot()
         from pipeline.sim.gripper_geometry import ROBOTIQ_PROXY
         self.official_gripper = None
@@ -232,13 +232,13 @@ class RobotScene:
         self.tool_bottom = top + 0.001
 
     def reset_robot(self):
-        for j, q in zip(self.joints, HOME):
+        for j, q in zip(self.joints, self.home):
             p.resetJointState(self.robot, j, q, physicsClientId=self.cid)
-        self.command_joints(HOME)
+        self.command_joints(self.home)
 
     def command_joints(self, q):
         p.setJointMotorControlArray(self.robot, self.joints, p.POSITION_CONTROL,
-                                   targetPositions=list(q), forces=[self.MOTOR_FORCE] * 7,
+                                   targetPositions=list(q), forces=[min(self.MOTOR_FORCE, f) for f in self.effort_limits],
                                    positionGains=[self.POSITION_GAIN] * 7, velocityGains=[1] * 7,
                                    physicsClientId=self.cid)
 
@@ -297,7 +297,7 @@ class RobotScene:
         )
         p.changeConstraint(self.attachment, maxForce=500, physicsClientId=self.cid)
         # Il trasferimento e' dimostrativo: il vincolo non misura contatti o forza di presa.
-        for j in range(-1, 7):
+        for j in range(-1, p.getNumJoints(self.robot, physicsClientId=self.cid)):
             p.setCollisionFilterPair(self.robot, self.tool, j, -1, 0, physicsClientId=self.cid)
 
     def release_tool(self):
@@ -373,7 +373,8 @@ class RobotScene:
                   "ground_truth_pose": initial_pose, "camera": camera.to_dict(),
                   "scene_object_pose_exact": {"position_xyz_m": list(self.tool_initial_pos),
                                               "orientation_xyzw": list(self.tool_initial_orn)},
-                  "robot_base_pose_world": self.base_frame.to_dict()})
+                  "robot_base_pose_world": self.base_frame.to_dict(),
+                  "robot_description": self.robot_model.report(self.gripper_geometry)})
         self.capture_report.save(out / paths.SIM_CAPTURE)
         StageReport(
             stage="sim_reference_pose", inputs={"plan": "in-memory"}, artifacts={"placement_png": str(overview_png)},

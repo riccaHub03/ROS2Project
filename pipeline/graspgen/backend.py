@@ -152,6 +152,7 @@ def run(*, deprojection_path=None, plan_path=None, out_dir=None, report_path=Non
         report.data.update(
             source_pipeline=dep.stage.split("_")[0], coordinate_frame_id=base.frame_id,
             robot_base_pose_world=base.to_dict(),
+            robot_description=dep.data.get("robot_description"),
             target_instrument=(StageReport.load(plan_file, expect_stage="plan").require("target_instrument")
                                if plan_file.exists() else "surgical_instrument"),
             input_pointcloud={"source_ply": str(ply.resolve()), "sha256": hashlib.sha256(ply.read_bytes()).hexdigest(),

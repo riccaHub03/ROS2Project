@@ -25,6 +25,8 @@ def load_environment_config(config_path: Optional[str | Path] = None) -> Dict[st
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
     config = yaml.safe_load(path.read_text(encoding="utf-8"))
+    from pipeline.robot_model import robot_settings
+    config["robot"] = robot_settings(config)
     # Versioned asset paths are relative to the repository, not to /workspace
     # or to the caller's working directory (native Linux and Docker agree).
     instrument = config.get("surgical_instrument", {})

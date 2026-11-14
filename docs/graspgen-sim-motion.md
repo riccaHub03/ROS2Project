@@ -38,6 +38,7 @@ indicata sopra:
 
 ```bash
 .venv/bin/python -m pip install -r requirements-robot-description.txt
+.venv/bin/python -m pipeline.robot_assets
 .venv/bin/python scripts/prepare_robotiq_description.py
 ```
 
@@ -46,6 +47,8 @@ Il frame radice del modello preparato coincide con la convenzione GraspGen
 -90 gradi attorno a Z: chiusura Y, avvicinamento Z. Il montaggio visuale usa
 l'inversa di questa rotazione. FK/IK e collisioni condividono questa convenzione.
 Il TCP è il riferimento nominale GraspGen, non una calibrazione sperimentale.
+Il braccio è l'iiwa 7 R800 ufficiale, condiviso con il validatore e la cinematica;
+origine, flangia, limiti e verifica sono descritti in [robot-model.md](robot-model.md).
 
 ## Esecuzione manuale
 

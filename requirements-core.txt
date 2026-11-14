@@ -5,6 +5,7 @@ scipy==1.17.1
 matplotlib==3.11.2
 Pillow==13.0.0
 PyYAML==6.0.3
+xacro==2.1.1
 pybullet==3.2.7
 trimesh==5.2.0
 fast-simplification==0.2.0

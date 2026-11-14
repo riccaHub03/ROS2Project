@@ -11,7 +11,9 @@ from pathlib import Path
 
 import numpy as np
 
-JOINT_NAMES = [f"lbr_A{i}" for i in range(1, 8)]
+from pipeline.robot_model import COMMAND_JOINT_NAMES
+
+JOINT_NAMES = list(COMMAND_JOINT_NAMES)
 DT = 1 / 240
 
 

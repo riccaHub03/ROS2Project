@@ -121,7 +121,7 @@ grasp_validation:
   pinch_target_m: 0.006         # quanto sotto la superficie dello strumento arrivano le punte delle dita
   collision_margin_m: 0.010     # distanza minima da tavolo, vassoi e tra i link del braccio
   min_joint_margin_rad: 0.03    # distanza minima da ogni limite di giunto
-  robot_urdf: null              # null = kuka_iiwa di PyBullet (geometria iiwa 14); per l'iiwa 7 indicare il suo URDF
+  robot_urdf: null              # usa config/robot.yaml; un override diverso viene rifiutato
 
 # ---------------------------------------------------------------------
 # Parametri di Controllo del Moto (ROS 2 Control & Cinematica Cartesiana)
@@ -136,8 +136,8 @@ motion_control:
   # posteriori. enabled: false => IK PyBullet con interpolazione lineare, nessun vincolo e nessun grafico.
   differential_ik:
     enabled: false
-    # Velocita' massime A1..A7 in rad/s (KUKA iiwa 14); uno scalare vale per tutti i giunti.
-    joint_max_velocity_rad_s: [1.485, 1.485, 1.745, 1.309, 2.269, 2.356, 2.356]
+    # null = limiti dell'URDF condiviso; un valore esplicito puo' solo restringerli.
+    joint_max_velocity_rad_s: null
     velocity_safety_factor: 0.6        # si pianifica al 60% del limite hardware
     # Accelerazione e jerk NON sono dati del costruttore: segnaposto prudenti, da TARARE sul robot reale.
     joint_max_acceleration_rad_s2: 4.0

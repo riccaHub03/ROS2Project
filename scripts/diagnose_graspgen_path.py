@@ -14,17 +14,15 @@ import sys
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import numpy as np
 import pybullet as p
-import yaml
 
 from pipeline.common import paths
 from pipeline.common.report import StageReport, write_json
+from pipeline.config_loader import load_environment_config
 from pipeline.frame_transformer import RobotBaseFrame
-from pipeline.sim.constrained_differential_ik import PyBulletKinematics
+from pipeline.robot_model import RobotModel
 from pipeline.sim.graspgen_motion import GraspGenMotionPreview
 from pipeline.sim.gripper_geometry import ROBOTIQ_PROXY
-from pipeline.sim.robot_scene import HOME
 
 
 def main():
@@ -45,7 +43,8 @@ def main():
     for name in required:
         shutil.copy2(source/name, out/name)
     os.environ[paths.OUTPUT_ENV] = str(out)
-    config = yaml.safe_load(args.config.read_text())
+    config = load_environment_config(args.config)
+    model = RobotModel.from_config(config)
     config['simulation_gripper'] = ROBOTIQ_PROXY.name
     control = config.setdefault('motion_control', {})
     control.setdefault('differential_ik', {}).update(
@@ -63,21 +62,23 @@ def main():
     summary = {'mode': 'saved_data_kinematic_path_check_from_HOME',
                'source_run': str(source), 'physics_steps': 0, 'inference_requests': 0,
                'trajectory_executed': False, 'physical_grasp_validated': False,
-               'hardware_motion_allowed': False, 'start_q_rad': list(HOME)}
+               'hardware_motion_allowed': False, 'start_q_rad': list(model.home),
+               'robot_description': model.report(ROBOTIQ_PROXY)}
     planner = None
-    kinematics = PyBulletKinematics('kuka_iiwa/model.urdf', base.position, base.quaternion,
-                                    list(range(7)), 6, ROBOTIQ_PROXY.tcp_offset)
+    cid = p.connect(p.DIRECT)
     try:
-        kinematics.fk(np.asarray(HOME))
-        shape = p.createCollisionShape(p.GEOM_MESH, fileName=str(mesh_file), physicsClientId=kinematics.cid)
+        robot, joints, flange = model.load(cid, base.position, base.quaternion)
+        for joint, value in zip(joints, model.home):
+            p.resetJointState(robot, joint, value, physicsClientId=cid)
+        shape = p.createCollisionShape(p.GEOM_MESH, fileName=str(mesh_file), physicsClientId=cid)
         tool = p.createMultiBody(0, shape, -1, pose['position_xyz_m'], pose['orientation_xyzw'],
-                                 physicsClientId=kinematics.cid)
+                                 physicsClientId=cid)
         source_tray = config['environment']['trays'][plan['source_tray']]
         tool_bottom = source_tray['position_xyz_m'][2] + source_tray['dimensions_xyz_m'][2]/2 + .001
         scene = SimpleNamespace(
             config=config, base_frame=base, gripper_geometry=ROBOTIQ_PROXY,
             procedural_tool_fallback=False, mesh_file=str(mesh_file), mesh_info=metadata,
-            cid=kinematics.cid, robot=kinematics.robot, joints=list(range(7)), ee=6,
+            cid=cid, robot=robot, joints=joints, ee=flange, robot_model=model,
             tool=tool, source=plan['source_tray'], destination=plan['destination_tray'],
             trays=config['environment']['trays'], tool_bottom=tool_bottom,
             gui=False, status=lambda message: print(message, flush=True),
@@ -97,7 +98,7 @@ def main():
     finally:
         if planner is not None:
             planner.close()
-        kinematics.close()
+        p.disconnect(cid)
     write_json(out/'saved_path_check.json', summary)
     print(summary['status'], flush=True)
     print(out/'saved_path_check.json', flush=True)

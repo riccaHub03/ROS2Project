@@ -12,7 +12,9 @@ def motion_speed(value):
 def configure_motion(control, factor=1.):
     factor = motion_speed(factor)
     ik = control.setdefault("differential_ik", {})
-    original = ik.get("joint_max_velocity_rad_s", [.35] * 7)
+    original = ik.get("joint_max_velocity_rad_s") or [.35] * 7
+    if isinstance(original, (int, float)):
+        original = [original] * 7
     ik.update(enabled=True, position_tolerance_m=.0005, orientation_tolerance_rad=.0025,
               joint_max_velocity_rad_s=[min(float(v), .35 * factor) for v in original])
     velocities = control.setdefault("velocities", {})

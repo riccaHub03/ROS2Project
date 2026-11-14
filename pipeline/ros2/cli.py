@@ -76,6 +76,9 @@ def run(settings, args, checks):
     snapshot = out / "environment.yaml"
     snapshot.write_text(yaml.safe_dump(environment, sort_keys=False))
     settings = dict(settings, environment=str(snapshot), motion_speed=args.motion_speed)
+    from pipeline.robot_model import RobotModel
+    from pipeline.sim.gripper_geometry import for_config
+    robot_description = RobotModel.from_config(environment).report(for_config(environment))
     instruction = args.instruction or f"Pick up the {settings['scene_tool']} from tray 2 and place it in tray 1."
     spec = dict(out_dir=str(out), namespace=namespace, settings=settings, instruction=instruction,
                 gui=not args.headless, seed=args.seed,
@@ -92,6 +95,7 @@ def run(settings, args, checks):
                     instruction=instruction, seed=args.seed, namespace=namespace,
                     started_at=datetime.now().astimezone().isoformat(), preflight=checks,
                     source_commit=commit, source_worktree_dirty=dirty,
+                    robot_description=robot_description,
                     validation_mode=settings.get("validation_mode", "live"),
                     environment_sha256=hashlib.sha256(snapshot.read_bytes()).hexdigest())
     write_json(out / "run_manifest.json", manifest)

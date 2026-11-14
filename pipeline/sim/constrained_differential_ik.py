@@ -27,13 +27,13 @@ from pathlib import Path
 from typing import Callable, Optional
 
 import numpy as np
+from pipeline.robot_model import RobotModel
 
 CONTROL_DT = 1 / 240
 DEFAULT_PLOT = "sim_robot_joint_velocities.png"
 DEFAULT_PLOT_DYNAMICS = "sim_robot_joint_acc_jerk.png"
-# KUKA LBR iiwa 14 R820, velocita' massime A1..A7 (rad/s). Accelerazione e jerk NON sono pubblicati
-# dal costruttore: i default sono segnaposto prudenti da TARARE sul robot reale.
-IIWA14_MAX_VELOCITY_RAD_S = [1.485, 1.485, 1.745, 1.309, 2.269, 2.356, 2.356]
+# Joint velocities come from the shared robot URDF. Acceleration and jerk below
+# are configured simulation bounds, not manufacturer-certified hardware values.
 DEFAULT_MAX_ACCELERATION_RAD_S2 = 4.0
 DEFAULT_MAX_JERK_RAD_S3 = 40.0
 
@@ -128,7 +128,7 @@ def _per_joint(value, n, name):
 @dataclass
 class DifferentialIKConfig:
     enabled: bool = False
-    max_velocity: np.ndarray = field(default_factory=lambda: np.asarray(IIWA14_MAX_VELOCITY_RAD_S))
+    max_velocity: np.ndarray = field(default_factory=lambda: np.asarray(RobotModel.from_config().velocity))
     max_acceleration: np.ndarray = field(default_factory=lambda: np.full(7, DEFAULT_MAX_ACCELERATION_RAD_S2))
     max_jerk: np.ndarray = field(default_factory=lambda: np.full(7, DEFAULT_MAX_JERK_RAD_S3))
     velocity_safety_factor: float = 0.6
@@ -152,6 +152,10 @@ class DifferentialIKConfig:
         raw = motion.get("differential_ik", {}) or {}
         if not raw.get("enabled", False):
             return cls(enabled=False)
+        hardware_velocity = np.asarray(RobotModel.from_config(config).velocity)
+        requested_velocity = raw.get("joint_max_velocity_rad_s")
+        if requested_velocity is None:
+            requested_velocity = hardware_velocity
         defaults = cls()
         simple = {k: raw[k] for k in (
             "velocity_safety_factor", "position_margin_rad", "nullspace_gain", "feedback_gain",
@@ -162,8 +166,8 @@ class DifferentialIKConfig:
         velocities = motion.get("velocities", {}) or {}
         config_obj = cls(
             enabled=True,
-            max_velocity=_per_joint(raw.get("joint_max_velocity_rad_s", IIWA14_MAX_VELOCITY_RAD_S), joints,
-                                    "joint_max_velocity_rad_s"),
+            max_velocity=np.minimum(_per_joint(requested_velocity, joints,
+                                               "joint_max_velocity_rad_s"), hardware_velocity),
             max_acceleration=_per_joint(raw.get("joint_max_acceleration_rad_s2", DEFAULT_MAX_ACCELERATION_RAD_S2),
                                         joints, "joint_max_acceleration_rad_s2"),
             max_jerk=_per_joint(raw.get("joint_max_jerk_rad_s3", DEFAULT_MAX_JERK_RAD_S3), joints,
@@ -458,8 +462,9 @@ class PyBulletKinematics:
         return np.asarray(position), np.asarray(p.getMatrixFromQuaternion(orientation)).reshape(3, 3)
 
     def close(self):
-        if self._p.isConnected(self.cid):
-            self._p.disconnect(self.cid)
+        cid, self.cid = self.cid, None
+        if cid is not None and self._p.isConnected(cid):
+            self._p.disconnect(cid)
 
     def __del__(self):
         try:
@@ -471,11 +476,10 @@ class PyBulletKinematics:
 def build_for_scene(scene) -> Optional[tuple[ConstrainedDifferentialIK, PyBulletKinematics]]:
     """Costruisce controllore e cinematica per la scena, o ``None`` se disattivato nel YAML."""
     import pybullet as p
-    from pipeline.sim.robot_scene import TCP_OFFSET
     config = DifferentialIKConfig.from_config(scene.config, len(scene.joints))
     if not config.enabled:
         return None
-    kinematics = PyBulletKinematics("kuka_iiwa/model.urdf", scene.base_frame.position, scene.base_frame.quaternion,
+    kinematics = PyBulletKinematics(str(scene.robot_model.urdf), scene.base_frame.position, scene.base_frame.quaternion,
                                     scene.joints, scene.ee, scene.gripper_geometry.tcp_offset)
     q0 = [p.getJointState(scene.robot, j, physicsClientId=scene.cid)[0] for j in scene.joints]
     limits = np.asarray(scene.limits, float)

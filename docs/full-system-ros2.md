@@ -6,7 +6,7 @@ Il modulo fa parte del repository: il codice è in `pipeline/ros2/`, l'entrypoin
 `run_system_ros2.py` e l'avvio del runtime è `scripts/run_ros2_system.sh`.
 Le modifiche si trasferiscono sull'altro PC con il normale commit/push/pull del progetto.
 
-Il backend di esecuzione è un **server di simulazione PyBullet** che implementa `FollowJointTrajectory` e `GripperCommand`. Non è un nodo `ros2_control`, un driver FRI o un collegamento al KUKA fisico. La scena mantiene il modello PyBullet iiwa 14 già usato dalla demo, la Robotiq ufficiale e la presa con vincolo ideale. Il passaggio al robot fisico richiede un backend e una validazione dedicati.
+Il backend di esecuzione è un **server di simulazione PyBullet** che implementa `FollowJointTrajectory` e `GripperCommand`. Non è un nodo `ros2_control`, un driver FRI o un collegamento al KUKA fisico. Scena, FK/IK e validatore usano lo stesso **iiwa 7 R800 ufficiale**, definito in `config/robot.yaml`, con Robotiq ufficiale e presa con vincolo ideale. [Modello, flangia, TCP e verifiche](robot-model.md). Il passaggio al robot fisico richiede un backend e una validazione dedicati.
 
 ## Avvio sull'altro PC Linux / WSL2
 
@@ -22,7 +22,7 @@ bash scripts/run_ros2_system.sh prepare
 bash scripts/run_ros2_system.sh self-test
 ```
 
-La build crea l'immagine `surgical-ros2-system`: ROS 2 Humble, Python compatibile con `rclpy`, simulazione, client GraspGen e SAM3 CPU. I pesi e gli strumenti non sono copiati nell'immagine. `prepare` scarica il checkout Robotiq alla revisione già fissata, se assente, e genera URDF/metadata con percorsi relativi, utilizzabili sia sull'host sia in `/workspace`. Non aggiorna un checkout esistente a una revisione diversa.
+La build crea l'immagine `surgical-ros2-system`: ROS 2 Humble, Python compatibile con `rclpy`, simulazione, client GraspGen e SAM3 CPU. I pesi e gli strumenti non sono copiati nell'immagine. `prepare` scarica i checkout iiwa 7 e Robotiq alle revisioni fissate, se assenti, e genera URDF/metadata con percorsi relativi, utilizzabili sia sull'host sia in `/workspace`. Non aggiorna un checkout esistente a una revisione diversa. Dopo il pull di questa modifica eseguire nuovamente `prepare`, anche se la Robotiq era già pronta.
 
 Avviare i servizi AI già predisposti, se non sono in funzione:
 
@@ -61,7 +61,7 @@ Non eseguire il nuovo nodo ROS con una `.venv` Python 3.11 creata separatamente 
 
 ## Cosa accade durante una run
 
-1. Il preflight controlla import ROS, asset, modello Robotiq, Ollama, SAM3 e provenance del server GraspGen. Un controllo fallito termina prima del movimento.
+1. Il preflight controlla import ROS, asset e hash del modello iiwa 7, modello Robotiq, Ollama, SAM3 e provenance del server GraspGen. Un controllo fallito termina prima del movimento.
 2. La richiesta CLI viene pubblicata sul topic `instruction` e ricevuta dal coordinatore. Il piano LLM resta sottoposto ai contratti strict del profilo completo.
 3. Il processo di simulazione crea la scena e acquisisce RGB-D. Pubblica colore, profondità allineata e `CameraInfo` con lo stesso timestamp/frame.
 4. Il coordinatore riceve i pixel via DDS e controlla dimensioni, formato, intrinseche e identità con la cattura della scena. Questi pixel diventano gli input della segmentazione/ricostruzione. La maschera ground truth rimane diagnostica.
@@ -101,7 +101,7 @@ Output in `data/outputs/ros2_full_system_<data>_<id>/`:
 
 - `ros2_request.json`, `environment.yaml`, `runtime_versions.json`: richiesta, configurazione effettiva e dipendenze; il manifest include seed, commit e stato della working tree.
 - Report di percezione e GraspGen già presenti nella pipeline nativa.
-- `ros2_execution_plan.json`: fasi, ID e hash del NPZ validato.
+- `ros2_execution_plan.json`: fasi, ID, hash del NPZ validato e descrizione/hash del robot.
 - `ros2_measured_joint_states.json`: campioni ricevuti realmente su ROS.
 - `ros2_run.json`: sette action braccio, due action pinza, feedback e trasporto RGB-D.
 - `sim_robot_motion.json`, immagini finali e log del processo `ros2_simulation.log`.
@@ -139,15 +139,16 @@ Per verificare anche il planner geometrico e il deposito con i risultati neurali
 ```bash
 python3 -m tests.ros2_recorded_run \
   --source-run data/outputs/full_system_20261114_111550_9145ef8f \
-  --out-dir data/outputs/ros2_recorded_check_01
+  --robot-model iiwa7_r800 \
+  --out-dir data/outputs/ros2_iiwa7_check_01
 ```
 
-La directory destinazione deve essere nuova. La prova rifiuta pose/catture diverse da quella registrata e marca il manifest `validation_mode=recorded_ai_outputs`: è una nuova esecuzione ROS/planner/fisica, non una nuova inferenza AI. Il launcher di produzione non contiene questo adattatore di replay.
+La directory destinazione deve essere nuova. La prova controlla posa, pixel e profondità dello strumento registrato, riusa soltanto gli output neurali e ricalcola selezione, IK, collisioni e tutte le traiettorie sull'iiwa 7. Marca il manifest `validation_mode=recorded_proposals_replanned_for_iiwa7`: è una nuova esecuzione ROS/planner/fisica, non una nuova inferenza AI. Omettendo `--robot-model`, il test riproduce esplicitamente il modello della registrazione (iiwa 14 per le vecchie run), con controllo dell'intera cattura. Il launcher di produzione non contiene questo adattatore di replay.
 
-Verifica del 14 novembre 2026: build del runtime completo, `pip check`, import effettivi SAM3/PyTorch/torchvision,
-build colcon e 183 test nell'ambiente Linux/Humble, tutti superati. Una nuova esecuzione con proposte neurali
-registrate ha completato pianificazione e deposito, con 7 action braccio, 2 pinza e 4.799 messaggi articolari
-misurati ricevuti. La nuova inferenza con tutti i modelli e la finestra grafica vanno provate sul PC di destinazione.
+Verifica del 14 novembre 2026: 189 test nell'ambiente Linux/Humble, tutti superati, inclusi confronti FK/IK
+indipendenti per iiwa 7 e i due TCP. La run `ros2_iiwa7_validation_20261114_2` ha ripianificato le proposte
+registrate sul nuovo modello e completato il deposito, con 7 action braccio e 2 pinza riuscite e feedback
+misurato ricevuto via ROS. La nuova inferenza con tutti i modelli e la finestra grafica vanno provate sul PC di destinazione.
 
 Riferimenti delle interfacce: [FollowJointTrajectory / controller ROS](https://control.ros.org/humble/doc/ros2_controllers/joint_trajectory_controller/doc/userdoc.html#actions),
 [definizione GripperCommand Humble](https://github.com/ros-controls/control_msgs/blob/humble/control_msgs/action/GripperCommand.action).

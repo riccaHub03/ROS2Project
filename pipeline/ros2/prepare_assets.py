@@ -1,4 +1,4 @@
-"""Prepare portable gripper assets; keep the original source/checkpoint pins."""
+"""Prepare the shared iiwa 7 and gripper assets at their pinned revisions."""
 import subprocess
 from pathlib import Path
 
@@ -6,6 +6,8 @@ from pipeline.sim.robotiq_description import ROOT, REVISION, prepared_descriptio
 
 
 def main():
+    from pipeline.robot_assets import prepare_iiwa7
+    prepare_iiwa7()
     repo = ROOT / "data/external/robotiq-ros"
     if not repo.exists():
         repo.parent.mkdir(parents=True, exist_ok=True)

@@ -38,6 +38,7 @@ class SimulationEngine:
         self.motion = self.motion_factory(self.scene, report, cancel_requested=self.cancel_requested)
         StageReport("grasp", data=report).save(self.out / "grasp_simulation_selection.json")
         result = phase_manifest(self.motion.phases, self.out, self.out.name)
+        result["robot_description"] = self.scene.robot_model.report(self.scene.gripper_geometry)
         write_json(self.out / "ros2_execution_plan.json", result)
         return result
 

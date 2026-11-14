@@ -217,6 +217,9 @@ class Coordinator(Node):
         self.perceive()
         self.status("Validating GraspGen candidates and planning the complete path")
         execution = self.service("plan")
+        if (execution["robot_description"]["model_sha256"]
+                != capture["data"]["robot_description"]["model_sha256"]):
+            raise ValueError("Robot model changed between acquisition and motion planning")
         samples = load_phase_samples(self.out, execution)
         grasp = StageReport.load(self.out / "grasp_simulation_selection.json").data
         stamp = self.get_clock().now().to_msg()

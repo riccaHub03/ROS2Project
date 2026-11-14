@@ -5,8 +5,8 @@ gripper and of the carried instrument. Everything is expressed in the robot BASE
 origin); scene objects defined in the world frame are moved with the configured base pose. The client is only
 used for inverse kinematics and distance queries: nothing is simulated.
 
-Limitations (reported with every validation): the default model is PyBullet's ``kuka_iiwa`` (LBR iiwa 14
-geometry; pass ``robot_urdf`` for the iiwa 7), the gripper and the instrument are boxes, trays are solid blocks
+The default arm is the pinned LBR iiwa 7 R800 description shared with the scene.
+The demonstrative gripper and instrument are boxes, trays are solid blocks
 and objects that are not in the configuration (other instruments, people) are not modelled.
 """
 
@@ -20,12 +20,9 @@ import numpy as np
 import pybullet as p
 import pybullet_data
 
-from pipeline.sim.robot_scene import (FINGER_CENTER_Z, FINGER_HALF_EXTENTS, FINGER_REST_Y, HOME, PALM_CENTER_Z,
-                                      PALM_HALF_EXTENTS, TCP_OFFSET)
-
 from pipeline.sim.gripper_geometry import for_config
+from pipeline.robot_model import RobotModel
 
-DEFAULT_URDF = "kuka_iiwa/model.urdf"
 PROBE_M = 0.03                 # distances beyond this are reported as "far enough"
 NEAR_FAR_PLANE = -10.0         # parking spot for bodies that are not in use
 
@@ -55,9 +52,15 @@ class Clearance:
 
 
 class RobotCell:
-    def __init__(self, config: Dict[str, Any], base_frame, *, robot_urdf: Optional[str] = None, ee_link: int = 6,
+    def __init__(self, config: Dict[str, Any], base_frame, *, robot_urdf: Optional[str] = None, ee_link: Optional[int] = None,
                  position_tolerance_m: float = 0.003, angle_tolerance_rad: float = 0.035):
-        self.config, self.base_frame, self.ee = config, base_frame, ee_link
+        self.config, self.base_frame = config, base_frame
+        self.robot_model = RobotModel.from_config(config)
+        if robot_urdf is not None:
+            from pathlib import Path
+            if Path(robot_urdf).resolve() != self.robot_model.urdf.resolve():
+                raise ValueError("Validator URDF differs from shared robot settings; configure robot in config/robot.yaml")
+        self.home = self.robot_model.home
         self.gripper_geometry = for_config(config)
         self.position_tolerance, self.angle_tolerance = position_tolerance_m, angle_tolerance_rad
         self.cid = p.connect(p.DIRECT)
@@ -70,17 +73,14 @@ class RobotCell:
         self._tcp_to_tool: Optional[Tuple[List[float], List[float]]] = None
         try:
             p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.cid)
-            self.robot = p.loadURDF(robot_urdf or DEFAULT_URDF, [0, 0, 0], [0, 0, 0, 1], useFixedBase=True,
-                                    physicsClientId=self.cid)
-            infos = [p.getJointInfo(self.robot, i, physicsClientId=self.cid) for i in range(
-                p.getNumJoints(self.robot, physicsClientId=self.cid))]
-            self.joints = [i for i, info in enumerate(infos) if info[2] == p.JOINT_REVOLUTE][:7]
-            if len(self.joints) != 7:
-                raise ValueError(f"the robot model must have 7 revolute joints, found {len(self.joints)}")
-            self.limits = [(infos[i][8], infos[i][9]) for i in self.joints]
+            self.robot, self.joints, self.ee = self.robot_model.load(self.cid)
+            if ee_link is not None and ee_link != self.ee:
+                raise ValueError("Validator flange index differs from the configured flange link")
+            self.mount_adjacent = self.robot_model.mount_adjacent_indices(self.cid, self.robot)
+            self.limits = list(zip(self.robot_model.lower, self.robot_model.upper))
             self._build_environment()
             self._build_gripper()
-            self.set_joints(HOME)
+            self.set_joints(self.home)
         except BaseException:
             self.close()
             raise
@@ -299,11 +299,11 @@ class RobotCell:
         for key in ("palm", "finger_a", "finger_b"):
             if key not in self._parts:
                 continue
-            found = self._closest(self._parts[key], self.robot, self_margin, lambda a, b: b <= self.ee - 2)
+            found = self._closest(self._parts[key], self.robot, self_margin, lambda a, b: b not in self.mount_adjacent)
             if found is not None and found[0] < self_margin:
                 violations.append(f"gripper <-> arm link {found[2]}: {found[0] * 1000:.1f} mm")
         if self.official_gripper is not None:
-            found = self._closest(self.official_gripper.body, self.robot, self_margin, lambda a, b: b <= self.ee - 2)
+            found = self._closest(self.official_gripper.body, self.robot, self_margin, lambda a, b: b not in self.mount_adjacent)
             if found is not None and found[0] < self_margin:
                 violations.append(f"official gripper <-> arm link {found[2]}: {found[0]*1000:.1f} mm")
         if check_target and self._tool_body >= 0:

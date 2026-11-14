@@ -1,0 +1,26 @@
+# Shared robot description for simulation, FK/IK, collision validation and ROS.
+default_model: iiwa7_r800
+models:
+  iiwa7_r800:
+    urdf: data/external/iiwa7-prepared/iiwa7.urdf
+    metadata: data/external/iiwa7-prepared/description.json
+    base_link: lbr_link_0
+    flange_link: lbr_link_ee
+    native_joint_names: [lbr_A1, lbr_A2, lbr_A3, lbr_A4, lbr_A5, lbr_A6, lbr_A7]
+    command_joint_names: [lbr_A1, lbr_A2, lbr_A3, lbr_A4, lbr_A5, lbr_A6, lbr_A7]
+    home_positions_rad: [0.0, 0.35, 0.0, -1.3, 0.0, 1.0, 0.0]
+    source:
+      repository: https://github.com/lbr-stack/lbr_fri_ros2_stack.git
+      revision: 52f816bd59cbd2390efc890cca0ad61389e4ccb3
+  # Explicit compatibility profile for old recordings, never an automatic fallback.
+  pybullet_iiwa14:
+    urdf: pybullet://kuka_iiwa/model.urdf
+    metadata: null
+    base_link: lbr_iiwa_link_0
+    flange_link: lbr_iiwa_link_7
+    native_joint_names: [lbr_iiwa_joint_1, lbr_iiwa_joint_2, lbr_iiwa_joint_3, lbr_iiwa_joint_4, lbr_iiwa_joint_5, lbr_iiwa_joint_6, lbr_iiwa_joint_7]
+    command_joint_names: [lbr_A1, lbr_A2, lbr_A3, lbr_A4, lbr_A5, lbr_A6, lbr_A7]
+    home_positions_rad: [0.0, 0.35, 0.0, -1.3, 0.0, 1.0, 0.0]
+    source:
+      repository: pybullet_data
+      revision: installed-package
