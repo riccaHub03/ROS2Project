@@ -1,0 +1,96 @@
+{
+  "schema_version": 2,
+  "stage": "sim_capture",
+  "status": "COMPLETED",
+  "timestamp": "2026-11-14T11:16:00.620188",
+  "duration_s": null,
+  "inputs": {
+    "plan": "in-memory"
+  },
+  "artifacts": {
+    "rgb_png": "/home/alice/Projects/ROS2Project/data/outputs/full_system_20261114_111550_9145ef8f/sim_capture_rgb.png",
+    "depth_npy": "/home/alice/Projects/ROS2Project/data/outputs/full_system_20261114_111550_9145ef8f/sim_capture_depth.npy",
+    "depth_visual_png": "/home/alice/Projects/ROS2Project/data/outputs/full_system_20261114_111550_9145ef8f/sim_capture_depth_vis.png",
+    "truth_mask_png": "/home/alice/Projects/ROS2Project/data/outputs/full_system_20261114_111550_9145ef8f/sim_capture_truth_mask.png"
+  },
+  "data": {
+    "mode": "single",
+    "simulated_instrument": "Bone Forceps",
+    "mesh_file": "/home/alice/Projects/ROS2Project/data/inputs/.cache/robot_scene_e0e496528c7ecc1b.obj",
+    "source_stl_file": "/home/alice/Projects/ROS2Project/data/inputs/Surgical Instruments/Bone Forceps/Bone Forceps 1/Leo Bone Holding Forceps 1 SmoothFusion.stl",
+    "source_tray": "tray_2",
+    "ground_truth_pose": {
+      "position_xyz_m": [
+        0.5749,
+        -0.2574,
+        0.0975
+      ],
+      "orientation_xyzw": [
+        0.0,
+        0.0,
+        0.41717,
+        0.90883
+      ]
+    },
+    "camera": {
+      "position_xyz_m": [
+        0.6,
+        -0.42,
+        1.15
+      ],
+      "target_position_xyz_m": [
+        0.6,
+        -0.42,
+        0.07
+      ],
+      "frame_id": "world",
+      "resolution_wh": [
+        640,
+        480
+      ],
+      "fx_fy": [
+        615.0,
+        615.0
+      ],
+      "cx_cy": [
+        320.0,
+        240.0
+      ]
+    },
+    "scene_object_pose_exact": {
+      "position_xyz_m": [
+        0.5749312019813965,
+        -0.2574492059675566,
+        0.09754337191804625
+      ],
+      "orientation_xyzw": [
+        0.0,
+        0.0,
+        0.41716997025809255,
+        0.9088284854222287
+      ]
+    },
+    "robot_base_pose_world": {
+      "parent_frame_id": "world",
+      "frame_id": "lbr_link_0",
+      "position_xyz_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation_rpy_rad": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  "warnings": [],
+  "error": null
+}

@@ -1,0 +1,84 @@
+{
+  "schema_version": 2,
+  "stage": "sim_deprojection",
+  "status": "COMPLETED",
+  "timestamp": "2026-11-14T11:16:34.178041",
+  "duration_s": 0.597,
+  "inputs": {
+    "segmentation": "/home/alice/Projects/ROS2Project/data/outputs/full_system_20261114_111550_9145ef8f/sim_segmentation.json",
+    "capture": "/home/alice/Projects/ROS2Project/data/outputs/full_system_20261114_111550_9145ef8f/sim_capture.json",
+    "config": "/home/alice/Projects/ROS2Project/config/graspgen_simulation_forceps.yaml"
+  },
+  "artifacts": {
+    "pointcloud_ply": "/home/alice/Projects/ROS2Project/data/outputs/full_system_20261114_111550_9145ef8f/sim_deprojection_cloud.ply",
+    "frames_png": "/home/alice/Projects/ROS2Project/data/outputs/full_system_20261114_111550_9145ef8f/sim_deprojection_frames.png"
+  },
+  "data": {
+    "pointcloud_units": "m",
+    "geometry_verified_for_motion": false,
+    "geometry_verification_note": "Simulator reconstruction; calibration/contact not validated",
+    "num_points": 928,
+    "centroid_source": "optical",
+    "coordinate_frame_id": "lbr_link_0",
+    "robot_base_pose_world": {
+      "parent_frame_id": "world",
+      "frame_id": "lbr_link_0",
+      "position_xyz_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation_rpy_rad": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "frames": {
+      "camera_optical_frame": [
+        0.1622,
+        -0.027,
+        1.0505
+      ],
+      "robot_base_frame": [
+        0.573,
+        -0.2578,
+        0.0995
+      ],
+      "world_frame": [
+        0.573,
+        -0.2578,
+        0.0995
+      ],
+      "end_effector_frame": [
+        -0.123,
+        -0.2578,
+        0.3505
+      ]
+    },
+    "ground_truth_validation": {
+      "ground_truth_xyz_m": [
+        0.5749,
+        -0.2574,
+        0.0975
+      ],
+      "reconstructed_xyz_m": [
+        0.573,
+        -0.2578,
+        0.0995
+      ],
+      "frame_id": "world",
+      "error_mm": 2.78
+    },
+    "ee_reference_source": "nominal",
+    "motion_safe": true
+  },
+  "warnings": [],
+  "error": null
+}
