@@ -128,3 +128,6 @@ desktop.ini
 # -----------------------------------------------------------------------------
 data/external/*
 !data/external/.gitkeep
+
+# Project-local service binaries and model storage.
+/.local/

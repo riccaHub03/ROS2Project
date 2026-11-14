@@ -604,3 +604,18 @@ I test di `test_graspgen.py` richiedono il submodule `third_party/GraspGen` iniz
 
 Git ignora mesh e immagini pesanti (`*.stl`, `*.ply`, `*.png`, `*.npy`, `*.mp4`), `data/inputs`, `data/outputs`,
 pesi dei modelli (`models/`, `*.pt`), `ROS2_workspace/` e le cartelle di build di colcon.
+
+### Profili GraspGen e sistema completo
+
+Il nuovo launcher compone gli stessi moduli di presa e movimento con due profili:
+
+```bash
+.venv/bin/python run_system.py --profile graspgen_only --gui
+.venv/bin/python run_system.py --profile full_system --check
+.venv/bin/python run_system.py --profile full_system \
+  --instruction "Pick up the Bone Forceps from tray 2 and place it in tray 1." --gui
+```
+
+`full_system` richiede Ollama e SAM3 effettivi: nessun fallback al parser o alla maschera
+PyBullet. Rimane una simulazione single-object con presa ideale. Preparazione dei modelli,
+output e limiti sono descritti in [docs/full-system.md](docs/full-system.md).

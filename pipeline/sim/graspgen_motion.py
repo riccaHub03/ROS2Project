@@ -286,7 +286,10 @@ class GraspGenMotionPreview(MotionPreview):
                 old_position, old_quat = self.cell.tcp_pose()
                 from scipy.spatial.transform import Rotation
                 angle = (Rotation.from_quat(old_quat).inv()*Rotation.from_quat(target_quat)).magnitude()
-                minimum_duration = max(np.linalg.norm(np.asarray(old_position)-target_base)/.04, angle/.20)
+                velocities = scene.config["motion_control"]["velocities"]
+                minimum_duration = max(
+                    np.linalg.norm(np.asarray(old_position)-target_base) / velocities["cartesian_linear_speed_m_s"],
+                    angle / velocities["cartesian_angular_speed_rad_s"])
                 samples = self.planner.retime(target.label, path, minimum_duration)
             phase = {"label": target.label, "position": np.asarray(target.position), "orientation": quat.copy(),
                      "event": target.event, "samples": samples,

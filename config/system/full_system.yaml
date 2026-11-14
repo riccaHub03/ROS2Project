@@ -1,0 +1,12 @@
+# Required AI backends: no parser, truth-mask or PCA fallback.
+planner: ollama
+vision: sam3
+strict: true
+scene_tool: Bone Forceps
+environment: config/graspgen_simulation_forceps.yaml
+graspgen_config: config/graspgen_simulation.yaml
+ollama_url: http://127.0.0.1:11434/v1/chat/completions
+llm_model: qwen2.5:3b
+llm_timeout_s: 120  # Allow CPU inference and cold model loading.
+# Local directory or already-cached HuggingFace model ID. Current adapter uses CPU.
+sam3_model: facebook/sam3

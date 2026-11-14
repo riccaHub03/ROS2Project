@@ -71,6 +71,8 @@ def run(*, backend: str = "sam3", plan_path: Optional[str] = None, capture_path:
         save_mask_and_overlay(result.mask, result.overlay, mask_png, overlay_png)
         report.artifacts = {"mask_png": str(mask_png), "overlay_png": str(overlay_png)}
         report.data = result.data
+        if backend == "sam3":
+            report.data["model_id"] = getattr(sam, "model_id", "injected_segmenter")
         if result.data["active_pixel_count"] < MIN_MASK_PIXELS and backend != "sam3":
             raise StageError(STAGE, "ground-truth mask is empty or too small")
         log.info("%d mask pixels, confidence %s", result.data["active_pixel_count"], result.data["confidence_score"])

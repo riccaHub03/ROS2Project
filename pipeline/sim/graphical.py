@@ -74,7 +74,7 @@ def _overview(vision: str, events, config_path: Optional[str]) -> None:
 
 
 def _compute(vision: str, events, config_path: Optional[str] = None, grasp_options=None,
-             overview_enabled: bool = False) -> None:
+             overview_enabled: bool = False, system_options=None) -> None:
     """Worker process: keeps the GUI responsive while SAM 3 runs on CPU."""
     try:
         out = paths.output_dir()
@@ -85,7 +85,15 @@ def _compute(vision: str, events, config_path: Optional[str] = None, grasp_optio
             torch.set_num_threads(3)
         else:
             events.put(("status", "Diagnostic segment: mask from PyBullet IDs, SAM3 bypassed"))
-        mask = segment.run(backend=vision, all_instruments=False)   # single-STL view: nothing else to mask
+        system_options = system_options or {}
+        segmenter = None
+        if vision == "sam3" and system_options:
+            from pipeline.common.vision import Sam3Segmenter
+            segmenter = Sam3Segmenter(system_options["sam3_model"])
+        mask = segment.run(backend=vision, all_instruments=False, segmenter=segmenter)
+        if system_options.get("strict"):
+            from pipeline.system.contracts import validate_segmentation
+            validate_segmentation(mask.data)
         confidence = mask.data["confidence_score"]
         if confidence is not None and confidence < MIN_CONFIDENCE:
             raise RuntimeError(f"SAM3 confidence below {MIN_CONFIDENCE}: inspect the overlay; motion cancelled")
@@ -93,7 +101,11 @@ def _compute(vision: str, events, config_path: Optional[str] = None, grasp_optio
             raise RuntimeError("Mask empty or too small: cannot compute the grasp")
 
         events.put(("status", "Stage deproject: mask to robot base frame"))
-        deprojection = deproject.run(reference_pose_path=str(reference_pose), config_path=config_path)
+        deprojection = deproject.run(reference_pose_path=None if system_options.get("strict") else str(reference_pose),
+                                    config_path=config_path)
+        if system_options.get("strict"):
+            from pipeline.system.contracts import validate_reconstruction
+            validate_reconstruction(deprojection.data, config_path)
         points, _ = read_ply(deprojection.artifact("pointcloud_ply"))
         if (deprojection.data["centroid_source"] == "optical" and not np.allclose(
                 points.mean(axis=0), deprojection.data["frames"]["robot_base_frame"], atol=CENTROID_TOLERANCE_M)):
@@ -150,22 +162,22 @@ def run_graphical_pipeline(args, instruction: str) -> int:
         diagnostic = args.vision == "ground-truth"
         log.info("diagnostic mode: deterministic parser and simulator mask" if diagnostic
                  else "pipeline with Ollama/SAM3; demonstrative PyBullet motion")
-        plan_report = plan.run(instruction, tool_hint=args.tool, offline=diagnostic or args.offline, ollama_url=OLLAMA_LOCAL_URL,
-                               config_path=args.config)
+        system_options = getattr(args, "system_options", None)
+        plan_options = (dict(offline=system_options["planner"] == "deterministic",
+                             ollama_url=system_options["ollama_url"], model=system_options["llm_model"],
+                             timeout_s=system_options.get("llm_timeout_s", 120),
+                             require_llm=system_options["strict"],
+                             expected_instrument=system_options["scene_tool"])
+                        if system_options else dict(offline=diagnostic or args.offline, ollama_url=OLLAMA_LOCAL_URL))
+        plan_report = plan.run(instruction, tool_hint=args.tool, config_path=args.config, **plan_options)
         environment = copy.deepcopy(load_environment_config(args.config))
         sim_motion = getattr(args, "graspgen_sim_motion", False)
         if sim_motion:
             from pipeline.sim.gripper_geometry import ROBOTIQ_PROXY
             environment["simulation_gripper"] = ROBOTIQ_PROXY.name
             control = environment.setdefault("motion_control", {})
-            ik = control.setdefault("differential_ik", {})
-            ik.update(enabled=True, position_tolerance_m=.0005, orientation_tolerance_rad=.0025,
-                      joint_max_velocity_rad_s=[.35] * 7)
-            # Tutor platform's conservative Cartesian references; keep stricter
-            # user choices when present. Acceleration/jerk bounds stay active.
-            velocities = control.setdefault("velocities", {})
-            velocities["cartesian_linear_speed_m_s"] = min(.04, velocities.get("cartesian_linear_speed_m_s", .04))
-            velocities["cartesian_angular_speed_rad_s"] = min(.20, velocities.get("cartesian_angular_speed_rad_s", .20))
+            from pipeline.system.motion import configure_motion
+            configure_motion(control, (system_options or {}).get("motion_speed", 1.))
         scene = RobotScene(environment, plan_report.data, gui=not args.headless,
                            seed=args.seed)
 
@@ -179,7 +191,8 @@ def run_graphical_pipeline(args, instruction: str) -> int:
         context = multiprocessing.get_context("spawn")
         events = context.Queue()
         worker = context.Process(target=_compute, args=(args.vision, events, args.config,
-                                                        grasp.backend_kwargs(args), overview_enabled), daemon=True)
+                                                        grasp.backend_kwargs(args), overview_enabled,
+                                                        system_options), daemon=True)
         worker.start()
         motion = grasp_data = None
         paused = done = False

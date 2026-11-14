@@ -1,0 +1,5 @@
+# Optional SAM3 stack for full_system, matching the pinned tutor-sam3-ros baseline.
+# Install CPU torch/torchvision separately; keep GraspGen CUDA in its own container.
+transformers==5.2.0
+numpy==1.26.4
+Pillow==12.1.1

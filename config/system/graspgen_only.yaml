@@ -1,0 +1,10 @@
+# Existing diagnostic GraspGen path, without LLM or SAM3.
+planner: deterministic
+vision: ground-truth
+strict: false
+scene_tool: Bone Forceps
+environment: config/graspgen_simulation_forceps.yaml
+graspgen_config: config/graspgen_simulation.yaml
+ollama_url: http://127.0.0.1:11434/v1/chat/completions
+llm_model: qwen2.5:3b
+sam3_model: facebook/sam3

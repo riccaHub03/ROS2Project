@@ -117,13 +117,14 @@ def parse_llm_json(raw: str) -> Dict[str, Any]:
     return json.loads(cleaned)
 
 
-def query_ollama(instruction: str, urls: List[str], model: str) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
+def query_ollama(instruction: str, urls: List[str], model: str,
+                 timeout_s: float = REQUEST_TIMEOUT_S) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
     payload = json.dumps({"model": model, "temperature": 0.0, "max_tokens": 120, "messages": [
         {"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": instruction}]}).encode()
     for url in urls:
         try:
             request = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_S) as resp:
+            with urllib.request.urlopen(request, timeout=timeout_s) as resp:
                 content = json.loads(resp.read().decode())["choices"][0]["message"]["content"]
             return parse_llm_json(content.strip()), url
         except Exception as exc:  # network or malformed answer: try the next candidate
@@ -186,11 +187,23 @@ def deterministic_plan(instruction: str) -> Dict[str, str]:
 def run(instruction: str = DEFAULT_INSTRUCTION, *, tool_hint: Optional[str] = None,
         ollama_url: Optional[str] = None, model: str = DEFAULT_MODEL, offline: bool = False,
         config_path: Optional[str] = None, out_dir: Optional[str] = None,
-        report_path: Optional[str] = None) -> StageReport:
+        report_path: Optional[str] = None, require_llm: bool = False,
+        expected_instrument: Optional[str] = None, timeout_s: float = REQUEST_TIMEOUT_S) -> StageReport:
     out = paths.output_report(report_path, paths.PLAN, out_dir)
     with stage_run(STAGE, out, inputs={"config": config_path}, logger=log) as report:
         log.info("instruction: %r%s", instruction, f" (tool hint: {tool_hint})" if tool_hint else "")
-        parsed, url = (None, None) if offline else query_ollama(instruction, candidate_urls(ollama_url), model)
+        if require_llm and (offline or tool_hint):
+            raise StageError(STAGE, "Strict LLM mode forbids offline planning and tool overrides")
+        query = instruction
+        if require_llm and expected_instrument:
+            query += (f"\nScene context: the only available instrument is {expected_instrument!r}. "
+                      "Use its exact name when it matches the request; do not substitute it for another requested tool.")
+        parsed, url = (None, None) if offline else query_ollama(query, candidate_urls(ollama_url), model, timeout_s=timeout_s)
+        if require_llm and (parsed is None or not url):
+            raise StageError(STAGE, "Ollama unavailable or invalid response; deterministic fallback disabled")
+        if require_llm:
+            from pipeline.system.contracts import validate_task
+            validate_task(parsed, load_environment_config(config_path), expected_instrument)
         if parsed is None:
             log.warning("deterministic parser in use (%s)", "offline requested" if offline else "no Ollama server reachable")
             parsed = deterministic_plan(instruction)
@@ -217,6 +230,8 @@ def run(instruction: str = DEFAULT_INSTRUCTION, *, tool_hint: Optional[str] = No
             "source_tray": source_tray,
             "destination_tray": destination_tray,
             "planner_backend": "ollama" if url else "deterministic_parser",
+            "planner_model": model if url else None,
+            "planner_endpoint": url,
         }
         log.info("plan: %s", report.data)
     return report
