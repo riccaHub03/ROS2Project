@@ -24,8 +24,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-moveit \
     ros-humble-ros2-control \
     ros-humble-ros2-controllers \
+    ros-humble-realsense2-camera \
     python3-pyqt5 \
     && rm -rf /var/lib/apt/lists/*
+# ros-humble-realsense2-camera porta anche ros-humble-librealsense2 (a novembre 2026: 2.59.2, come l'SDK Windows e il
+# pyrealsense2 fissato sotto; se apt installa una versione diversa, allineare pyrealsense2): pubblica i topic
+# della RealSense dal vivo oppure riproduce una registrazione .db3 (parametro rosbag_filename).
 
 # ---------------------------------------------------------
 # 2. Dipendenze Python (pip)
@@ -40,7 +44,8 @@ RUN pip3 install --no-cache-dir \
     numpy==1.26.4 \
     Pillow==12.1.1 \
     transformers==5.2.0 \
-    "scipy>=1.11"
+    "scipy>=1.11" \
+    pyrealsense2==2.59.2.11152
 
 # Dipendenze della pipeline (pybullet, trimesh, matplotlib, PyYAML, opencv, huggingface_hub...)
 COPY requirements.txt requirements-graspgen-client.txt /tmp/

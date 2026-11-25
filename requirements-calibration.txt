@@ -1,0 +1,13 @@
+# Camera RealSense: diagnosi, registrazione e calibrazione
+#   scripts/realsense_probe.py, scripts/realsense_record.py, scripts/calibrate_camera.py, scripts/bag_export.py
+#
+# Su Windows (dove la camera ha i driver nativi), in un ambiente conda dedicato:
+#   conda create -n realsense --override-channels -c conda-forge python=3.12 pip
+#   conda activate realsense
+#   pip install -r requirements-calibration.txt
+#
+# pyrealsense2 alla stessa versione dell'SDK Windows e di ros-humble-librealsense2 (2.59.2): le registrazioni .db3
+# fatte su Windows si leggono e si riproducono uguali nel container.
+numpy>=1.24
+opencv-python>=4.8,<5        # con GUI (NON headless), altrimenti le finestre non si aprono; 4.x e' la versione provata
+pyrealsense2==2.59.2.11152

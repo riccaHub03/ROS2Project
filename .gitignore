@@ -131,3 +131,12 @@ data/external/*
 
 # Project-local service binaries and model storage.
 /.local/
+
+# -----------------------------------------------------------------------------
+# 10. Camera reale: registrazioni RealSense (GB) e risultati di calibrazione/esportazione
+#     (il risultato utile della calibrazione si riporta nel YAML in config/, che e' versionato)
+# -----------------------------------------------------------------------------
+data/recordings/
+data/calibration/
+*.db3
+*.bag
