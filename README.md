@@ -208,7 +208,7 @@ posa della camera e dell'end-effector. Prima di ogni prova c'è un controllo che
 | Segmentazione SAM 3, nuvola di punti, geometria di presa, verifica IK/collisioni | pronte (software, nessun dispositivo) |
 | Preflight prima della prova | **pronto** |
 | Calibrazione mano-occhio | **da fare** con il vostro setup: il codice non la esegue |
-| Camera RealSense D456 su PC Windows + WSL (registrazione da Windows, riproduzione nel container) | script pronti e provati su dati sintetici; da provare con la camera ([docs/realsense.md](docs/realsense.md)) |
+| Camera RealSense D456 su PC Windows + WSL (dal vivo con un ponte di rete Windows → container, oppure da registrazioni) | ponte provato con una scena sintetica fino a preflight e cattura; da provare con la camera ([docs/realsense.md](docs/realsense.md)) |
 | Movimento del KUKA reale (MoveIt / ros2_control, driver della pinza) | **non implementato**: il nodo `surgical_executor` parla solo con la piattaforma di simulazione |
 | Pinza reale | la presa è calcolata per la pinza dimostrativa da 80 mm; con la Robotiq 2F-140 (GraspGen) il movimento resta bloccato |
 
@@ -252,8 +252,8 @@ Tutto nel container (`bash scripts/docker_shell.sh`), con ROS 2 caricato dall'en
    La camera finta prova solo l'acquisizione e la catena dei frame, non la calibrazione né la segmentazione.
 2. **Collegare la camera reale** e il driver (profondità allineata al colore). Controllare i topic con
    `ros2 topic list` e `ros2 topic hz <topic>`; adattare `camera_overhead.ros2` nel YAML se i nomi differiscono.
-   Su un PC Windows con WSL la camera USB non arriva al container: si registra da Windows e si riproduce la
-   registrazione come camera, vedi [docs/realsense.md](docs/realsense.md).
+   Su un PC Windows con WSL la camera USB non arriva al container: resta su Windows e i fotogrammi arrivano al
+   container dal vivo con un ponte di rete (`scripts/realsense_bridge.py`), vedi [docs/realsense.md](docs/realsense.md).
 3. **Calibrare** (mano-occhio) e pubblicare la TF `world → frame ottico`. Verificare con
    `ros2 run tf2_ros tf2_echo world <frame_ottico>`.
 4. **Collegare il KUKA** con `lbr_fri_ros2_stack` e verificare la TF `world → flangia`.
@@ -584,7 +584,7 @@ print(report.data["designated_grasp_geometry"], report.artifacts)
 | [docs/simulazione-grafica.md](docs/simulazione-grafica.md) | Finestra PyBullet, controlli, posa della base, controllo manuale |
 | [docs/graspgen.md](docs/graspgen.md) | GraspGen: server GPU, client, ordine delle prove |
 | [docs/graspgen-verification.md](docs/graspgen-verification.md) | Registro delle verifiche già eseguite |
-| [docs/realsense.md](docs/realsense.md) | Camera RealSense su PC Windows + WSL: diagnosi, registrazione, calibrazione, riproduzione in ROS 2 |
+| [docs/realsense.md](docs/realsense.md) | Camera RealSense su PC Windows + WSL: dal vivo col ponte verso il container, diagnosi, registrazione, calibrazione |
 
 ## Struttura del repository
 

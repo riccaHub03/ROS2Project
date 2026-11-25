@@ -2,7 +2,7 @@
 """Registra la RealSense (colore + profondita') in un file .db3 con anteprima dal vivo.
 
 Dalla versione 2.59 librealsense registra nel formato rosbag2 (.db3, non piu' il vecchio .bag di ROS 1).
-Va lanciato dove la camera trasmette (su un PC Windows: l'ambiente conda `realsense`). Il .db3 si apre col RealSense
+Va lanciato dove la camera trasmette (su un PC Windows: il Python di Windows, venv o conda). Il .db3 si apre col RealSense
 Viewer, si esporta con scripts/bag_export.py e in ROS 2 si riproduce come se fosse la camera:
   ros2 run realsense2_camera realsense2_camera_node --ros-args -r __ns:=/ -r __node:=camera \
       -p rosbag_filename:=/percorso/file.db3 -p align_depth.enable:=true
@@ -16,7 +16,7 @@ Senza --color/--depth sceglie profili adatti al collegamento: USB 3 -> colore 12
 USB 2 -> 640x480 a 15 fps o il profilo piu' vicino che la camera offre.
 
 Si puo' lanciare da un terminale WSL col Python di Windows (che vede la camera), dentro la cartella del progetto:
-  /mnt/c/Users/<utente>/miniconda3/envs/realsense/python.exe scripts/realsense_record.py --seconds 60
+  bash scripts/rs_windows.sh scripts/realsense_record.py --seconds 60
 Il file si scrive prima sul disco locale (la cartella WSL vista da Windows e' lenta e poco adatta a SQLite) e a fine
 registrazione si sposta in --out.
 """

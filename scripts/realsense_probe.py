@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Diagnosi di una camera RealSense: la vede? Con che collegamento USB? Arrivano davvero i frame?
 
-Va lanciato dove la camera e' collegata e ha i driver (su un PC Windows: l'ambiente conda `realsense`).
+Va lanciato dove la camera e' collegata e ha i driver (su un PC Windows: il Python di Windows, venv o conda,
+con `bash scripts/rs_windows.sh scripts/realsense_probe.py`).
 Prova, per qualche secondo ciascuno, solo colore, solo profondita' e i due insieme, scegliendo profili che il
 collegamento attuale supporta, e dice quanti frame al secondo arrivano.
 

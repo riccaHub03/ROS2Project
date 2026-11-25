@@ -1,21 +1,22 @@
 # Camera RealSense (D456) su un PC Windows con WSL
 
-Come acquisire con la RealSense quando il progetto gira in WSL/Docker su un PC Windows: diagnosi, registrazione,
-calibrazione e riproduzione delle registrazioni come se fossero la camera dal vivo.
+Come usare la RealSense quando il progetto gira in WSL/Docker su un PC Windows: immagini **dal vivo** per la
+pipeline (ponte di rete), diagnosi, registrazione, calibrazione e riproduzione delle registrazioni.
 
 ## Architettura
 
 ```
-terminale WSL, nella radice del progetto
- ├─ acquisisce:  Python di Windows (conda `realsense`) ─► camera USB ─► data/recordings/*.db3
- └─ elabora:     container ─► realsense2_camera riproduce il .db3 ─► topic ROS 2 ─► pipeline.real / GraspGen
+Windows (Python venv o conda, lanciato da WSL)               container (ROS 2)
+camera USB ─► pyrealsense2 ─┬─ ponte TCP localhost:50551 ──► realsense_bridge.py ros ─► topic /camera/... ─► pipeline.real
+                            └─ registrazione .db3 ─────────► realsense2_camera (rosbag_filename) ─► stessi topic
 ```
 
 - **Windows possiede la camera.** È l'unica strada supportata da RealSense su questo tipo di PC: driver nativi,
   nessun passaggio intermedio. Gli script si lanciano da WSL col Python di Windows (`scripts/rs_windows.sh`), che
   lavora nella cartella del progetto e ci salva i file.
-- **WSL/Docker elabora.** Il driver ROS 2 `realsense2_camera` riproduce una registrazione pubblicando gli stessi
-  topic della camera dal vivo, quindi la pipeline non cambia.
+- **Il container riceve i fotogrammi e pubblica i topic.** Dal vivo li porta il ponte
+  (`scripts/realsense_bridge.py`); da una registrazione li ripubblica il driver ROS 2 `realsense2_camera`. In
+  entrambi i casi i topic sono quelli di un driver camera, quindi la pipeline non cambia.
 - **Perché la camera non va direttamente nel container.** La USB arriverebbe a WSL solo con `usbipd` (protocollo
   USB/IP su una rete virtuale). RealSense non supporta WSL2; nelle prove la camera veniva vista ma non arrivavano
   frame. Mentre è passata a WSL, inoltre, Windows non può usarla. Su un PC con Ubuntu nativo, invece, la camera nel
@@ -28,13 +29,26 @@ registrazioni si leggono uguali su Windows e nel container.
 
 **Windows**
 
-1. Ambiente conda (serve agli script):
+1. Un Python per Windows con i pacchetti RealSense (serve agli script). Va bene **uno** dei due:
+   - **venv**: più leggero (circa 200 MB), consigliato su un PC nuovo. Serve un Python installato su Windows
+     (3.10–3.14, da python.org oppure `winget install Python.Python.3.12`; il comando `python` del Microsoft Store
+     non è un Python installato). In PowerShell:
+     ```powershell
+     py -3.12 -m venv $env:USERPROFILE\.venvs\realsense
+     ```
+   - **conda**: se è già installato (ambiente di circa 350 MB). Il canale `conda-forge` evita di dover accettare i
+     termini dei canali predefiniti di Anaconda:
+     ```bash
+     conda create -n realsense --override-channels -c conda-forge python=3.12 pip
+     ```
+
+   Poi, in WSL nella radice del progetto, si installano i pacchetti con il Python appena creato:
    ```bash
-   conda create -n realsense --override-channels -c conda-forge python=3.12 pip
-   conda activate realsense
-   pip install -r requirements-calibration.txt
+   bash scripts/rs_windows.sh -m pip install -r requirements-calibration.txt
    ```
-   Il canale `conda-forge` evita di dover accettare i termini dei canali predefiniti di Anaconda.
+   `scripts/rs_windows.sh` cerca prima il venv `%USERPROFILE%\.venvs\realsense`, poi l'ambiente conda `realsense`;
+   per un'altra posizione: `RS_WIN_PYTHON=/mnt/c/.../python.exe`. I pacchetti sono gli stessi (wheel di pip): il
+   comportamento non cambia.
 2. SDK RealSense (facoltativo: RealSense Viewer, Depth Quality Tool, aggiornamento firmware). Installer
    `RealSense.SDK-WIN10-2.59.2.*.exe` dalle release di GitHub `realsenseai/librealsense`. Installarlo in
    `%LOCALAPPDATA%\Programs\RealSense SDK 2.0`, **non** nei Documenti se sono sincronizzati con OneDrive.
@@ -46,10 +60,37 @@ apt-get update && apt-get install -y ros-humble-realsense2-camera
 pip3 install pyrealsense2==2.59.2.11152
 ```
 
-## Uso
+## Dal vivo: il ponte verso il container
+
+La camera resta aperta su Windows e manda di continuo colore e profondità **allineata al colore** al container, che
+li pubblica come un driver camera. Quando la pipeline viene chiamata prende i fotogrammi più recenti.
+
+1. Nel container (ROS 2 caricato), il ricevitore:
+   ```bash
+   python3 scripts/realsense_bridge.py ros
+   ```
+2. In WSL, nella radice del progetto, il mittente (Python di Windows, vede la camera):
+   ```bash
+   bash scripts/rs_windows.sh scripts/realsense_bridge.py send                       # 640x480 a 15 fps
+   bash scripts/rs_windows.sh scripts/realsense_bridge.py send --color 1280x720@15   # più risoluzione (USB 3)
+   ```
+3. Nel container, la pipeline come con qualsiasi camera ROS 2 (serve anche la TF `world → camera_color_optical_frame`
+   della calibrazione mano-occhio, vedi il README):
+   ```bash
+   python3 -m pipeline.real.preflight --source ros2 --ee-frame <frame_end_effector>
+   python3 -m pipeline.real.capture --source ros2 --ee-frame <frame_end_effector>
+   ```
+
+Pubblica `/camera/color/image_raw` (`bgr8`), `/camera/aligned_depth_to_color/image_raw` (`16UC1`, mm), i rispettivi
+`camera_info` e usa il frame `camera_color_optical_frame`: sono i valori predefiniti di `camera_overhead.ros2`.
+L'ordine di avvio non conta: il mittente aspetta il ricevitore e si ricollega da solo se cade (e viceversa). Ogni
+10 s entrambi stampano i fotogrammi al secondo. Senza camera, `send --fake` manda una scena sintetica per provare la
+catena fino alla pipeline. Il ponte non pubblica la TF della camera: viene dalla calibrazione.
+
+## Registrazioni, calibrazione ed esportazione
 
 Dal terminale WSL, nella radice del progetto. La camera deve essere collegata a Windows e **nessun altro
-programma deve usarla** (RealSense Viewer chiuso, nessun `usbipd attach`).
+programma deve usarla** (ponte, RealSense Viewer, `usbipd attach`).
 
 1. **Diagnosi**: modello, firmware, tipo di USB e frame al secondo per colore, profondità e i due insieme.
    ```bash
@@ -99,18 +140,24 @@ programma deve usarla** (RealSense Viewer chiuso, nessun `usbipd attach`).
 - **Velocità di scrittura.** Da Windows, la cartella del progetto in WSL si scrive a circa 64 MB/s (il disco `C:` a
   circa 590 MB/s) e SQLite non va d'accordo con le cartelle di rete: `realsense_record.py` registra sul disco locale
   di Windows e sposta il file nel progetto alla fine.
+- **Ponte: istanti e rete.** I messaggi portano l'istante di arrivo nel container (colore e profondità arrivano
+  insieme, quindi lo scarto è zero e la TF si legge con l'orologio di ROS). Il ricevitore ascolta sulla porta 50551
+  (`--port` per cambiarla); con WSL in modalità NAT Windows lo raggiunge come `localhost`. Il container deve usare la
+  rete dell'host (`--network host`, come in `scripts/docker_shell.sh`).
 - **Dati non versionati.** `data/recordings/` e `data/calibration/` sono esclusi da git (le registrazioni pesano
   GB): il risultato utile della calibrazione si riporta nel YAML in `config/`.
 - **usbipd** non serve in questa architettura. Se la camera è stata passata a WSL, restituirla a Windows con
   `usbipd detach --busid <id>` e `usbipd unbind --busid <id>` (PowerShell da amministratore). `usbipd list` deve
   mostrare `Not shared` e nessun dispositivo in `Persisted`.
 
-## Stato (24 novembre 2026)
+## Stato (25 novembre 2026)
 
 | Cosa | Stato |
 |---|---|
-| Script avviabili da WSL col Python di Windows (`rs_windows.sh`) | provato |
+| Ponte dal vivo Windows → container con scena sintetica (`send --fake`) | provato: 15 fotogrammi/s, ritardo ~15–18 ms, dati integri (profondità e colori esatti), riconnessione automatica; `pipeline.real.preflight` tutto OK sulla camera, `pipeline.real.capture` dal vivo in 0,5 s |
+| Velocità della rete interna Windows → WSL | misurata: ~620 MB/s (circa 400 coppie colore + profondità 640x480 al secondo) |
+| Script avviabili da WSL col Python di Windows (`rs_windows.sh`) | provato, con conda e con un venv (trovati entrambi da soli, pacchetti installati con `rs_windows.sh -m pip`) |
 | Calibrazione su un video sintetico con camera nota (fx = fy = 900) | provata: intrinseche ritrovate entro 1 px, RMS 0,19 px, uguale con OpenCV 4.6 e 4.14 |
 | Esportazione e riproduzione ROS 2 di un `.db3` sintetico | provate: frame, profondità, intrinseche e topic corretti |
 | Trasmissione dei frame dalla D456 su Windows | **da verificare**: nell'ultima prova (USB 2.1) il Viewer non riceveva frame |
-| Registrazione e calibrazione con la camera reale | **da fare** |
+| Ponte, registrazione e calibrazione con la camera reale | **da fare** |
