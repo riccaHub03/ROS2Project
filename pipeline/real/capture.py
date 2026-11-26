@@ -23,16 +23,18 @@ Run alone:  python -m pipeline.real.capture --image data/inputs/surgical_scene.j
 from __future__ import annotations
 
 import logging
+import math
 from pathlib import Path
 from typing import List, Optional, Sequence
 
 import numpy as np
+import yaml
 from PIL import Image
 
 from pipeline.common import paths
 from pipeline.common.cli import run_cli, stage_parser
 from pipeline.common.reconstruction import CameraModel
-from pipeline.common.report import StageError, StageReport, stage_run
+from pipeline.common.report import StageError, StageReport, stage_run, write_json
 from pipeline.common.scene import Intrinsics, camera_intrinsics, get_tray
 from pipeline.config_loader import load_environment_config
 from pipeline.frame_transformer import matrix_from_quaternion
@@ -46,8 +48,10 @@ DEFAULT_TRAY = "tray_2"
 
 
 def find_image(explicit: Optional[str]) -> Path:
-    if explicit and Path(explicit).exists():
-        return Path(explicit)
+    if explicit:
+        if Path(explicit).is_file():
+            return Path(explicit)
+        raise StageError(STAGE, f"image file not found: {explicit}")
     for name in DEFAULT_IMAGES:
         candidate = paths.input_dir() / name
         if candidate.exists():
@@ -73,10 +77,18 @@ def load_depth(path: Path, shape: tuple[int, int]) -> np.ndarray:
     return depth
 
 
-def add_source_arguments(parser) -> None:
+def add_source_arguments(parser, *, include_clip: bool = True) -> None:
     """Opzioni della sorgente, condivise con run_pipeline_real.py. I default vengono dal YAML."""
-    parser.add_argument("--source", choices=("file", "ros2"), default="file",
-                        help="file: --image/--depth; ros2: live from the RGB-D camera and TF")
+    sources = ("file", "clip", "ros2") if include_clip else ("file", "ros2")
+    parser.add_argument("--source", choices=sources, default="file",
+                        help="file: --image/--depth; clip: paired recorded RGB-D; ros2: live camera and TF")
+    if include_clip:
+        clip = parser.add_argument_group("Recorded RGB-D clip (--source clip)")
+        clip.add_argument("--clip-dir", default="execution/clip", help="directory containing camera.yaml and frame PNGs")
+        clip.add_argument("--frame-index", type=int, default=0, help="matching colour/depth frame index")
+        clip.add_argument("--depth-scale", type=float, default=None, help="metres per raw depth unit; must be provided")
+        clip.add_argument("--crop", type=int, nargs=4, metavar=("X", "Y", "W", "H"), default=None,
+                          help="optional identical RGB-D crop in pixels; principal point is adjusted")
     group = parser.add_argument_group("ROS 2 live source (--source ros2); defaults: camera_overhead.ros2 in the YAML")
     group.add_argument("--color-topic", default=None, help="sensor_msgs/Image colour (rgb8/bgr8)")
     group.add_argument("--depth-topic", default=None, help="sensor_msgs/Image depth ALIGNED to colour (16UC1 mm / 32FC1 m)")
@@ -93,14 +105,58 @@ ROS_OPTION_KEYS = ("color_topic", "depth_topic", "camera_info_topic", "world_fra
 
 
 def source_kwargs(args) -> dict:
-    return {"source": args.source, "ros": {k: getattr(args, k) for k in ROS_OPTION_KEYS}}
+    return {"source": args.source, "ros": {k: getattr(args, k) for k in ROS_OPTION_KEYS},
+            "clip": {"directory": getattr(args, "clip_dir", None), "index": getattr(args, "frame_index", 0),
+                     "depth_scale": getattr(args, "depth_scale", None), "crop": getattr(args, "crop", None)}}
+
+
+def load_clip(options: dict):
+    """Read one registered RGB-D pair and its colour intrinsics; never assert calibration."""
+    directory = Path(options.get("directory") or "execution/clip").resolve()
+    index, scale, crop = options.get("index", 0), options.get("depth_scale"), options.get("crop")
+    if not isinstance(index, int) or index < 0:
+        raise ValueError("clip frame index must be a non-negative integer")
+    if scale is None or not math.isfinite(scale) or scale <= 0:
+        raise ValueError("clip requires --depth-scale in metres per unit, positive and finite")
+    metadata_path = directory / "camera.yaml"
+    metadata = yaml.safe_load(metadata_path.read_text())
+    if not isinstance(metadata, dict) or metadata.get("depth_aligned_to_color") is not True:
+        raise ValueError("camera.yaml must declare depth_aligned_to_color: true")
+    k = metadata["intrinsics_color"]
+    intrinsics = [float(k[key]) for key in ("fu", "fv", "ppu", "ppv")]
+    if not all(math.isfinite(x) for x in intrinsics) or min(intrinsics[:2]) <= 0:
+        raise ValueError("clip intrinsics must be finite with positive focal lengths")
+    image_path = directory / f"color_{index:06d}.png"
+    depth_path = directory / f"depth_{index:06d}.png"
+    with Image.open(image_path) as img:
+        image = img.convert("RGB")
+    with Image.open(depth_path) as dep:
+        raw = np.asarray(dep)
+    if image.size != (int(k["width"]), int(k["height"])) or raw.shape != (image.height, image.width) or raw.dtype != np.uint16:
+        raise ValueError("clip colour/depth dimensions or 16-bit depth format do not match camera.yaml")
+    if crop is not None:
+        x, y, width, height = crop
+        if x < 0 or y < 0 or width <= 0 or height <= 0 or x + width > image.width or y + height > image.height:
+            raise ValueError("clip crop lies outside the image")
+        image = image.crop((x, y, x + width, y + height))
+        raw = raw[y:y + height, x:x + width]
+        intrinsics[2] -= x
+        intrinsics[3] -= y
+    info = {"index": index, "camera_yaml": str(metadata_path), "color": str(image_path),
+            "depth": str(depth_path), "depth_scale_m_per_unit_assumed": scale,
+            "depth_aligned_to_color_declared": True, "distortion_corrected": False,
+            "camera_pose_verified": False, "crop_xywh": crop, "intrinsics_used_fx_fy_cx_cy": intrinsics}
+    metric = raw.astype(np.float32) * scale
+    if not np.isfinite(metric).all():
+        raise ValueError("scaled clip depth contains non-finite values")
+    return image, metric, intrinsics, info
 
 
 def run(*, image: Optional[str] = None, depth: Optional[str] = None,
         intrinsics: Optional[Sequence[float]] = None, plan_path: Optional[str] = None,
         config_path: Optional[str] = None, out_dir: Optional[str] = None,
         report_path: Optional[str] = None, source: str = "file", ros: Optional[dict] = None,
-        live_frame: Optional[ros_camera.LiveFrame] = None) -> StageReport:
+        live_frame: Optional[ros_camera.LiveFrame] = None, clip: Optional[dict] = None) -> StageReport:
     out = paths.output_dir(out_dir)
     plan_file = paths.resolve(plan_path, paths.PLAN, out)
     with stage_run(STAGE, paths.output_report(report_path, paths.REAL_CAPTURE, out),
@@ -108,11 +164,23 @@ def run(*, image: Optional[str] = None, depth: Optional[str] = None,
                            "config": config_path}, logger=log) as report:
         config = load_environment_config(config_path)
         live = None
+        clip_info = None
+        if source not in ("file", "clip", "ros2"):
+            raise ValueError(f"unknown capture source: {source}")
         if source == "ros2":
             live = live_frame or ros_camera.acquire(ros_camera.resolve_options(config, ros))
             img = Image.fromarray(live.rgb)
             report.inputs["image"] = f"ros2:{live.options['color_topic']}"
             source_name = report.inputs["image"]
+        elif source == "clip":
+            if image is not None or depth is not None or intrinsics is not None:
+                raise ValueError("--source clip cannot be combined with --image, --depth or --intrinsics")
+            img, clip_depth, intrinsics, clip_info = load_clip(clip or {})
+            report.inputs["image"] = clip_info["color"]
+            report.inputs["depth"] = clip_info["depth"]
+            source_name = clip_info["color"]
+            report.warn(log, "clip depth scale is assumed; alignment is declared, distortion is uncorrected, "
+                             "and the camera pose is not verified: robot motion remains blocked")
         else:
             source_path = find_image(image)
             report.inputs["image"] = str(source_path)
@@ -165,15 +233,20 @@ def run(*, image: Optional[str] = None, depth: Optional[str] = None,
         elif live is not None and live.camera_pose_world is None:
             extrinsics_verified = False
             report.warn(log, "extrinsics.verified is true but the camera pose is not read from the TF: not verified")
+        if clip_info is not None:
+            extrinsics_verified = False
 
         # --- depth: measured if given, otherwise a nominal plane on the tray SURFACE ---------------
-        measured_depth = depth is not None or live is not None
+        measured_depth = depth is not None or live is not None or clip_info is not None
         nominal_distance = float(position[2] - tray.top_z)
         if live is not None:
             depth_map = live.depth_m
             depth_source = "measured_live_ros2"
             if live.depth_valid_fraction < 0.5:
                 report.warn(log, f"only {live.depth_valid_fraction:.0%} of the depth pixels are valid: check the sensor")
+        elif clip_info is not None:
+            depth_map = clip_depth
+            depth_source = "recorded_clip_assumed_scale"
         elif measured_depth:
             depth_map = load_depth(Path(depth), (h, w))
             depth_source = "measured"
@@ -189,11 +262,17 @@ def run(*, image: Optional[str] = None, depth: Optional[str] = None,
 
         motion_safe = measured_depth and calibrated_intrinsics and extrinsics_verified
         report.artifacts = {"rgb_png": str(rgb_png), "depth_npy": str(depth_npy)}
+        if clip_info is not None:
+            clip_file = write_json(out / "clip_input.json", clip_info)
+            report.artifacts["clip_input_json"] = str(clip_file)
         report.data = {"source_file": source_name,
-                       "source_type": "live_ros2_rgbd" if live is not None else "real_surgical_tray_image",
+                       "source_type": ("live_ros2_rgbd" if live is not None else
+                                       "recorded_clip_rgbd" if clip_info is not None else "real_surgical_tray_image"),
                        "source_tray": tray.key, "camera": camera.to_dict(), "depth_source": depth_source,
                        "intrinsics_calibrated": calibrated_intrinsics, "extrinsics_verified": extrinsics_verified,
                        "nominal_distance_m": round(nominal_distance, 4), "motion_safe": motion_safe}
+        if clip_info is not None:
+            report.data["clip"] = clip_info
         if live is not None:
             report.data["acquisition"] = live.acquisition_info()
             if live.ee_pose_world is not None:

@@ -2,7 +2,7 @@
 
 ## Scopo e risultato della prova
 
-Questo documento descrive la prova eseguita sul PC del progetto il 25 novembre 2026, usando immagini registrate in `execution/clip/`. La sequenza verificata è:
+Questo documento descrive le prove eseguite sul PC del progetto il 25 e 26 novembre 2026, usando immagini registrate in `execution/clip/`. La sequenza verificata è:
 
 ```text
 Istruzione dell'utente
@@ -22,7 +22,7 @@ Presa ideale, sollevamento, trasferimento e deposito simulati
 
 **Risultato:** sul frame 300 è stato individuato uno strumento ad anelli sulla destra dell'immagine; la pipeline ne ha ricostruito 1.261 punti. Da un insieme di 200 proposte GraspGen, una è stata ammessa dal pianificatore e usata per spostare un modello approssimato dello strumento fra due vassoi **in simulazione**.
 
-**Confine della prova:** i componenti sono stati eseguiti in più comandi, riutilizzando i risultati salvati tra percezione e simulazione. Non è ancora stato realizzato o verificato un singolo comando automatico che parta dalla clip e arrivi al deposito. Il modello spostato è una geometria convessa ricavata dalla nuvola, non una copia fedele dell'oggetto. La chiusura e il trasporto sono idealizzati. Nessuna camera o robot fisico era coinvolto e nessun comando di movimento è stato inviato al KUKA reale.
+**Confine della prova:** dal 26 novembre un singolo comando della pipeline reale può elaborare un frame della clip dall’LLM fino al deposito simulato opzionale. È stato eseguito sul frame 300; i frame 0 e 300 erano stati provati fino a GraspGen anche senza simulazione. Il deposito avviene esclusivamente in PyBullet e conserva risultati e ipotesi separatamente. Il modello spostato è una geometria convessa ricavata dalla nuvola, non una copia fedele dell'oggetto. La chiusura e il trasporto sono idealizzati. Nessuna camera o robot fisico era coinvolto e nessun comando di movimento è stato inviato al KUKA reale.
 
 Il [video della prova simulata](../data/outputs/clip_sim_300_video/clip_simulation.mp4) dura 46,6 s. La [diagnosi dedicata alla simulazione](prova_clip_simulazione.md) conserva ulteriori dettagli e comandi.
 
@@ -69,7 +69,7 @@ fx' = fx                       fy' = fy
 cx' = cx - 550 = 96,2775 px   cy' = cy - 195 = 183,8295 px
 ```
 
-Lo script verifica dimensioni e tipo della profondità, applica la **stessa regione** a RGB e profondità, moltiplica i valori per la scala scelta e salva una matrice `float32` in metri. Il ritaglio RGB e la conversione della profondità sono stati controllati numericamente sui file originali.
+La sorgente `--source clip` della cattura reale verifica dimensioni e tipo della profondità, applica la **stessa regione** a RGB e profondità, moltiplica i valori per la scala scelta e salva una matrice `float32` in metri. Il ritaglio RGB e la conversione della profondità sono stati controllati numericamente sui file originali.
 
 ## 3. LLM: dall'istruzione al piano
 
@@ -102,7 +102,7 @@ L'LLM **non sceglie da solo** quale oggetto prendere: interpreta il bersaglio ri
 
 ### Controllo del piano e limite osservato
 
-Il planner generale dispone anche di un fallback deterministico. Nel test della clip, `scripts/test_clip.py` controlla che il backend sia effettivamente `ollama` e che la keyword coincida con `--expected-keyword`; altrimenti interrompe l'esecuzione. Questo controllo non garantisce la correttezza semantica completa.
+Il planner generale dispone anche di un fallback deterministico. Nel comando diretto della pipeline reale, `--require-llm` richiede il backend `ollama` senza fallback e `--expected-keyword` rifiuta una keyword diversa; la prova precedente usava controlli equivalenti in `scripts/test_clip.py`. Questo controllo non garantisce la correttezza semantica completa.
 
 In una prova precedente Qwen aveva interpretato la frase italiana «Prendi le forbici dal vassoio 2 e mettile nel vassoio 1» come `scalpel`. Per questo il risultato va controllato e il test non va presentato come riconoscimento linguistico infallibile.
 
@@ -203,7 +203,7 @@ I candidati sono esaminati in ordine decrescente di punteggio GraspGen. Per ogni
 
 La validazione seleziona **il primo candidato nell'ordine dei punteggi che supera i controlli**, non necessariamente quello con il punteggio massimo. I controlli sono campionati: non costituiscono una certificazione di assenza continua di collisioni.
 
-### Risultato dei 200 candidati
+### Risultato dei 200 candidati nella prova precedente
 
 Il punteggio più alto dell'insieme era circa **0,9574**, ma la proposta corrispondente non ha superato i controlli del simulatore. Prima della proposta ammessa sono state scartate **194** pose:
 
@@ -218,7 +218,7 @@ Il punteggio più alto dell'insieme era circa **0,9574**, ma la proposta corrisp
 
 Nella prova che includeva anche il ritorno finale alla posizione di parcheggio, nessuno dei 200 candidati ha superato tutte le fasi: questo candidato è stato rifiutato nella fase `Return` per mancata soluzione IK. Nella prova riuscita è stato omesso **soltanto il ritorno opzionale al parcheggio**, mantenendo pianificazione e verifica dell'allontanamento dopo il deposito. Il percorso e le ragioni degli scarti sono nel [report di validazione](../data/outputs/clip_sim_300_video/graspgen_sim_motion_validation.json).
 
-## 9. Movimento simulato fino all'appoggio
+## 9. Movimento simulato fino all'appoggio nella prova precedente
 
 Dopo la pianificazione, il braccio simulato ha eseguito la traiettoria con controllo di posizione dei giunti. Il modello della pinza segue cinematicamente le articolazioni; all'evento di chiusura, il trasporto dell'oggetto avviene tramite un **vincolo fisso ideale**, non tramite una presa con attrito e forza verificati.
 
@@ -237,7 +237,19 @@ La durata totale del moto è **44,6 s simulati**, con 10.705 passi. Dopo l'esecu
 
 **Output principali:** [video](../data/outputs/clip_sim_300_video/clip_simulation.mp4), [scena iniziale](../data/outputs/clip_sim_300_video/scene_initial.png), [scena finale](../data/outputs/clip_sim_300_video/scene_final.png), [risultato JSON](../data/outputs/clip_sim_300_video/clip_simulation_result.json), [traiettoria articolare NPZ](../data/outputs/clip_sim_300_video/graspgen_sim_joint_path.npz).
 
-## 10. Esiti e limiti da comunicare in presentazione
+## 10. Nuova prova unificata: un comando fino al deposito simulato
+
+Il 26 novembre è stato eseguito `run_pipeline_real.py` con `--source clip --simulate-deposit`: un solo avvio ha prodotto in successione `plan`, `real_capture`, `real_segmentation`, `real_deprojection`, `grasp` e `real_simulation_preview`. Ogni stadio ha scritto il proprio report nella stessa directory di run; la simulazione è uno stadio opzionale della pipeline reale e non è un comando al KUKA fisico.
+
+Sul frame 300 l’LLM ha restituito `scissors`; SAM 3 ha ottenuto **0,9429**, la nuvola contiene **1.261 punti** e GraspGen ha prodotto **200 pose**. Nel primo gruppo della run riuscita sono state rifiutate **188** proposte: 185 al controllo geometrico della chiusura e 3 per IK alla presa. È stato ammesso il candidato con `server_index=188`, punteggio originale circa **0,1289**, dopo una correzione simulata di **35 mm verso l’alto**; la posa corretta non è stata rivalutata da GraspGen. La pinza stimata chiude a circa 68,1 mm.
+
+PyBullet ha completato avvicinamento, discesa, chiusura ideale, sollevamento, trasferimento, deposito, apertura e allontanamento in **47,43 s simulati**. Il proxy è risultato fermo nel vassoio destinazione con tre contatti nel modello. È stato usato `--sim-omit-return`: il ritorno opzionale al parcheggio non è incluso. L’output visivo è il [video della prova unificata](../data/outputs/real_unified_final/simulation/clip_simulation.mp4); i dettagli sono nel [report dello stadio](../data/outputs/real_unified_final/real_simulation_preview.json) e nel [risultato del movimento](../data/outputs/real_unified_final/simulation/clip_simulation_result.json).
+
+Due precedenti tentativi unificati hanno prodotto i candidati ma si sono fermati prima del moto perché nessuna posa aveva superato tutti i controlli: sono conservati in `real_unified_300/` e `real_unified_300_b/`. È stato aggiunto un numero limitato di gruppi indipendenti GraspGen (`--sim-grasp-attempts`, predefinito 3, massimo 10), usati solo se un gruppo viene interamente rifiutato prima del moto. Gli scarti e il report del gruppo selezionato restano tracciati. Anche con più gruppi il successo non è garantito.
+
+La sorgente live ROS 2 usa gli stessi report di cattura, segmentazione, nuvola e prese. È stato predisposto un adattatore simulato che richiede posa camera da TF, estrinseche verificate, dati rettificati senza distorsione residua, base coincidente con il world e nuvola coerente con il vassoio configurato; mantiene le coordinate osservate e non sposta automaticamente la scena live. Con una fixture sintetica in formato ROS, costruita a partire da risultati salvati, è stato eseguito anche lo stadio di simulazione attraverso `run_pipeline_real.py`: il deposito è terminato. La fixture non è un'acquisizione e non verifica LLM, SAM 3 e GraspGen dal vivo: **la D456 live e il percorso completo live non sono stati provati con hardware**. Nell'immagine Docker ROS verificata non era disponibile `ffmpeg`: per registrare il video dalla pipeline eseguita in quell'ambiente occorre installarlo; senza video si può omettere `--sim-video`.
+
+## 11. Esiti e limiti da comunicare in presentazione
 
 | Verifica | Esito | Interpretazione corretta |
 |---|---|---|
@@ -245,12 +257,12 @@ La durata totale del moto è **44,6 s simulati**, con 10.705 passi. Dopo l'esecu
 | SAM 3 sul frame 300 ritagliato | 0,9429; overlay compatibile con lo strumento a destra | Una singola istanza selezionata; confidenza non equivale a certezza |
 | Deproiezione frame 300 | 1.261 punti | Nuvola della superficie visibile, con scala ipotizzata e posa nominale |
 | GraspGen | 200 proposte nella run usata per il movimento | Sono ipotesi della pinza Robotiq; punteggi non certificano successo |
-| Pianificazione e deposito | 1 proposta ammessa dopo 194 scarti; deposito completato | Valido per proxy e cella simulati, senza ritorno opzionale al parcheggio |
+| Pianificazione e deposito nella run unificata | 1 proposta ammessa dopo 188 scarti; deposito completato | Valido per proxy e cella simulati, senza ritorno opzionale al parcheggio |
 | Camera e robot fisici | Non collegati e non mossi | Nessuna prova di acquisizione live o presa fisica |
 
-La pipeline reale termina ai candidati. La simulazione li riusa tramite l'adattatore, in una fase distinta. Gli output locali e i pesi sono esclusi da Git: altri PC o un nuovo clone richiedono dati, asset e ambienti separati.
+La pipeline reale accetta la clip direttamente con `--source clip`: senza `--simulate-deposit` termina ai candidati; con tale opzione richiama l’adattatore di anteprima PyBullet come stadio della stessa esecuzione. Non invia comandi al robot fisico. Gli output locali e i pesi sono esclusi da Git: altri PC o un nuovo clone richiedono dati, asset e ambienti separati.
 
-## 11. Come ripetere l'intera sequenza a stadi
+## 12. Come ripetere la sequenza
 
 Eseguire i comandi dalla radice della repo. Ogni cartella di output indicata deve essere **nuova**. Per il modello Qwen e per GraspGen avviare due servizi separati, solo se non sono già attivi:
 
@@ -264,26 +276,31 @@ cd /home/alice/Desktop/ROS2Project/ROS2Project
 bash scripts/graspgen_demos.sh server
 ```
 
-### A. LLM → SAM 3 → nuvola → prime prese
+### A. Un comando: pipeline reale e deposito simulato
 
 In un terzo terminale, dalla stessa root:
 
 ```bash
 # La scala 0.001 m/unità è un'ipotesi da verificare alla sorgente.
-OLLAMA_HOST=127.0.0.1 .venv/bin/python scripts/test_clip.py \
-  --indices 300 --crop 550 195 400 300 --depth-scale 0.001 \
-  --expected-keyword scissors \
+OLLAMA_HOST=127.0.0.1 .venv/bin/python run_pipeline_real.py \
+  --source clip --clip-dir execution/clip --frame-index 300 \
+  --crop 550 195 400 300 --depth-scale 0.001 \
   --instruction 'Pick the surgical scissors from tray 2 and place them in tray 1.' \
-  --sam3-device cuda --out-dir data/outputs/clip_presentazione
+  --require-llm --expected-keyword scissors \
+  --sam3-model data/external/sam3-prepared --sam3-device cuda \
+  --grasp-backend graspgen --simulate-deposit --sim-omit-return \
+  --sim-grasp-attempts 6 --sim-video --out-dir data/outputs/clip_presentazione
 ```
 
-La cartella `clip_presentazione/frame_000300/` conterrà piano, cattura, overlay, maschera, nuvola e report GraspGen. È possibile aggiungere altri indici, per esempio `--indices 0 300`; ciascun frame viene elaborato separatamente. Il ritaglio indicato è adatto a questa clip, non a una scena generica.
+Un singolo avvio esegue `plan → real_capture → real_segmentation → real_deprojection → grasp → real_simulation_preview`: produce piano, cattura, overlay, maschera, nuvola, prese, report della simulazione e, se completata, video nella directory indicata. Il backend generale predefinito resta PCA: usare esplicitamente `--grasp-backend graspgen`. Se manca Ollama o il bersaglio non corrisponde, la prova si ferma. Anche nel caso in cui la configurazione dichiari estrinseche verificate, per la sorgente clip `motion_safe` resta falso: scala, allineamento, distorsione e posa non sono certificati.
 
-### B. Generare 200 nuovi candidati dalla stessa nuvola
+Per il frame 0 cambiare `--frame-index 0` e usare un'altra cartella. La sorgente diretta elabora un indice per comando; `scripts/test_clip.py` rimane disponibile per una lista di indici. Una directory clip non vuota viene rifiutata per evitare di confondere prove vecchie e nuove. Il ritaglio indicato è adatto a questa clip, non a una scena generica. La camera dal vivo resta una sorgente separata, `--source ros2`, non verificata su hardware.
+
+### B. Alternativa manuale: generare 200 nuovi candidati dalla stessa nuvola
 
 ```bash
 mkdir data/outputs/clip_presentazione_200
-cp data/outputs/clip_presentazione/frame_000300/{clip_input.json,plan.json,real_capture.json,real_deprojection.json,real_deprojection_cloud.ply} data/outputs/clip_presentazione_200/
+cp data/outputs/clip_presentazione/{clip_input.json,plan.json,real_capture.json,real_deprojection.json,real_deprojection_cloud.ply} data/outputs/clip_presentazione_200/
 .venv/bin/python -m pipeline.grasp \
   --deprojection data/outputs/clip_presentazione_200/real_deprojection.json \
   --plan data/outputs/clip_presentazione_200/plan.json \
@@ -303,10 +320,17 @@ MPLCONFIGDIR=/tmp/ros2project-mpl OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 \
 
 `--omit-return` termina dopo l'allontanamento controllato e non richiede il rientro al parcheggio; `--video` richiede `ffmpeg`. Il nuovo insieme di prese può non produrre una traiettoria accettabile: in tal caso la simulazione si ferma e conserva le ragioni degli scarti. Per riprodurre le **stesse pose salvate nella prova descritta**, sostituire il `--run-dir` con `data/outputs/clip_graspgen_200` e usare comunque un output nuovo.
 
-## 12. Verifiche e lavoro ancora necessario
+## 13. Verifiche e lavoro ancora necessario
 
 - Driver NVIDIA, calcolo PyTorch su GPU, `pip check` e import di pyrealsense2 sono stati verificati. Il server GraspGen ha usato CUDA 12.1 nel proprio container; SAM 3 ha usato CUDA 12.8 nella `.venv`.
 - La prova del frame 300 su GPU ha completato gli stadi da cattura a GraspGen in circa 10,8 s, escluso il planner; il tempo dipende dal carico del PC. Le prove complete sui frame 0 e 300 sono state eseguite anche su CPU.
 - I test del planner/client GraspGen hanno superato 31 controlli; i test dell'adattatore clip e della simulazione ne hanno superati 12. I server usati nei test automatici del client sono simulati; le prove sui frame hanno usato il server GraspGen effettivo.
 - Prima di usare la camera reale: verificare collegamento USB 3, scala, sincronizzazione, allineamento, rettifica e `CameraInfo`; poi validare su punti indipendenti la calibrazione intrinseca e la trasformazione camera–robot.
 - Prima di qualsiasi prova fisica: misurare montaggio e TCP della pinza, usare un modello coerente con l'hardware e validare cinematica, collisioni, traiettorie e contatti. Il backend ROS di movimento documentato nella repo è simulato: serve un'integrazione dedicata e collaudata con KUKA e pinza fisici. `motion.allowed=false` e `physical_grasp_validated=false` restano invariati.
+
+### Aggiornamento del 26 novembre: pipeline reale diretta
+
+- `run_pipeline_real.py --source clip` è stato eseguito dall’LLM fino a GraspGen direttamente, senza script di simulazione, sui frame 0 e 300. Il frame 0 ha prodotto 1.342 punti e il frame 300 1.261 punti; entrambi hanno restituito 100 candidati GraspGen con movimento bloccato. Output: `data/outputs/real_direct_clip_000/` e `data/outputs/real_direct_clip_300/`.
+- La camera live e la calibrazione camera–robot non sono state provate; le conclusioni sulla simulazione si riferiscono alla prova distinta descritta sopra. I test della sorgente clip, della camera live simulata, delle protezioni e del client GraspGen sono stati eseguiti con 53 test superati.
+
+- Dopo l’unificazione sono stati eseguiti 72 test delle sorgenti reali, validazioni, client GraspGen e adattatori di simulazione. Il percorso live è stato verificato con fixture sintetiche, non con la camera fisica.

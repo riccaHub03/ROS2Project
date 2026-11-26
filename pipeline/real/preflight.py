@@ -209,7 +209,7 @@ def print_summary(report: StageReport) -> None:
 def main(argv: Optional[List[str]] = None) -> int:
     from pipeline.real import capture
     parser = stage_parser(__doc__.splitlines()[0])
-    capture.add_source_arguments(parser)
+    capture.add_source_arguments(parser, include_clip=False)
     parser.set_defaults(source="ros2")
     parser.add_argument("--grasp-backend", choices=("pca", "graspgen"), default="pca")
     parser.add_argument("--graspgen-config", default=None)
