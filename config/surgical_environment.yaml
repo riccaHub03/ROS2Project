@@ -74,7 +74,7 @@ camera_overhead:
     camera_frame: null        # null = frame_id di CameraInfo (deve essere il frame OTTICO)
     ee_frame: null            # es. lbr_link_ee: la posa dell'end-effector viene letta dalla TF alla cattura
     timeout_s: 10.0
-    depth_frames: 5           # mediana su piu' fotogrammi di profondita'
+    depth_frames: 1           # un singolo frame: posa TF e profondita' allo stesso istante
     max_sync_s: 0.2
     tf_timeout_s: 3.0
 

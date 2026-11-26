@@ -26,7 +26,9 @@ input:
 visualization:
   max_candidates: 20
 robot:
-  gripper: visual_parallel_jaws
+  # The target hardware model is Robotiq 2F-140. This identifies the model;
+  # it does not validate the actual mounting, TCP, contacts or robot motion.
+  gripper: robotiq_2f_140
   # Nominal Robotiq grasp-base -> TCP at finger tips, expressed in GraspGen axes.
   # TCP y closes the jaws; GraspGen x closes them. TCP z and GraspGen z approach.
   # This is a visualization convention, NOT a measured mounting calibration.

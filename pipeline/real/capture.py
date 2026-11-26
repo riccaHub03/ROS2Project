@@ -97,7 +97,7 @@ def add_source_arguments(parser, *, include_clip: bool = True) -> None:
     group.add_argument("--camera-frame", default=None, help="optical TF frame of the camera (default: CameraInfo frame_id)")
     group.add_argument("--ee-frame", default=None, help="TF frame of the end-effector/flange: read at capture time")
     group.add_argument("--timeout", type=float, default=None, dest="timeout_s", help="seconds to wait for messages")
-    group.add_argument("--depth-frames", type=int, default=None, help="depth frames for the median (default 5)")
+    group.add_argument("--depth-frames", type=int, default=None, help="depth frames for the median (default 1; >1 is diagnostic)")
 
 
 ROS_OPTION_KEYS = ("color_topic", "depth_topic", "camera_info_topic", "world_frame", "camera_frame", "ee_frame",
@@ -260,7 +260,12 @@ def run(*, image: Optional[str] = None, depth: Optional[str] = None,
         img.save(rgb_png)
         np.save(depth_npy, depth_map)
 
-        motion_safe = measured_depth and calibrated_intrinsics and extrinsics_verified
+        live_geometry_ok = (live is None or (not live.distortion_nonzero and live.depth_valid_fraction >= 0.5
+                            and live.depth_frames_used == 1 and live.tf_at_color_stamp))
+        if live is not None and not live_geometry_ok:
+            report.warn(log, "live geometry not verified: need rectified input, >=50% valid depth, one depth frame "
+                             "and camera TF at the image timestamp")
+        motion_safe = measured_depth and calibrated_intrinsics and extrinsics_verified and live_geometry_ok
         report.artifacts = {"rgb_png": str(rgb_png), "depth_npy": str(depth_npy)}
         if clip_info is not None:
             clip_file = write_json(out / "clip_input.json", clip_info)

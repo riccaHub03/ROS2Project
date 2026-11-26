@@ -268,7 +268,7 @@ Tutto nel container (`bash scripts/docker_shell.sh`), con ROS 2 caricato dall'en
 6. **Dichiarare verificata la calibrazione** solo dopo averla misurata: `camera_overhead.extrinsics.verified: true`.
    Senza, ogni presa resta `NOT_READY_FOR_ROBOT_MOTION`. Con la camera in posizione:
    ```bash
-   python3 -m pipeline.real.preflight --ee-frame lbr_link_ee    # atteso: "pronto. Una cattura adesso risulterebbe motion_safe"
+   python3 -m pipeline.real.preflight --ee-frame lbr_link_ee    # controlla i prerequisiti della cattura, non autorizza il moto
    ```
 7. **Pipeline senza movimento**, ispezionando le immagini e i report a ogni stadio:
    ```bash
@@ -285,9 +285,9 @@ Tutto nel container (`bash scripts/docker_shell.sh`), con ROS 2 caricato dall'en
 
 `real_capture.json` ha `motion_safe: true` solo se **tutte** queste condizioni sono vere: profondità misurata,
 intrinseche da `CameraInfo`, posa della camera letta dalla TF e `camera_overhead.extrinsics.verified: true`.
-Inoltre `grasp.json` richiede una posa dell'end-effector non nominale (meglio dalla TF con `--ee-frame`, oppure
-`motion_control.ee_reference_pose`) e almeno un candidato di presa fattibile (IK, limiti di giunto, collisioni nel
-modello della cella). Altrimenti `readiness` è `NOT_READY_FOR_ROBOT_MOTION` e `readiness_blockers` elenca i motivi.
+Questo campo riguarda la geometria della cattura: non certifica una presa fisica. Con GraspGen, `grasp.json`
+contiene proposte non validate per collisioni, IK o contatto; controllare `motion.allowed` e `motion.blocked_reasons`.
+La pipeline reale non dispone di un esecutore fisico validato e non abilita il movimento.
 
 ### Limiti da conoscere
 
@@ -409,7 +409,7 @@ python3 run_pipeline_real.py --source ros2 --ee-frame lbr_link_ee --instruction 
 | `--world-frame` | frame TF in cui la pipeline esprime le pose (default `world`) |
 | `--camera-frame` | frame TF ottico della camera (default: `frame_id` di `CameraInfo`) |
 | `--ee-frame` | frame TF della flangia/TCP: la posa dell'end-effector viene letta a ogni cattura |
-| `--timeout S`, `--depth-frames N` | attesa dei messaggi (default 10 s) e fotogrammi di profondità per la mediana (default 5) |
+| `--timeout S`, `--depth-frames N` | attesa dei messaggi (default 10 s) e fotogrammi di profondità (default 1; più frame sono solo diagnostici senza compensazione del moto) |
 | `--min-confidence X` | soglia SAM 3 (default 0.3) |
 | `--instruction`, `--from-stage`, `--stop-after`, `--grasp-backend`, `--graspgen-*`, `--config`, `--out-dir`, `-v` | come nella pipeline simulata (gli stadi sono `plan`, `capture`, `segment`, `deproject`, `grasp`) |
 
@@ -522,12 +522,13 @@ caso di problemi è il JSON dello stadio che si è fermato.**
 | `sim_deprojection.json` | deproject | `num_points`, `frames`, `coordinate_frame_id`, `robot_base_pose_world`, `motion_safe` |
 | `real_capture.json` | capture reale | come la simulata, più `source_type` (`real_surgical_tray_image` o `live_ros2_rgbd`), `depth_source`, `intrinsics_calibrated`, `extrinsics_verified`, `motion_safe` e, dal vivo, `acquisition` (topic, frame, sincronia, pixel validi) ed `ee_reference_pose` (da TF) |
 | `real_segmentation.json`, `real_deprojection.json` | pipeline reale | stessi campi della controparte simulata; la deproiezione riporta `ee_reference_source` (`tf`, `configured` o `nominal`) |
-| `real_preflight.json` | preflight | `checks` (stato, dettaglio, rimedio), `ready_for_motion` |
+| `real_preflight.json` | preflight | `checks`, `ready_for_capture_geometry`; `ready_for_motion` resta falso |
 | `grasp.json` | grasp | vedi sotto |
 | `sim_robot_motion.json` | `--gui`/`--headless` | `status`, `waypoints`, `measured_phase_errors`, `differential_ik` |
 | `robot_trajectory.json` | nodo ROS 2 | traiettoria dei giunti registrata |
 
-**`grasp.json`** è il report che decide se il robot può muoversi:
+**`grasp.json`** descrive la presa e i controlli disponibili. Non costituisce un'autorizzazione
+all'esecuzione fisica. Con il backend PCA riporta:
 
 - `readiness`: `VALIDATED_GEOMETRY_READY_FOR_TRAJECTORY_PLAN` (presa pronta) oppure `NOT_READY_FOR_ROBOT_MOTION`
   con i motivi in `readiness_blockers` (frame EE nominale, estrinseche non verificate, depth non misurata, punto fuori dalla zona raggiungibile, nessun candidato fattibile...).
@@ -535,6 +536,10 @@ caso di problemi è il JSON dello stadio che si è fermato.**
 - `grasp_candidates` e `selected_candidate_id`: i candidati con l'esito di IK, limiti di giunto e collisioni.
 - `functional_zones_segmentation`, `principal_axes_base_frame`: zone dello strumento e assi PCA.
 - `grasp_backend`: `pca` o `graspgen`.
+
+Con GraspGen contiene invece `candidates`, `selected`, `robot_description` e `motion`: i candidati
+non sono automaticamente verificati per IK, collisioni o contatto e il profilo della pipeline reale
+mantiene disabilitato il movimento hardware.
 
 ### Uso da Python
 

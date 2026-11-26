@@ -30,7 +30,8 @@ class RealSimulationPreviewTests(unittest.TestCase):
         write_ply(self.cloud, self.points)
         self.capture = StageReport('real_capture', data={'source_type': 'live_ros2_rgbd', 'motion_safe': True,
                                    'acquisition': {'camera_pose_from_tf': True, 'distortion_nonzero': False,
-                                                   'depth_valid_fraction': .9}})
+                                                   'depth_valid_fraction': .9, 'depth_frames_median': 1,
+                                                   'tf_at_color_stamp': True}})
         self.dep = StageReport('real_deprojection', artifacts={'pointcloud_ply': str(self.cloud)},
                                data={'motion_safe': True, 'pointcloud_units': 'm',
                                      'coordinate_frame_id': self.base.frame_id,
@@ -67,7 +68,7 @@ class RealSimulationPreviewTests(unittest.TestCase):
 
     def test_launcher_requires_graspgen_for_simulation(self):
         with patch('pipeline.plan.run') as planner:
-            result = pipeline.main(['--source', 'clip', '--simulate-deposit',
+            result = pipeline.main(['--source', 'clip', '--simulate-deposit', '--grasp-backend', 'pca',
                                     '--out-dir', str(self.root / 'new')])
         self.assertEqual(result, 1)
         planner.assert_not_called()
@@ -102,6 +103,18 @@ class RealSimulationPreviewTests(unittest.TestCase):
         self.cloud.write_text(self.cloud.read_text() + '\n')
         with self.assertRaisesRegex(ValueError, 'hash'):
             live_simulation_preview.prepare_live(self.root, self.config, out)
+
+    def test_live_rejects_unsynchronised_tf_or_multiple_depth_frames(self):
+        out = self.root / 'live'
+        out.mkdir()
+        for key, value in (('tf_at_color_stamp', False), ('depth_frames_median', 5)):
+            with self.subTest(key=key):
+                before = self.capture.data['acquisition'][key]
+                self.capture.data['acquisition'][key] = value
+                self.save()
+                with self.assertRaisesRegex(ValueError, 'TF at image timestamp'):
+                    live_simulation_preview.prepare_live(self.root, self.config, out)
+                self.capture.data['acquisition'][key] = before
 
     def test_preview_reports_success_only_when_child_completed(self):
         def completed(command, cwd, stdout, stderr):

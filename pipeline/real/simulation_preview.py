@@ -54,7 +54,8 @@ def run(*, out_dir: str, source: str, clip_dir: str, config_path: Optional[str] 
                 log.info('new independent GraspGen batch %d/%d', index, max_attempts)
                 grasp_stage.run(deprojection_path=str(out / paths.REAL_DEPROJECTION),
                                 plan_path=str(out / paths.PLAN), out_dir=str(run_dir),
-                                config_path=config_path, **grasp_kwargs)
+                                config_path=config_path, robot_description=grasp.data.get('robot_description'),
+                                **grasp_kwargs)
             sim_out = run_dir / 'simulation'
             if sim_out.exists():
                 raise StageError('real_simulation_preview', f'simulation output already exists: {sim_out}')

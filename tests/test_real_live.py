@@ -15,7 +15,7 @@ from pipeline.common.reconstruction import CameraModel
 from pipeline.common.report import StageError, StageReport
 from pipeline.common.scene import Intrinsics
 from pipeline.config_loader import load_environment_config
-from pipeline.frame_transformer import FrameTransformer, matrix_from_quaternion, quaternion_from_matrix
+from pipeline.frame_transformer import FrameTransformer, RobotBaseFrame, matrix_from_quaternion, quaternion_from_matrix
 from pipeline.real import capture, deproject, preflight, ros_camera
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,6 +49,17 @@ def nadir_quaternion():
 
 
 class ConversionTests(unittest.TestCase):
+    def test_rgbd_headers_require_same_optical_frame_and_capture_time(self):
+        def header(frame, secs):
+            return SimpleNamespace(header=SimpleNamespace(frame_id=frame,
+                stamp=SimpleNamespace(sec=int(secs), nanosec=round((secs % 1) * 1e9))))
+        color, depth, info = header('optical', 10.0), header('optical', 10.02), header('optical', 10.01)
+        ros_camera.validate_rgbd_headers(color, [depth], info, 'optical', .2)
+        for bad_depth, bad_info in ((header('other', 10.02), info), (header('optical', 9.0), info),
+                                     (depth, header('optical', 0.0)), (depth, header('other', 10.01))):
+            with self.subTest(bad_depth=bad_depth, bad_info=bad_info), self.assertRaises(StageError):
+                ros_camera.validate_rgbd_headers(color, [bad_depth], bad_info, 'optical', .2)
+
     def test_color_orders_and_row_padding(self):
         for encoding in ("rgb8", "bgr8"):
             rgb = ros_camera.image_to_rgb(color_msg(encoding, pad=5))
@@ -100,6 +111,19 @@ class ConversionTests(unittest.TestCase):
 
 
 class FrameTests(unittest.TestCase):
+    def test_projection_uses_translated_rotated_robot_base(self):
+        base = RobotBaseFrame(position_xyz=(1, 2, 0), orientation_rpy=(0, 0, np.pi / 2))
+        transform = FrameTransformer(camera_position_xyz=(1, 2, 1), camera_target_xyz=(1, 2, 2),
+                                     camera_intrinsics={'fx_px': 100, 'fy_px': 100, 'cx_px': 0, 'cy_px': 0},
+                                     camera_orientation_xyzw=(0, 0, 0, 1), robot_base_frame=base)
+        mask = np.zeros((21, 11), dtype=np.uint8)
+        mask[20, 10] = 255
+        depth = np.zeros_like(mask, dtype=np.float32)
+        depth[20, 10] = 1.0
+        camera_points, base_points = transform.deproject_mask_to_pointcloud(mask, depth)
+        np.testing.assert_allclose(camera_points[0], [0.1, 0.2, 1.0], atol=1e-9)
+        np.testing.assert_allclose(base_points[0], [0.2, -0.1, 2.0], atol=1e-9)
+
     def test_explicit_orientation_equals_lookat_for_the_nadir_camera(self):
         kwargs = dict(camera_position_xyz=(0.6, -0.42, 1.15), camera_target_xyz=(0.6, -0.42, 0.07),
                       camera_intrinsics={"fx_px": 600, "fy_px": 600, "cx_px": 32, "cy_px": 24})
@@ -133,10 +157,10 @@ class LiveCaptureTests(unittest.TestCase):
         self.frame = ros_camera.LiveFrame(
             rgb=np.full((H, W, 3), 120, np.uint8), depth_m=depth, intrinsics=Intrinsics(W, H, 600, 600, W / 2, H / 2),
             distortion_nonzero=False, camera_frame="cam_optical", world_frame="world", color_stamp=10.0,
-            depth_stamp=10.01, depth_valid_fraction=1.0, depth_frames_used=5,
+            depth_stamp=10.01, depth_valid_fraction=1.0, depth_frames_used=1,
             camera_pose_world=([0.6, -0.42, 1.15], nadir_quaternion()),
             ee_pose_world=([0.45, 0.0, 0.45], [0.0, 1.0, 0.0, 0.0]),
-            options=dict(ros_camera.DEFAULT_OPTIONS, ee_frame="lbr_link_ee"))
+            options=dict(ros_camera.DEFAULT_OPTIONS, ee_frame="lbr_link_ee"), tf_at_color_stamp=True)
 
     def tearDown(self):
         self.temp.cleanup()
@@ -167,9 +191,13 @@ class LiveCaptureTests(unittest.TestCase):
 
     def test_distortion_and_sparse_depth_are_warned(self):
         noisy = ros_camera.LiveFrame(**{**self.frame.__dict__, "distortion_nonzero": True, "depth_valid_fraction": 0.2})
-        warnings = " ".join(self.capture(noisy).warnings)
+        result = self.capture(noisy)
+        warnings = " ".join(result.warnings)
         self.assertIn("distortion", warnings)
         self.assertIn("20%", warnings)
+        self.assertFalse(result.data['motion_safe'])
+        for values in ({'tf_at_color_stamp': False}, {'depth_frames_used': 5}):
+            self.assertFalse(self.capture(ros_camera.LiveFrame(**{**self.frame.__dict__, **values})).data['motion_safe'])
 
     def test_deprojection_uses_the_live_ee_pose(self):
         self.capture()

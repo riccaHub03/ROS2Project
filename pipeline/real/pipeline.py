@@ -59,6 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--stop-after", choices=STAGES, default=None)
     parser.add_argument("-v", "--verbose", action="store_true")
     grasp.add_backend_arguments(parser)
+    parser.set_defaults(grasp_backend="graspgen")
     return parser
 
 
@@ -78,14 +79,22 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         return capture.run(image=args.image, depth=args.depth, intrinsics=args.intrinsics,
                            **capture.source_kwargs(args), **cfg)
 
+    def run_grasp():
+        description = None
+        if args.grasp_backend == "graspgen":
+            from pipeline.real import robot_profile
+            description = robot_profile.run(config_path=args.config, graspgen_config=args.graspgen_config,
+                                            out_dir=str(out)).data["robot_description"]
+        return grasp.run(deprojection_path=str(out / paths.REAL_DEPROJECTION),
+                         robot_description=description, **grasp.backend_kwargs(args), **cfg)
+
     steps = [
         Step("plan", run_plan),
         Step("capture", run_capture),
         Step("segment", lambda: segment.run(min_confidence=args.min_confidence,
                                             segmenter=Sam3Segmenter(args.sam3_model, args.sam3_device), **common)),
         Step("deproject", lambda: deproject.run(**cfg)),
-        Step("grasp", lambda: grasp.run(deprojection_path=str(out / paths.REAL_DEPROJECTION),
-                                       **grasp.backend_kwargs(args), **cfg)),
+        Step("grasp", run_grasp),
     ]
     if args.simulate_deposit:
         from pipeline.real import simulation_preview

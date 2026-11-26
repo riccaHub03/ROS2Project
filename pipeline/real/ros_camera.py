@@ -7,8 +7,8 @@ Serve allo stadio ``real_capture`` (``--source ros2``) e al preflight. Legge:
   * dalla TF, la posa del frame ottico della camera nel ``world`` (calibrazione mano-occhio pubblicata come
     trasformazione) e, se richiesta, la posa dell'end-effector nel ``world``.
 
-La profondita' e' la mediana di ``depth_frames`` fotogrammi (riduce il rumore del sensore). Nessun comando
-viene inviato al robot: sono solo sottoscrizioni.
+Di default viene usato un singolo fotogramma di profondita'. La mediana di piu' fotogrammi e'
+disponibile per diagnostica, ma non e' compensata per il moto. Nessun comando viene inviato al robot.
 
 Le funzioni di conversione lavorano su qualunque oggetto con gli stessi attributi dei messaggi ROS: si provano
 senza ROS. ``rclpy`` viene importato solo quando serve.
@@ -37,7 +37,7 @@ DEFAULT_OPTIONS: Dict[str, Any] = {
     "camera_frame": None,            # None: il frame_id di CameraInfo (deve essere il frame OTTICO)
     "ee_frame": None,                # es. lbr_link_ee: se impostato, la posa EE viene letta dalla TF
     "timeout_s": 10.0,               # attesa dei messaggi
-    "depth_frames": 5,               # fotogrammi di profondita' per la mediana
+    "depth_frames": 1,               # one frame preserves the capture-time geometry
     "max_sync_s": 0.2,               # scarto massimo colore/profondita'
     "tf_timeout_s": 3.0,
 }
@@ -98,6 +98,19 @@ def stamp_seconds(msg) -> float:
     return float(msg.header.stamp.sec) + float(msg.header.stamp.nanosec) * 1e-9
 
 
+def validate_rgbd_headers(color, depths, info, camera_frame, max_sync_s):
+    """Reject different optical frames, zero stamps and stale RGB-D/CameraInfo."""
+    if not camera_frame:
+        raise StageError(STAGE, "CameraInfo has no optical frame_id")
+    origin = stamp_seconds(color)
+    for label, msg in [('colour', color), ('CameraInfo', info)] + [('depth', d) for d in depths]:
+        if getattr(msg.header, 'frame_id', '') != camera_frame:
+            raise StageError(STAGE, f'{label} frame does not match optical frame {camera_frame!r}')
+        stamp = stamp_seconds(msg)
+        if stamp <= 0 or origin <= 0 or abs(stamp - origin) > max_sync_s:
+            raise StageError(STAGE, f'{label} timestamp is missing or outside RGB-D synchronisation tolerance')
+
+
 def median_depth(frames: Sequence[np.ndarray]) -> np.ndarray:
     """Mediana per pixel sui soli valori validi; un pixel e' valido se lo e' in almeno meta' dei fotogrammi."""
     stack = np.stack(frames).astype(np.float32)
@@ -135,6 +148,7 @@ class LiveFrame:
     camera_pose_world: Optional[Tuple[List[float], List[float]]] = None   # frame ottico nel world (TF)
     ee_pose_world: Optional[Tuple[List[float], List[float]]] = None       # end-effector nel world (TF)
     options: Dict[str, Any] = field(default_factory=dict)
+    tf_at_color_stamp: bool = False
 
     def acquisition_info(self) -> Dict[str, Any]:
         o = self.options
@@ -146,6 +160,7 @@ class LiveFrame:
                 "depth_frames_median": self.depth_frames_used,
                 "depth_valid_fraction": round(self.depth_valid_fraction, 4),
                 "distortion_nonzero": self.distortion_nonzero,
+                "tf_at_color_stamp": self.tf_at_color_stamp,
                 "camera_pose_from_tf": self.camera_pose_world is not None,
                 "ee_pose_from_tf": self.ee_pose_world is not None}
 
@@ -181,8 +196,8 @@ def acquire(options: Dict[str, Any]) -> LiveFrame:
             del colors[:-6]                       # bastano gli ultimi, serve quello piu' vicino alla profondita'
 
         def on_info(msg):
-            if not infos:
-                infos.append(msg)
+            infos.append(msg)
+            del infos[:-6]
 
         node.create_subscription(Image, options["color_topic"], on_color, sensor_qos)
         def on_depth(msg):
@@ -223,20 +238,21 @@ def acquire(options: Dict[str, Any]) -> LiveFrame:
         if depth.shape != rgb.shape[:2]:
             raise StageError(STAGE, f"depth {depth.shape[::-1]} and colour {rgb.shape[1::-1]} differ: use the depth "
                                     "ALIGNED to the colour frame (e.g. aligned_depth_to_color)")
-        intrinsics, distortion = camera_info_to_intrinsics(infos[0])
+        info = min(infos, key=lambda m: abs(stamp_seconds(m) - stamp_seconds(color_msg)))
+        intrinsics, distortion = camera_info_to_intrinsics(info)
         if (intrinsics.width, intrinsics.height) != (rgb.shape[1], rgb.shape[0]):
             raise StageError(STAGE, f"CameraInfo is {intrinsics.width}x{intrinsics.height} but the image is "
                                     f"{rgb.shape[1]}x{rgb.shape[0]}: wrong camera_info topic or resolution")
-        camera_frame = options.get("camera_frame") or infos[0].header.frame_id
-        if not camera_frame:
-            raise StageError(STAGE, "CameraInfo has no frame_id: set camera_overhead.ros2.camera_frame")
+        camera_frame = options.get("camera_frame") or info.header.frame_id
+        validate_rgbd_headers(color_msg, depth_msgs, info, camera_frame, float(options['max_sync_s']))
+        capture_time = Time.from_msg(color_msg.header.stamp)
 
         def lookup(child: str) -> Optional[Tuple[List[float], List[float]]]:
             end = time.monotonic() + float(options["tf_timeout_s"])
             while time.monotonic() < end:
                 rclpy.spin_once(node, timeout_sec=0.05)
-                if buffer.can_transform(options["world_frame"], child, Time()):
-                    return transform_to_pose(buffer.lookup_transform(options["world_frame"], child, Time(),
+                if buffer.can_transform(options["world_frame"], child, capture_time):
+                    return transform_to_pose(buffer.lookup_transform(options["world_frame"], child, capture_time,
                                                                      Duration(seconds=1.0)))
             return None
 
@@ -244,7 +260,8 @@ def acquire(options: Dict[str, Any]) -> LiveFrame:
         ee_pose = lookup(options["ee_frame"]) if options.get("ee_frame") else None
         return LiveFrame(rgb, depth, intrinsics, distortion, camera_frame, options["world_frame"],
                          stamp_seconds(color_msg), stamp_seconds(depth_msgs[-1]),
-                         float((depth > 0).mean()), len(depth_msgs), camera_pose, ee_pose, dict(options))
+                         float((depth > 0).mean()), len(depth_msgs), camera_pose, ee_pose, dict(options),
+                         tf_at_color_stamp=camera_pose is not None)
     finally:
         node.destroy_node()
         if owns_context:

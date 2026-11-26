@@ -296,7 +296,8 @@ python run_pipeline_real.py --image data/inputs/surgical_scene.jpg \
 Per riusare stadi esistenti della pipeline sim/reale usare `--from-stage grasp`
 e lo stesso `--out-dir`. Tutti gli avvii accettano `--graspgen-config`,
 `--graspgen-host`, `--graspgen-port`, `--graspgen-timeout-ms`. Omettere
-`--grasp-backend` mantiene PCA e il comportamento dimostrativo precedente.
+`--grasp-backend` mantiene PCA nella pipeline simulata; nella pipeline reale il default è GraspGen.
+Per usare esplicitamente PCA nella pipeline reale specificare `--grasp-backend pca`.
 La GUI mostra linee nominali della Robotiq e il TCP; non sostituisce il modello
 robot visuale con una simulazione fisica Robotiq.
 

@@ -5,8 +5,8 @@ Da lanciare prima di ogni prova con i dispositivi fisici:
     python3 -m pipeline.real.preflight --source ros2 --ee-frame lbr_link_ee
 
 Per ogni controllo stampa OK / WARN / FAIL con il rimedio, scrive ``real_preflight.json`` ed esce con codice 1 se
-c'e' almeno un FAIL. ``ready_for_motion`` dice se una cattura adesso risulterebbe ``motion_safe`` (profondita'
-misurata, intrinseche calibrate, estrinseche verificate) e con la posa dell'end-effector reale.
+c'e' almeno un FAIL. ``ready_for_capture_geometry`` riguarda solo i prerequisiti della cattura;
+non certifica la presa o l'esecuzione fisica, per cui ``ready_for_motion`` resta false.
 """
 
 from __future__ import annotations
@@ -135,6 +135,9 @@ def check_camera(checks: Checks, config: Dict[str, Any], ros: Dict[str, Any]) ->
     if frame.distortion_nonzero:
         checks.add(WARN, "camera: distorsione", "CameraInfo riporta distorsione ma la pipeline usa un modello pinhole",
                    "usare image_rect_color / un flusso gia' rettificato")
+    if frame.depth_frames_used != 1:
+        checks.add(WARN, "camera: mediana temporale", "piu' frame senza compensazione del moto",
+                   "usare --depth-frames 1 per una geometria alla posa TF della cattura")
     if frame.camera_pose_world is not None:
         pos = ", ".join(f"{v:.3f}" for v in frame.camera_pose_world[0])
         checks.add(OK, "TF: camera", f"{frame.world_frame} -> {frame.camera_frame}: posizione [{pos}] m")
@@ -158,11 +161,13 @@ def check_camera(checks: Checks, config: Dict[str, Any], ros: Dict[str, Any]) ->
                        "avviare il driver del robot (lbr_fri_ros2_stack) o correggere --ee-frame")
     state["camera_ok"] = True
     state["measured_depth"] = frame.depth_valid_fraction >= 0.5
+    state["geometry_ok"] = (not frame.distortion_nonzero and frame.depth_frames_used == 1
+                            and frame.tf_at_color_stamp)
     return state
 
 
 def run(*, source: str = "ros2", ros: Optional[dict] = None, config_path: Optional[str] = None,
-        grasp_backend: str = "pca", graspgen_config: Optional[str] = None, out_dir: Optional[str] = None,
+        grasp_backend: str = "graspgen", graspgen_config: Optional[str] = None, out_dir: Optional[str] = None,
         report_path: Optional[str] = None) -> StageReport:
     out = paths.output_dir(out_dir)
     with stage_run(STAGE, paths.output_report(report_path, "real_preflight.json", out),
@@ -178,9 +183,11 @@ def run(*, source: str = "ros2", ros: Optional[dict] = None, config_path: Option
         config_state = check_config(checks, config, options, ee_from_tf=bool(state.get("ee_tf")))
         check_software(checks, grasp_backend, graspgen_config)
         ready = (source == "ros2" and state.get("camera_ok") and state.get("tf_camera") and state.get("measured_depth")
+                 and state.get("geometry_ok")
                  and config_state["extrinsics_verified"] and config_state["ee_pose_available"]
                  and not checks.has(FAIL))
-        report.data = {"source": source, "checks": checks.items, "ready_for_motion": bool(ready),
+        report.data = {"source": source, "checks": checks.items, "ready_for_capture_geometry": bool(ready),
+                       "ready_for_motion": False,
                        "ros2_options": options}
         for item in checks.items:
             if item["status"] in (WARN, FAIL):
@@ -200,8 +207,8 @@ def print_summary(report: StageReport) -> None:
     print("=" * 60)
     if report.data["failed"]:
         print("ESITO: NON pronto (ci sono FAIL).")
-    elif report.data["ready_for_motion"]:
-        print("ESITO: pronto. Una cattura adesso risulterebbe motion_safe.")
+    elif report.data["ready_for_capture_geometry"]:
+        print("ESITO: prerequisiti geometrici della cattura presenti; movimento fisico non abilitato.")
     else:
         print("ESITO: acquisizione possibile, ma la presa NON sarebbe abilitata al movimento (vedi WARN).")
 
@@ -211,7 +218,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = stage_parser(__doc__.splitlines()[0])
     capture.add_source_arguments(parser, include_clip=False)
     parser.set_defaults(source="ros2")
-    parser.add_argument("--grasp-backend", choices=("pca", "graspgen"), default="pca")
+    parser.add_argument("--grasp-backend", choices=("pca", "graspgen"), default="graspgen")
     parser.add_argument("--graspgen-config", default=None)
     args = parser.parse_args(argv)
     setup_logging(args.verbose)

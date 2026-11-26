@@ -525,7 +525,7 @@ def backend_kwargs(args):
 
 def run(*, deprojection_path=None, plan_path=None, out_dir=None, report_path=None,
         backend="pca", graspgen_config=None, graspgen_host=None, graspgen_port=None,
-        graspgen_timeout_ms=None, config_path=None) -> StageReport:
+        graspgen_timeout_ms=None, config_path=None, robot_description=None) -> StageReport:
     """Keep grasp.json as the pipeline interface and retain backend-specific reports.
 
     ``config_path`` is the ENVIRONMENT config (workspace limits for the PCA readiness gates);
@@ -546,7 +546,8 @@ def run(*, deprojection_path=None, plan_path=None, out_dir=None, report_path=Non
             return _run_pca(**kwargs, config_path=config_path)
         from pipeline.graspgen.backend import run as run_graspgen
         return run_graspgen(**kwargs, config_path=graspgen_config, host=graspgen_host,
-                            port=graspgen_port, timeout_ms=graspgen_timeout_ms)
+                            port=graspgen_port, timeout_ms=graspgen_timeout_ms,
+                            robot_description=robot_description)
     finally:
         if target.exists() and target.resolve() != archive.resolve():
             StageReport.load(target, require_completed=False).save(archive)

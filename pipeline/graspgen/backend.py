@@ -100,7 +100,7 @@ def require_motion_allowed(data, *, gripper=None):
 
 
 def run(*, deprojection_path=None, plan_path=None, out_dir=None, report_path=None,
-        config_path=None, host=None, port=None, timeout_ms=None):
+        config_path=None, host=None, port=None, timeout_ms=None, robot_description=None):
     out = paths.output_dir(out_dir).resolve()
     dep_file = paths.resolve(deprojection_path, paths.SIM_DEPROJECTION, out)
     plan_file = paths.resolve(plan_path, paths.PLAN, out)
@@ -152,7 +152,8 @@ def run(*, deprojection_path=None, plan_path=None, out_dir=None, report_path=Non
         report.data.update(
             source_pipeline=dep.stage.split("_")[0], coordinate_frame_id=base.frame_id,
             robot_base_pose_world=base.to_dict(),
-            robot_description=dep.data.get("robot_description"),
+            robot_description=(robot_description if robot_description is not None
+                               else dep.data.get("robot_description")),
             target_instrument=(StageReport.load(plan_file, expect_stage="plan").require("target_instrument")
                                if plan_file.exists() else "surgical_instrument"),
             input_pointcloud={"source_ply": str(ply.resolve()), "sha256": hashlib.sha256(ply.read_bytes()).hexdigest(),

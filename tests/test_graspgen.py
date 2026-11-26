@@ -132,7 +132,8 @@ class GraspGenTests(unittest.TestCase):
         np.testing.assert_allclose(geometry["grasp_centroid_base_frame_xyz_m"], tcp[:3, 3])
         np.testing.assert_allclose(matrix_from_quaternion(geometry["recommended_gripper_orientation"]["quaternion_xyzw"]), tcp[:3, :3], atol=1e-12)
         self.assertFalse(data["motion"]["allowed"])
-        self.assertIn("same_gripper", data["motion"]["blocked_reasons"])
+        self.assertTrue(data["motion"]["checks"]["same_gripper"])
+        self.assertIn("tcp_transform_verified", data["motion"]["blocked_reasons"])
         self.assertFalse(data["physical_grasp_validated"])
         self.assertFalse(data["checks"]["pca_filter_used"])
         self.assertNotIn("functional_zones_segmentation", data)
@@ -311,11 +312,13 @@ class GraspGenTests(unittest.TestCase):
         from pipeline.sim.pipeline import build_parser as sim_parser, build_steps as sim_steps
         from pipeline.real.pipeline import build_parser as real_parser, build_steps as real_steps
         for parser in (sim_parser, real_parser):
-            self.assertEqual(parser().parse_args([]).grasp_backend, "pca")
+            self.assertEqual(parser().parse_args([]).grasp_backend, "pca" if parser == sim_parser else "graspgen")
             args = parser().parse_args(["--grasp-backend", "graspgen", "--graspgen-host", "gpu.example",
                                         "--graspgen-port", "5558", "--graspgen-timeout-ms", "80"])
             steps = sim_steps(args, "scissors", "single") if parser == sim_parser else real_steps(args)
-            with patch("pipeline.grasp.run") as run:
+            with patch("pipeline.grasp.run") as run, \
+                    patch("pipeline.real.robot_profile.run", return_value=StageReport(
+                        "real_robot_profile", data={"robot_description": {"model": "iiwa7_r800"}})):
                 steps[-1].run()
                 self.assertEqual(run.call_args.kwargs["backend"], "graspgen")
                 self.assertEqual(run.call_args.kwargs["graspgen_port"], 5558)

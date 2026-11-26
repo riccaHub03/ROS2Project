@@ -43,6 +43,8 @@ def prepare_live(run: Path, config: dict, out: Path):
         raise ValueError('live preview requires camera extrinsics verified in the current configuration')
     if not acquisition.get('camera_pose_from_tf') or acquisition.get('distortion_nonzero') is not False:
         raise ValueError('live preview requires camera TF and rectified, distortion-free input')
+    if acquisition.get('tf_at_color_stamp') is not True or acquisition.get('depth_frames_median') != 1:
+        raise ValueError('live preview requires TF at image timestamp and a single depth frame')
     if float(acquisition.get('depth_valid_fraction', 0)) < .5:
         raise ValueError('live depth has fewer than 50% valid pixels')
     if dep.data.get('motion_safe') is not True or dep.data.get('pointcloud_units') != 'm':
