@@ -80,6 +80,7 @@ __pycache__/
 env/
 venv/
 .venv/
+.venv-camera/
 ENV/
 develop-eggs/
 dist/
@@ -140,3 +141,6 @@ data/recordings/
 data/calibration/
 *.db3
 *.bag
+
+# File di esecuzione locali.
+/execution/

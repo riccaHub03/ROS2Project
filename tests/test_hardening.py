@@ -14,7 +14,7 @@ from pipeline import grasp, plan
 from pipeline.common import paths
 from pipeline.common.reconstruction import reject_depth_outliers
 from pipeline.common.report import StageError, StageReport
-from pipeline.common.vision import Instances
+from pipeline.common.vision import Instances, segment_image
 from pipeline.common.workspace import Workspace
 from pipeline.real import capture as real_capture
 from pipeline.real import deproject as real_deproject
@@ -34,6 +34,17 @@ class FakeSegmenter:
 
 
 class PlanTrayTests(unittest.TestCase):
+    def test_segmentation_tries_keyword_after_low_score(self):
+        class PromptSegmenter:
+            def segment(self, image, prompt):
+                mask = np.zeros((1, 10, 10), dtype=bool)
+                mask[0, 2:4, 2:4] = True
+                return Instances(mask, np.array([0.05 if prompt == "vascular scissors" else 0.9]))
+
+        result = segment_image(Image.new("RGB", (10, 10)), ["vascular scissors", "scissors"],
+                               PromptSegmenter(), require_match=True, min_confidence=0.3)
+        self.assertEqual(result.data["prompt_used"], "scissors")
+
     def test_direction_is_respected(self):
         self.assertEqual(plan.parse_trays("Passami il bisturi dal vassoio 1 al vassoio 2"), ("tray_1", "tray_2"))
         self.assertEqual(plan.parse_trays("Passami il bisturi dal vassoio 2 al vassoio 1"), ("tray_2", "tray_1"))

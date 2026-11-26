@@ -12,5 +12,6 @@ export OLLAMA_MODELS="$ROOT/.local/ollama/models"
 export OLLAMA_MAX_LOADED_MODELS=1
 export OLLAMA_NUM_PARALLEL=1
 export OLLAMA_KEEP_ALIVE=0  # Release LLM RAM before SAM3 CPU loads its weights.
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:--1}"  # Preserve GPU memory for SAM3 and GraspGen.
 mkdir -p "$OLLAMA_MODELS"
 exec "$BINARY" serve

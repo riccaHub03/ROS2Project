@@ -44,8 +44,9 @@ class Segmenter(Protocol):
 class Sam3Segmenter:
     """Local SAM 3 (HuggingFace weights, CPU). Weights are loaded on first use."""
 
-    def __init__(self, model_id: str = SAM3_MODEL_ID):
+    def __init__(self, model_id: str = SAM3_MODEL_ID, device: str = "cpu"):
         self.model_id = model_id
+        self.device = device
         self._processor = None
         self._model = None
 
@@ -65,7 +66,7 @@ class Sam3Segmenter:
             self._processor = Sam3Processor(image_processor, tokenizer, target_size=cfg.get("target_size"))
         else:
             self._processor = Sam3Processor.from_pretrained(self.model_id, local_files_only=True)
-        self._model = Sam3Model.from_pretrained(self.model_id, local_files_only=True).to("cpu")
+        self._model = Sam3Model.from_pretrained(self.model_id, local_files_only=True).to(self.device)
         self._model.eval()
 
     def segment(self, image: Image.Image, prompt: str) -> Instances:
@@ -73,7 +74,7 @@ class Sam3Segmenter:
         if self._model is None:
             log.info("loading %s weights", self.model_id)
             self._load()
-        inputs = self._processor(images=image, text=prompt, return_tensors="pt").to("cpu")
+        inputs = self._processor(images=image, text=prompt, return_tensors="pt").to(self.device)
         with torch.inference_mode():
             outputs = self._model(**inputs)
         res = self._processor.post_process_instance_segmentation(
@@ -127,7 +128,7 @@ class Segmentation:
 def segment_image(image: Image.Image, prompts: Sequence[str], segmenter: Segmenter, *,
                   require_match: bool = False, others_min_score: Optional[float] = None,
                   min_confidence: Optional[float] = None) -> Segmentation:
-    """Segment the best instance for the first prompt that yields any candidates.
+    """Segment the best instance for the first prompt that passes the score threshold.
 
     ``require_match`` raises if no prompt matches (otherwise an empty mask is returned);
     ``others_min_score`` also tints other candidates above that score in the overlay;
@@ -137,12 +138,23 @@ def segment_image(image: Image.Image, prompts: Sequence[str], segmenter: Segment
     rgb = np.array(image.convert("RGB"))
     instances: Optional[Instances] = None
     used: Optional[str] = None
+    attempted = set()
+    best_attempt = None
     for prompt in prompts:
+        if prompt in attempted:
+            continue
+        attempted.add(prompt)
         log.info("SAM3 prompt: '%s'", prompt)
-        instances = segmenter.segment(image, prompt)
-        used = prompt
-        if len(instances):
+        result = segmenter.segment(image, prompt)
+        if len(result) and (best_attempt is None or
+                            result.scores[result.best] > best_attempt[0].scores[best_attempt[0].best]):
+            best_attempt = (result, prompt)
+        if len(result) and (min_confidence is None or result.scores[result.best] >= min_confidence):
+            instances, used = result, prompt
             break
+    else:
+        if best_attempt is not None:
+            instances, used = best_attempt
     warnings: List[str] = []
     h, w = rgb.shape[:2]
     if instances is None or not len(instances):

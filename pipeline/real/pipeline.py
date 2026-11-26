@@ -14,7 +14,7 @@ from pipeline import grasp, plan
 from pipeline.common import paths
 from pipeline.common.cli import setup_logging
 from pipeline.common.report import StageError
-from pipeline.common.vision import REAL_MIN_CONFIDENCE
+from pipeline.common.vision import REAL_MIN_CONFIDENCE, SAM3_MODEL_ID, Sam3Segmenter
 from pipeline.orchestrate import Step, execute
 from pipeline.real import capture, deproject, segment
 
@@ -33,6 +33,8 @@ def build_parser() -> argparse.ArgumentParser:
     capture.add_source_arguments(parser)
     parser.add_argument("--min-confidence", type=float, default=REAL_MIN_CONFIDENCE,
                         help="SAM 3 acceptance threshold (default %(default)s)")
+    parser.add_argument("--sam3-model", default=SAM3_MODEL_ID, help="Hugging Face model ID or local checkpoint directory")
+    parser.add_argument("--sam3-device", choices=("cpu", "cuda"), default="cpu", help="SAM 3 inference device")
     parser.add_argument("--config", default=None)
     parser.add_argument("--out-dir", default=None)
     parser.add_argument("--from-stage", choices=STAGES, default=None)
@@ -50,7 +52,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         Step("plan", lambda: plan.run(args.instruction, **cfg)),
         Step("capture", lambda: capture.run(image=args.image, depth=args.depth, intrinsics=args.intrinsics,
                                             **capture.source_kwargs(args), **cfg)),
-        Step("segment", lambda: segment.run(min_confidence=args.min_confidence, **common)),
+        Step("segment", lambda: segment.run(min_confidence=args.min_confidence,
+                                            segmenter=Sam3Segmenter(args.sam3_model, args.sam3_device), **common)),
         Step("deproject", lambda: deproject.run(**cfg)),
         Step("grasp", lambda: grasp.run(deprojection_path=str(out / paths.REAL_DEPROJECTION),
                                        **grasp.backend_kwargs(args), **cfg)),

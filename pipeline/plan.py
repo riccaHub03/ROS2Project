@@ -104,7 +104,9 @@ def candidate_urls(explicit: Optional[str]) -> List[str]:
     host = os.environ.get("OLLAMA_HOST")
     if host:
         urls.append(f"http://{host}:{OLLAMA_PORT}{OLLAMA_PATH}")
-    urls += [f"http://{h}:{OLLAMA_PORT}{OLLAMA_PATH}" for h in ("172.19.128.1", "localhost", "127.0.0.1")]
+    # Prefer the local service on native Linux; an unreachable WSL host can
+    # otherwise consume a full timeout before the local planner is tried.
+    urls += [f"http://{h}:{OLLAMA_PORT}{OLLAMA_PATH}" for h in ("localhost", "127.0.0.1", "172.19.128.1")]
     return list(dict.fromkeys(urls))
 
 

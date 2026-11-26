@@ -270,6 +270,10 @@ class GraspGenMotionPreview(MotionPreview):
         release_point = next(t.position for t in targets if t.event == "release")
         targets = [Target(RETREAT, release_point - R[:, 2] * .12) if t.label == RETREAT else t
                    for t in targets]
+        # A simulation may end after its checked post-release retreat. Returning
+        # to the optional park pose can be unreachable even after a valid place.
+        if not scene.config.get("motion_control", {}).get("return_after_place", True):
+            targets = [target for target in targets if target.label != RETURN]
         seed, carried = self.start_q.copy(), False
         for target in targets:
             self._phase_label = target.label
